@@ -71,15 +71,27 @@ class _MyClaimsScreenState extends ConsumerState<MyClaimsScreen> {
     return PortalFrameScaffold(
       breadcrumbs: [context.tr('tab_dashboard'), context.tr('title_my_claims')],
       bottomNavigationBar: widget.bottomNavigationBar,
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => Navigator.pushNamed(context, AppRouter.claimType),
-        backgroundColor: AppColors.saffron,
-        foregroundColor: AppColors.textOnBrand,
-        elevation: 4,
-        icon: const Icon(Icons.add_rounded, size: 22),
-        label: Text(
-          context.tr('action_new_claim') /* New Claim */,
-          style: AppTypography.title.copyWith(color: AppColors.textOnBrand, fontSize: 14, fontWeight: FontWeight.w700),
+      floatingActionButton: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        child: FloatingActionButton.extended(
+          onPressed: () => Navigator.pushNamed(context, AppRouter.claimType),
+          backgroundColor: AppColors.saffron,
+          foregroundColor: Colors.white,
+          elevation: 6,
+          extendedPadding:
+              const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+          icon: const Icon(Icons.add_rounded, size: 22, color: Colors.white),
+          label: Text(
+            context.tr('action_new_claim'),
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+              letterSpacing: 0.2,
+            ),
+          ),
         ),
       ),
       body: Column(

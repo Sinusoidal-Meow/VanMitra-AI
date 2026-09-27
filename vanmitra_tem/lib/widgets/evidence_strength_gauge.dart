@@ -265,14 +265,18 @@ class EvidenceTableRow extends StatelessWidget {
                         const Icon(Icons.image_outlined,
                             size: 14, color: AppColors.govtBlue),
                         const SizedBox(width: 4),
-                        Text(
-                          context.tr('view_sample') == 'view_sample'
-                              ? 'View Sample Expected Document'
-                              : context.tr('view_sample'),
-                          style: const TextStyle(
-                            fontSize: 10,
-                            color: AppColors.govtBlue,
-                            decoration: TextDecoration.underline,
+                        Expanded(
+                          child: Text(
+                            context.tr('view_sample') == 'view_sample'
+                                ? 'View Sample Document'
+                                : context.tr('view_sample'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: AppColors.govtBlue,
+                              decoration: TextDecoration.underline,
+                            ),
                           ),
                         ),
                       ],

@@ -13,13 +13,6 @@ import '../../widgets/evidence_strength_gauge.dart';
 import '../../services/localization_service.dart';
 
 /// Evidence Checklist Screen — the core Model A interaction point.
-///
-/// Shows a table of 6 evidence categories (from AiAgentConfig weights).
-/// Per row: upload button → OCR spinner → inline verdict chip.
-/// EvidenceStrengthGauge pinned at top updates live.
-///
-/// When online: calls AIModuleAService.verifyDocument() via FastAPI.
-/// When offline: marks as 'needs_review', enqueues for later sync.
 class EvidenceChecklistScreen extends ConsumerStatefulWidget {
   const EvidenceChecklistScreen({super.key});
 
@@ -75,13 +68,72 @@ class _EvidenceChecklistScreenState
     return _scorer.calculateWithWeights(flags, weights).score;
   }
 
+  Future<ImageSource?> _showSourcePicker(BuildContext context) async {
+    return await showModalBottomSheet<ImageSource>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Select Document Source / स्त्रोत निवडा',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: AppColors.forestCanopy,
+              ),
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFE8F5E9),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.camera_alt_rounded,
+                    color: AppColors.forestCanopy),
+              ),
+              title: const Text('Take Photo / कॅमेरा'),
+              subtitle: const Text('Capture document with device camera'),
+              onTap: () => Navigator.pop(ctx, ImageSource.camera),
+            ),
+            const Divider(),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFE3F2FD),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.photo_library_rounded,
+                    color: AppColors.govtBlue),
+              ),
+              title: const Text('Phone Gallery / गॅलरी'),
+              subtitle: const Text('Upload existing photo from phone gallery'),
+              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _uploadForCategory(
     String category,
     AiAgentConfig config,
     ModuleAService service,
   ) async {
+    final source = await _showSourcePicker(context);
+    if (source == null) return;
+
     final imageFile = await _picker.pickImage(
-      source: ImageSource.camera,
+      source: source,
       imageQuality: 80,
       maxWidth: 1600,
     );
@@ -91,9 +143,11 @@ class _EvidenceChecklistScreenState
 
     try {
       final bytes = await imageFile.readAsBytes();
-
-      // Call DocVerifyAgent via FastAPI (or DefaultModuleAService offline)
-      final result = await service.verifyDocument(bytes, category);
+      final result = await service.verifyDocument(
+        bytes,
+        category,
+        fileName: imageFile.name,
+      );
 
       setState(() {
         _verificationStatus[category] = result.verificationStatus;
@@ -102,7 +156,6 @@ class _EvidenceChecklistScreenState
         }
       });
 
-      // Update claim in Hive
       if (_claim != null) {
         final updatedFlags = Map<String, bool>.from(_claim!.evidenceFlags)
           ..[category] = result.verificationStatus == 'auto_verified';
@@ -116,41 +169,134 @@ class _EvidenceChecklistScreenState
         setState(() => _claim = updated);
       }
 
-      // Show verdict snackbar
-      if (mounted) {
+      if (result.verificationStatus == 'wrong_document' ||
+          result.verificationStatus == 'rejected') {
+        if (mounted) {
+          _showWrongDocumentPopup(context, category, result, config, service);
+        }
+      } else if (mounted) {
         _showVerdictSnack(result);
       }
-    } on ModuleAServiceException catch (e) {
-      print('AI Service Error ($category): $e');
-      setState(() => _verificationStatus[category] = 'needs_review');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '${context.tr('upload_offline_error')} ${e.message}',
-              style: const TextStyle(fontFamily: 'NotoSansDevanagari'),
-            ),
-            backgroundColor: AppColors.warningAmber,
-          ),
-        );
-      }
     } catch (e, st) {
-      print('Generic Error ($category): $e\\n$st');
-      setState(() => _verificationStatus[category] = 'needs_review');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Connection Error: Could not reach backend.',
-              style: const TextStyle(fontFamily: 'NotoSansDevanagari'),
-            ),
-            backgroundColor: Colors.red,
-          ),
+      print('Document upload fallback for ($category): $e\n$st');
+      final bytes = await imageFile.readAsBytes();
+      final result = await DefaultModuleAService().verifyDocument(
+        bytes,
+        category,
+        fileName: imageFile.name,
+      );
+
+      setState(() {
+        _verificationStatus[category] = result.verificationStatus;
+        if (result.extractedTextPreview.isNotEmpty) {
+          _extractedPreviews[category] = result.extractedTextPreview;
+        }
+      });
+
+      if (_claim != null) {
+        final updatedFlags = Map<String, bool>.from(_claim!.evidenceFlags)
+          ..[category] = result.verificationStatus == 'auto_verified';
+        final updatedScore =
+            _scorer.calculateWithWeights(updatedFlags, config.evidenceWeights).score;
+        final updated = _claim!.copyWith(
+          evidenceFlags: updatedFlags,
+          evidenceScore: updatedScore,
         );
+        await ref.read(claimsProvider.notifier).updateClaim(updated);
+        setState(() => _claim = updated);
+      }
+
+      if (result.verificationStatus == 'wrong_document' ||
+          result.verificationStatus == 'rejected') {
+        if (mounted) {
+          _showWrongDocumentPopup(context, category, result, config, service);
+        }
+      } else if (mounted) {
+        _showVerdictSnack(result);
       }
     } finally {
       setState(() => _uploadingCategories.remove(category));
     }
+  }
+
+  void _showWrongDocumentPopup(
+    BuildContext context,
+    String category,
+    DocumentVerifyResult result,
+    AiAgentConfig config,
+    ModuleAService service,
+  ) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded,
+                color: AppColors.alertRed, size: 28),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Wrong Document Uploaded!',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.alertRed,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.alertRed.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.alertRed.withOpacity(0.3)),
+              ),
+              child: Text(
+                result.extractedTextPreview.isNotEmpty
+                    ? result.extractedTextPreview
+                    : 'Verification Alert: You uploaded an Identity Document (Aadhaar / Voter ID) instead of Physical Structure or Land Photos.',
+                style: const TextStyle(
+                  fontSize: 12,
+                  height: 1.4,
+                  fontFamily: 'NotoSansDevanagari',
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Please select the correct photo corresponding to this evidence category.',
+              style: TextStyle(fontSize: 11, color: Colors.black87),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Close / बंद करा'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _uploadForCategory(category, config, service);
+            },
+            icon: const Icon(Icons.refresh_rounded, size: 16),
+            label: const Text('Re-upload Image'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.forestCanopy,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showVerdictSnack(DocumentVerifyResult result) {
@@ -159,11 +305,13 @@ class _EvidenceChecklistScreenState
     switch (result.verificationStatus) {
       case 'auto_verified':
         bg = AppColors.successGreen;
-        msg = '${context.tr('upload_verified')} (${(result.matchConfidence * 100).toStringAsFixed(0)}% ${context.tr('match')})';
+        msg =
+            '${context.tr('upload_verified')} (${(result.matchConfidence * 100).toStringAsFixed(0)}% ${context.tr('match')})';
         break;
       case 'needs_review':
         bg = AppColors.warningAmber;
-        msg = '${context.tr('upload_review')} (${(result.matchConfidence * 100).toStringAsFixed(0)}% ${context.tr('match')})';
+        msg =
+            '${context.tr('upload_review')} (${(result.matchConfidence * 100).toStringAsFixed(0)}% ${context.tr('match')})';
         break;
       default:
         bg = AppColors.alertRed;
@@ -171,8 +319,8 @@ class _EvidenceChecklistScreenState
     }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(msg,
-            style: const TextStyle(fontFamily: 'NotoSansDevanagari')),
+        content:
+            Text(msg, style: const TextStyle(fontFamily: 'NotoSansDevanagari')),
         backgroundColor: bg,
         duration: const Duration(seconds: 3),
       ),
@@ -185,10 +333,14 @@ class _EvidenceChecklistScreenState
     final service = ref.watch(moduleAProvider);
 
     return PortalFrameScaffold(
-      breadcrumbs: [context.tr('tab_dashboard'), context.tr('claims'), context.tr('action_new_claim'), context.tr('breadcrumbs_evidence')],
+      breadcrumbs: [
+        context.tr('tab_dashboard'),
+        context.tr('claims'),
+        context.tr('action_new_claim'),
+        context.tr('breadcrumbs_evidence')
+      ],
       body: configAsync.when(
-        loading: () =>
-            const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Config error: $e')),
         data: (config) => _buildBody(config, service),
       ),
@@ -214,8 +366,7 @@ class _EvidenceChecklistScreenState
         // ── Table header ─────────────────────────────────────────────────
         Container(
           color: AppColors.govtBlue,
-          padding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: Row(
             children: [
               Expanded(
@@ -268,20 +419,16 @@ class _EvidenceChecklistScreenState
               for (final entry in weights.entries)
                 EvidenceTableRow(
                   categoryKey: entry.key,
-                  categoryLabelMr:
-                      context.tr('ev_cat_${entry.key}'),
+                  categoryLabelMr: context.tr('ev_cat_${entry.key}'),
                   weight: entry.value,
-                  verificationStatus:
-                      _verificationStatus[entry.key] == null ? context.tr('evidence_unverified') : _verificationStatus[entry.key]!,
-                  isUploading:
-                      _uploadingCategories.contains(entry.key),
+                  verificationStatus: _verificationStatus[entry.key] == null
+                      ? context.tr('evidence_unverified')
+                      : _verificationStatus[entry.key]!,
+                  isUploading: _uploadingCategories.contains(entry.key),
                   onUpload: () =>
                       _uploadForCategory(entry.key, config, service),
                 ),
-
               const SizedBox(height: 16),
-
-              // Rule 13 reference
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Container(
@@ -289,8 +436,8 @@ class _EvidenceChecklistScreenState
                   decoration: BoxDecoration(
                     color: AppColors.govtBlue.withOpacity(0.04),
                     borderRadius: BorderRadius.circular(6),
-                    border: Border.all(
-                        color: AppColors.govtBlue.withOpacity(0.2)),
+                    border:
+                        Border.all(color: AppColors.govtBlue.withOpacity(0.2)),
                   ),
                   child: Text(
                     context.tr('evidence_rule_13_note'),

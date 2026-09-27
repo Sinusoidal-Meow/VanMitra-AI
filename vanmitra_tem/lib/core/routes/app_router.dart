@@ -13,6 +13,11 @@ class AppRouter {
   static const String adminHome = '/admin-home';
   static const String gramSabhaDashboard = '/gram-sabha-dashboard';
 
+  // CFR Role-Based Workflows
+  static const String cfrRoleDashboard = '/cfr/dashboard';
+  static const String cfrClaimCreate = '/cfr/create';
+  static const String cfrClaimDetail = '/cfr/detail';
+
   // Village Info
   static const String villageDashboard = '/village-dashboard';
   static const String approvedClaims = '/approved-claims';
@@ -34,15 +39,12 @@ class AppRouter {
   static const String chainVerification = '/gram-sabha/verify-chain';
   static const String meetingSummary = '/gram-sabha/summary';
 
-  // ── Module C routes ──────────────────────────────────────────────────────
+  // Module C routes
   static const String memberEnrolment     = '/gram-sabha/member-enrolment';
-  /// Replaces attendanceManagement (old route kept as alias below)
   static const String gramSabhaLog        = '/gram-sabha/log';
   static const String resolutionRecording = '/gram-sabha/resolution-recording';
-  /// Replaces resolutionLedger detail view
   static const String momViewer           = '/gram-sabha/mom-viewer';
   static const String oversightDashboard  = '/gram-sabha/oversight';
-  // Backward-compatible aliases -- old named routes still work
   static const String attendanceManagement = gramSabhaLog;
 
   // Module A — Claims

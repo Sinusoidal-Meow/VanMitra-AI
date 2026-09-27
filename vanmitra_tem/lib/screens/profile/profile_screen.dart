@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/routes/app_router.dart';
+import '../../models/user_role.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/locale_provider.dart';
 import '../../services/cloud_sync_service.dart';
@@ -53,7 +54,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final locale = ref.watch(localeProvider);
 
     final userName = auth.currentUser?.name ?? 'VanMitra User';
-    final userRole = auth.currentUser?.role.name.toUpperCase() ?? 'CITIZEN';
+    final userRole = auth.currentUser?.role.displayNameEn ?? 'CITIZEN';
     final village = auth.currentUser?.villageId ?? 'Ozhar Gram Panchayat';
     final langDisplay = _langLabel(locale.languageCode);
 

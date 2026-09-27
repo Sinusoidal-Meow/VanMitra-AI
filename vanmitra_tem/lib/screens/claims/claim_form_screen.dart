@@ -125,7 +125,95 @@ class _ClaimFormScreenState extends ConsumerState<ClaimFormScreen> {
     }
   }
 
+  bool _validateStep(int step) {
+    if (step == 0) {
+      if (_nameCtrl.text.trim().isEmpty ||
+          _fatherCtrl.text.trim().isEmpty ||
+          _addressCtrl.text.trim().isEmpty) {
+        _showEmptyFieldAlert(
+            'Claimant Details (Name, Father/Husband Name, Address)');
+        return false;
+      }
+    } else if (step == 1) {
+      if (_surveyCtrl.text.trim().isEmpty ||
+          _areaCtrl.text.trim().isEmpty) {
+        _showEmptyFieldAlert(
+            'Land Details (Survey/Gat Number, Area Claimed)');
+        return false;
+      }
+    } else if (step == 2) {
+      if (_yearsCtrl.text.trim().isEmpty) {
+        _showEmptyFieldAlert('Occupancy Details (Period of Occupation)');
+        return false;
+      }
+    }
+    return true;
+  }
+
+  void _showEmptyFieldAlert(String stepName) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.error_outline_rounded, color: AppColors.alertRed, size: 28),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Required Fields Empty! / माहिती अपूर्ण!',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.alertRed,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.alertRed.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.alertRed.withOpacity(0.3)),
+              ),
+              child: Text(
+                '⚠️ Please fill in all required information for $stepName before proceeding to the next step.',
+                style: const TextStyle(fontSize: 12, height: 1.4),
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'कृपया पुढील टप्प्यावर जाण्यापूर्वी सर्व आवश्यक माहिती भरा.',
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.black87,
+                fontFamily: 'NotoSansDevanagari',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.govtBlue,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('OK / समजले'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _nextStep() {
+    if (!_validateStep(_currentStep)) return;
     if (_currentStep < 4) {
       _saveDraft();
       setState(() => _currentStep++);
@@ -533,6 +621,13 @@ class _ClaimFormScreenState extends ConsumerState<ClaimFormScreen> {
       controller: controller,
       maxLines: maxLines,
       keyboardType: keyboardType,
+      autovalidateMode: AutovalidateMode.onUserInteraction,
+      validator: (val) {
+        if (val == null || val.trim().isEmpty) {
+          return 'This information is required / ही माहिती आवश्यक आहे';
+        }
+        return null;
+      },
       style: const TextStyle(
         fontFamily: 'NotoSansDevanagari',
         fontSize: 14,
@@ -555,6 +650,9 @@ class _ClaimFormScreenState extends ConsumerState<ClaimFormScreen> {
         ),
         enabledBorder: const OutlineInputBorder(
           borderSide: BorderSide(color: Color(0xFFCBD5E1)),
+        ),
+        errorBorder: const OutlineInputBorder(
+          borderSide: BorderSide(color: AppColors.alertRed, width: 1.5),
         ),
         focusedBorder: const OutlineInputBorder(
           borderSide: BorderSide(color: AppColors.govtBlue, width: 1.5),
