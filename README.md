@@ -25,6 +25,7 @@
 | Ayush Sahare | Team Member |
 | Piyush Dhane | Team Member |
 | Samrudhhi Shinde | Team Member |
+| Ishan Wankhede | Team Member |
 
 ---
 
