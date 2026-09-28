@@ -20,7 +20,7 @@ from .base import Base, IdMixin, TimestampMixin
 from .enums import ConsolidationStatus, Gender, MemberCategory, Role
 
 
-def _pg_enum(enum_cls: type, name: str) -> Enum:
+def pg_enum(enum_cls: type, name: str) -> Enum:
     """Store the enum's lowercase values, not its Python names."""
     return Enum(enum_cls, name=name, values_callable=lambda e: [m.value for m in e])
 
@@ -39,7 +39,7 @@ class Village(IdMixin, TimestampMixin, Base):
     state: Mapped[str] = mapped_column(String(100), default="Maharashtra")
     parent_village_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("village.id"))
     consolidation_status: Mapped[ConsolidationStatus] = mapped_column(
-        _pg_enum(ConsolidationStatus, "consolidation_status"),
+        pg_enum(ConsolidationStatus, "consolidation_status"),
         default=ConsolidationStatus.RECOGNISED,
     )
 
@@ -71,8 +71,8 @@ class GsMember(IdMixin, TimestampMixin, Base):
 
     gram_sabha_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("gram_sabha.id"), index=True)
     name: Mapped[str] = mapped_column(String(200))
-    gender: Mapped[Gender] = mapped_column(_pg_enum(Gender, "gender"))
-    category: Mapped[MemberCategory] = mapped_column(_pg_enum(MemberCategory, "member_category"))
+    gender: Mapped[Gender] = mapped_column(pg_enum(Gender, "gender"))
+    category: Mapped[MemberCategory] = mapped_column(pg_enum(MemberCategory, "member_category"))
     active: Mapped[bool] = mapped_column(Boolean, default=True)
 
     gram_sabha: Mapped[GramSabha] = relationship(back_populates="members")
@@ -106,7 +106,7 @@ class UserRole(IdMixin, Base):
 
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("app_user.id"), index=True)
     village_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("village.id"), index=True)
-    role: Mapped[Role] = mapped_column(_pg_enum(Role, "app_role"))
+    role: Mapped[Role] = mapped_column(pg_enum(Role, "app_role"))
     valid_from: Mapped[date] = mapped_column(Date, server_default=func.current_date())
     valid_to: Mapped[date | None] = mapped_column(Date)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

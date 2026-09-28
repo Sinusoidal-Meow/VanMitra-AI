@@ -53,3 +53,13 @@ def test_openapi_lists_stage0_endpoints(client: TestClient) -> None:
     assert {"/api/v1/health", "/api/v1/auth/login", "/api/v1/auth/refresh", "/api/v1/me"} <= set(
         paths
     )
+
+
+def test_form_b_endpoints_need_login(client: TestClient) -> None:
+    case = "00000000-0000-0000-0000-000000000000"
+    assert client.get(f"/api/v1/cases/{case}/form-b").status_code == 401
+    assert client.put(f"/api/v1/cases/{case}/form-b", json={}).status_code == 401
+    assert client.get("/api/v1/forms/form-b/fields").status_code == 401
+    assert (
+        client.post(f"/api/v1/villages/{case}/cases", json={"claim_type": "cr"}).status_code == 401
+    )

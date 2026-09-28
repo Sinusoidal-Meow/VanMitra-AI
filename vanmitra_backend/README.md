@@ -2,7 +2,7 @@
 
 FastAPI + PostgreSQL/PostGIS API for the **CFR claim module**. Plan and rules: [`../docs/BACKEND_PLAN.md`](../docs/BACKEND_PLAN.md).
 
-**Status: Stage 0 (foundations).** Login, roles scoped by village, error format, the first migration. Claim features start in Stage 1.
+**Status:** Stage 0 foundations + the **Form B (community rights) draft**. Form C is next.
 
 ## Quick start (Windows, Git Bash)
 
@@ -47,7 +47,7 @@ scripts/           seed_demo.py
 tests/             unit/ and api/ (no database) · db/ (needs VANMITRA_TEST_DATABASE_URL)
 ```
 
-## Endpoints (Stage 0)
+## Endpoints
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
@@ -55,6 +55,13 @@ tests/             unit/ and api/ (no database) · db/ (needs VANMITRA_TEST_DATA
 | POST | `/api/v1/auth/login` | none | `{phone, pin}` → access + refresh tokens |
 | POST | `/api/v1/auth/refresh` | refresh token | New token pair |
 | GET | `/api/v1/me` | access token | User + roles valid today, per village |
+| GET | `/api/v1/forms/form-b/fields` | access token | Form B rights (items 1–6) with sections, Rule 13 tags |
+| POST | `/api/v1/villages/{village_id}/cases` | facilitator / FRC | Open a `cr` case with an empty Form B draft |
+| GET | `/api/v1/villages/{village_id}/cases` | any role in village | Cases in the village |
+| GET | `/api/v1/cases/{case_id}/form-b` | any role in village | Form B draft + documentation completeness |
+| PUT | `/api/v1/cases/{case_id}/form-b` | facilitator / FRC | Replace the Form B draft (DRAFT only) |
+
+Form B contract for the app: [`../docs/API_FORM_B.md`](../docs/API_FORM_B.md).
 
 Every error has the same body, so the app can show a local-language message:
 

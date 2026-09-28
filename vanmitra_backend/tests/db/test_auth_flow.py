@@ -1,70 +1,25 @@
-"""
-End-to-end auth against a real PostgreSQL + PostGIS database.
+"""End-to-end auth against the test database (see tests/db/conftest.py)."""
 
-Skipped unless VANMITRA_TEST_DATABASE_URL points at a THROWAWAY database: the
-fixture runs every migration up, and back down to empty, around the tests.
-CI provides one (.github/workflows/backend-ci.yml).
-"""
-
-import os
 import uuid
-from collections.abc import Iterator
 from datetime import date, timedelta
-from pathlib import Path
 
 import pytest
-from alembic import command
-from alembic.config import Config
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.auth.security import hash_pin
-from app.db import get_db
-from app.main import create_app
-from app.models import AppUser, GramSabha, Role, UserRole, Village
+from app.models import AppUser, Role, UserRole
 
-TEST_DB_URL = os.environ.get("VANMITRA_TEST_DATABASE_URL")
-BACKEND_DIR = Path(__file__).resolve().parents[2]
-
-pytestmark = [
-    pytest.mark.db,
-    pytest.mark.skipif(not TEST_DB_URL, reason="VANMITRA_TEST_DATABASE_URL not set"),
-]
-
-
-@pytest.fixture(scope="module")
-def session_factory() -> Iterator[sessionmaker[Session]]:
-    assert TEST_DB_URL
-    cfg = Config(str(BACKEND_DIR / "alembic.ini"))
-    cfg.set_main_option("script_location", str(BACKEND_DIR / "migrations"))
-    cfg.set_main_option("sqlalchemy.url", TEST_DB_URL)
-    command.upgrade(cfg, "head")
-    engine = create_engine(TEST_DB_URL)
-    try:
-        yield sessionmaker(bind=engine, expire_on_commit=False)
-    finally:
-        engine.dispose()
-        command.downgrade(cfg, "base")
+from .conftest import TEST_PIN, make_village
 
 
 @pytest.fixture(scope="module")
 def seeded(session_factory: sessionmaker[Session]) -> dict[str, uuid.UUID]:
     with session_factory() as db:
-        village = Village(
-            name_mr="ओझर",
-            name_en="Ozhar",
-            gram_panchayat="Ozhar",
-            taluka="Jawhar",
-            district="Palghar",
-            state="Maharashtra",
-        )
-        db.add(village)
-        db.flush()
-        db.add(GramSabha(village_id=village.id))
-        user = AppUser(phone="9000000002", name="FRC Test", pin_hash=hash_pin("123456"))
+        village = make_village(db, "AuthVillage")
+        user = AppUser(phone="9100000002", name="FRC Test", pin_hash=hash_pin(TEST_PIN))
         inactive = AppUser(
-            phone="9000000009", name="Gone", pin_hash=hash_pin("123456"), is_active=False
+            phone="9100000009", name="Gone", pin_hash=hash_pin(TEST_PIN), is_active=False
         )
         db.add_all([user, inactive])
         db.flush()
@@ -84,19 +39,7 @@ def seeded(session_factory: sessionmaker[Session]) -> dict[str, uuid.UUID]:
         return {"village": village.id, "user": user.id}
 
 
-@pytest.fixture
-def db_client(session_factory: sessionmaker[Session]) -> TestClient:
-    app = create_app()
-
-    def _get_db() -> Iterator[Session]:
-        with session_factory() as s:
-            yield s
-
-    app.dependency_overrides[get_db] = _get_db
-    return TestClient(app)
-
-
-def _login(client: TestClient, phone: str = "9000000002", pin: str = "123456"):  # type: ignore[no-untyped-def]
+def _login(client: TestClient, phone: str = "9100000002", pin: str = TEST_PIN):  # type: ignore[no-untyped-def]
     return client.post("/api/v1/auth/login", json={"phone": phone, "pin": pin})
 
 
@@ -123,7 +66,7 @@ def test_wrong_pin_and_unknown_phone_look_the_same(
 
 
 def test_inactive_user_cannot_log_in(db_client: TestClient, seeded: dict[str, uuid.UUID]) -> None:
-    assert _login(db_client, phone="9000000009").status_code == 401
+    assert _login(db_client, phone="9100000009").status_code == 401
 
 
 def test_refresh_issues_new_pair(db_client: TestClient, seeded: dict[str, uuid.UUID]) -> None:
