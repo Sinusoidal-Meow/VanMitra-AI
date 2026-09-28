@@ -168,6 +168,14 @@ class _HomeTab extends ConsumerWidget {
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 ActionListItem(
+                  icon: Icons.groups_2_rounded,
+                  title: 'Form B · Community Rights claim',
+                  subtitle: 'सामूहिक हक्क दावा · Rule 11(1)(a) and (4)',
+                  iconColor: AppColors.forestCanopy,
+                  onTap: () => Navigator.pushNamed(context, AppRouter.formB),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                ActionListItem(
                   icon: Icons.checklist_rtl_rounded,
                   title: context.tr('action_evidence_checklist'),
                   subtitle: context.tr('action_evidence_checklist_sub'),

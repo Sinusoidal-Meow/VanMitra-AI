@@ -18,6 +18,7 @@ import 'screens/gram_sabha/gram_sabha_log_screen.dart';
 import 'screens/gram_sabha/resolution_ledger_screen.dart';
 import 'screens/profile/profile_screen.dart';
 import 'core/routes/app_router.dart';
+import 'features/form_b/form_b_home_screen.dart';
 import 'screens/claims/claim_type_selection_screen.dart';
 import 'screens/claims/claim_form_screen.dart';
 import 'screens/claims/evidence_checklist_screen.dart';
@@ -99,6 +100,7 @@ class VanMitraApp extends ConsumerWidget {
         // CFR Role-Based Workflow Routes
         AppRouter.cfrRoleDashboard: (_) => const RoleDashboardRouter(),
         AppRouter.cfrClaimCreate: (_) => const CfrClaimCreateScreen(),
+        AppRouter.formB: (_) => const FormBHomeScreen(),
 
         // Module A — Claims
         AppRouter.claimType: (_) => const ClaimTypeSelectionScreen(),

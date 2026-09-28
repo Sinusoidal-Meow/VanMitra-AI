@@ -18,6 +18,9 @@ class AppRouter {
   static const String cfrClaimCreate = '/cfr/create';
   static const String cfrClaimDetail = '/cfr/detail';
 
+  // Form B (community rights) on the new VanMitra backend
+  static const String formB = '/form-b';
+
   // Village Info
   static const String villageDashboard = '/village-dashboard';
   static const String approvedClaims = '/approved-claims';
