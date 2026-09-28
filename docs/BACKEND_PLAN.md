@@ -75,7 +75,7 @@ These are the core tables, from Spec §6.5 and the section 4 field lists. Field 
 |---|---|---|
 | `village` | `id`, `lgd_code`, `name_mr`, `name_en`, `gram_panchayat`, `taluka`, `district`, `parent_village_id`, `consolidation_status` | Hamlet hierarchy [Rule 2A]; taluka → SDLC, district → DLC |
 | `gram_sabha` | `id`, `village_id`, `chain_head_hash` | One hash chain per Gram Sabha |
-| `gs_member` | `id`, `gram_sabha_id`, `name`, `gender`, `category` (ST / OTFD / other), `is_claimant`, `active` | Used three times: FRC check, quorum, Form C member sheet |
+| `gs_member` | `id`, `gram_sabha_id`, `name`, `gender`, `category` (ST / OTFD / other), `active` | Used three times: FRC check, quorum, Form C member sheet. Claimant status is per case (`case_claimant`), not on the member |
 | `app_user` | `id`, `phone`, `pin_hash`, `name`, `gs_member_id?` | Login identity |
 | `user_role` | `user_id`, `village_id`, `role` (`facilitator` / `frc_member` / `gs_secretary`), `valid_from`, `valid_to` | A user can have several roles |
 | `frc` | `id`, `gram_sabha_id`, `constituted_on`, `resolution_id`, `composition_proof` (JSON), `sdlc_intimated_on` | Stores the arithmetic proof |
@@ -301,13 +301,14 @@ Items marked **D1–D6** are the project-level decisions in [`PROJECT_PLAN.md` �
 ## 9. Stage checklists
 
 ### Stage 0: Foundations
-- [ ] `docker-compose.yml` with `postgis/postgis:16-3.4` + the API; `.env.example`
-- [ ] SQLAlchemy + Alembic; first migration (`village`, `gram_sabha`, `gs_member`, `app_user`, `user_role`)
-- [ ] JWT auth, 3 roles, village scoping dependency
-- [ ] Error format with rule citations
-- [ ] Remove `eligibility-check` and scoring from the claim path; move OCR/transcribe to `assist/`
-- [ ] GitHub Actions: ruff, mypy, pytest
-- [ ] Seed script: Ozhar village, 1 Gram Sabha, demo members, 3 demo users
+- [x] `docker-compose.yml` with `postgis/postgis:16-3.4` + the API; `.env.example`
+- [x] SQLAlchemy + Alembic; first migration (`village`, `gram_sabha`, `gs_member`, `app_user`, `user_role`); rendered SQL in `migrations/sql/`
+- [x] JWT auth (phone + PIN), 3 roles, village scoping dependency (`require_village_role`); admin does not bypass it
+- [x] Error format with rule citations (`app/errors.py`)
+- [x] Old Model A endpoints moved to `app/legacy/`, unchanged and switchable (`VANMITRA_ENABLE_LEGACY_API`). Removal of eligibility/scoring waits for the frontend (B-04); OCR/transcribe move to `assist/` in Stage 2
+- [x] GitHub Actions: ruff, mypy (strict), pytest with a PostGIS service
+- [x] Seed script: Ozhar village, its Gram Sabha, one demo user per role + admin (members come in Stage 1)
+- [ ] **Run by a developer:** `docker compose up -d db` → `alembic upgrade head` → `python -m scripts.seed_demo`; then log in from the app with each role (the Stage 0 exit test)
 
 ### Stage 1: Village and FRC
 - [ ] Village/hamlet and member CRUD

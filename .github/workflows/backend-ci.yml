@@ -1,0 +1,58 @@
+name: backend-ci
+
+on:
+  push:
+    paths: ["vanmitra_backend/**", ".github/workflows/backend-ci.yml"]
+  pull_request:
+    paths: ["vanmitra_backend/**", ".github/workflows/backend-ci.yml"]
+
+defaults:
+  run:
+    working-directory: vanmitra_backend
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    # Throwaway database for the `db` tests (migrated up and down by the tests).
+    services:
+      postgis:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_DB: vanmitra_test
+          POSTGRES_USER: vanmitra
+          POSTGRES_PASSWORD: vanmitra
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U vanmitra -d vanmitra_test"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+
+    env:
+      VANMITRA_TEST_DATABASE_URL: postgresql+psycopg://vanmitra:vanmitra@localhost:5432/vanmitra_test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: vanmitra_backend/requirements*.txt
+
+      # Core + dev only: the legacy AI stack (PyTorch) is not needed to test the claim API.
+      - name: Install
+        run: pip install -r requirements-dev.txt
+
+      - name: Lint
+        run: |
+          ruff check app tests scripts migrations
+          ruff format --check app tests scripts migrations
+
+      - name: Type check
+        run: mypy app scripts
+
+      - name: Migration SQL renders (offline)
+        run: alembic upgrade head --sql > /dev/null
+
+      - name: Tests (including database tests)
+        run: pytest -q

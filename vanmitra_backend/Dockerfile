@@ -17,11 +17,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 ENV GDAL_CONFIG=/usr/bin/gdal-config
 
 # Python dependencies
-COPY requirements.txt .
+COPY requirements*.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-# App source
+# App source, migrations and scripts
 COPY app/ ./app/
+COPY migrations/ ./migrations/
+COPY alembic.ini ./
+COPY scripts/ ./scripts/
 
 # AI config assets (evidence weights, rejection classes, etc.)
 COPY assets/ ./assets/

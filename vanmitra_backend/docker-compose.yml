@@ -1,0 +1,40 @@
+# Local development: PostgreSQL + PostGIS, and optionally the API in a container.
+#
+#   docker compose up -d db                          # database only (run the API from venv)
+#   docker compose --profile api up -d --build       # database + API container
+#
+# Migrations are applied explicitly, never on start-up:
+#   alembic upgrade head                             # from the venv, or:
+#   docker compose --profile api run --rm api alembic upgrade head
+
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_DB: vanmitra
+      POSTGRES_USER: vanmitra
+      POSTGRES_PASSWORD: vanmitra  # local development only
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vanmitra -d vanmitra"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    profiles: ["api"]
+    build: .
+    env_file: .env
+    environment:
+      VANMITRA_DATABASE_URL: postgresql+psycopg://vanmitra:vanmitra@db:5432/vanmitra
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
