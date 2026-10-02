@@ -16,9 +16,28 @@ from sqlalchemy.orm import Session
 from app.auth.security import hash_pin
 from app.config import get_settings
 from app.db import get_engine
-from app.models import AppUser, ConsolidationStatus, GramSabha, Role, UserRole, Village
+from app.models import (
+    AppUser,
+    ConsolidationStatus,
+    Gender,
+    GramSabha,
+    GsMember,
+    MemberCategory,
+    Role,
+    UserRole,
+    Village,
+)
 
 DEMO_PIN = "123456"
+
+# Fictional demo members for the Form C member sheet (item 5) and quorum tests.
+DEMO_MEMBERS: list[tuple[str, Gender, MemberCategory]] = [
+    ("Demo Member 1", Gender.FEMALE, MemberCategory.ST),
+    ("Demo Member 2", Gender.MALE, MemberCategory.ST),
+    ("Demo Member 3", Gender.FEMALE, MemberCategory.ST),
+    ("Demo Member 4", Gender.MALE, MemberCategory.OTFD),
+    ("Demo Member 5", Gender.FEMALE, MemberCategory.OTHER),
+]
 
 DEMO_USERS: list[tuple[str, str, Role | None]] = [
     ("9000000001", "Demo Facilitator (NGO)", Role.FACILITATOR),
@@ -60,6 +79,16 @@ def seed(db: Session) -> None:
             print(f"created user {phone}  {name}")
         else:
             print(f"exists  user {phone}  {name}")
+
+    gram_sabha = db.scalar(select(GramSabha).where(GramSabha.village_id == village.id))
+    assert gram_sabha is not None
+    existing = set(db.scalars(select(GsMember.name).where(GsMember.gram_sabha_id == gram_sabha.id)))
+    for name, gender, category in DEMO_MEMBERS:
+        if name not in existing:
+            db.add(
+                GsMember(gram_sabha_id=gram_sabha.id, name=name, gender=gender, category=category)
+            )
+            print(f"created member {name}")
 
     db.commit()
 

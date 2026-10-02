@@ -169,8 +169,8 @@ class _HomeTab extends ConsumerWidget {
                 const SizedBox(height: AppSpacing.sm),
                 ActionListItem(
                   icon: Icons.groups_2_rounded,
-                  title: 'Form B · Community Rights claim',
-                  subtitle: 'सामूहिक हक्क दावा · Rule 11(1)(a) and (4)',
+                  title: 'Form B / C · Community claims',
+                  subtitle: 'सामूहिक हक्क व सामूहिक वन संसाधन दावा',
                   iconColor: AppColors.forestCanopy,
                   onTap: () => Navigator.pushNamed(context, AppRouter.formB),
                 ),

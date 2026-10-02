@@ -8,6 +8,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
+import '../form_c/form_c_models.dart';
 import 'form_b_models.dart';
 
 const String _apiBaseUrl = String.fromEnvironment(
@@ -88,6 +89,50 @@ class FormBApi {
         .post(_uri('/villages/$villageId/cases'), headers: _headers, body: jsonEncode({'claim_type': 'cr'}))
         .timeout(const Duration(seconds: 10));
     return CaseSummary.fromJson(_decode(res) as Map<String, dynamic>);
+  }
+
+  /// Opens a case: 'cr' → empty Form B draft, 'cfr' → empty Form C draft.
+  Future<CaseSummary> createCase(String villageId, String claimType) async {
+    final res = await http
+        .post(_uri('/villages/$villageId/cases'), headers: _headers, body: jsonEncode({'claim_type': claimType}))
+        .timeout(const Duration(seconds: 10));
+    return CaseSummary.fromJson(_decode(res) as Map<String, dynamic>);
+  }
+
+  Future<FormCData> getFormC(String caseId) async {
+    final res = await http
+        .get(_uri('/cases/$caseId/form-c'), headers: _headers)
+        .timeout(const Duration(seconds: 10));
+    return FormCData.fromJson(_decode(res) as Map<String, dynamic>);
+  }
+
+  Future<FormCData> saveFormC(String caseId, Map<String, dynamic> body) async {
+    final res = await http
+        .put(_uri('/cases/$caseId/form-c'), headers: _headers, body: jsonEncode(body))
+        .timeout(const Duration(seconds: 15));
+    return FormCData.fromJson(_decode(res) as Map<String, dynamic>);
+  }
+
+  Future<List<GsMember>> listMembers(String villageId) async {
+    final res = await http
+        .get(_uri('/villages/$villageId/members'), headers: _headers)
+        .timeout(const Duration(seconds: 10));
+    return (_decode(res) as List<dynamic>).map((e) => GsMember.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<GsMember> addMember(String villageId, {required String name, required String gender, required String category}) async {
+    final res = await http
+        .post(_uri('/villages/$villageId/members'),
+            headers: _headers, body: jsonEncode({'name': name, 'gender': gender, 'category': category}))
+        .timeout(const Duration(seconds: 10));
+    return GsMember.fromJson(_decode(res) as Map<String, dynamic>);
+  }
+
+  Future<GsMember> updateMember(String memberId, Map<String, dynamic> changes) async {
+    final res = await http
+        .patch(_uri('/members/$memberId'), headers: _headers, body: jsonEncode(changes))
+        .timeout(const Duration(seconds: 10));
+    return GsMember.fromJson(_decode(res) as Map<String, dynamic>);
   }
 
   Future<FormBData> getFormB(String caseId) async {

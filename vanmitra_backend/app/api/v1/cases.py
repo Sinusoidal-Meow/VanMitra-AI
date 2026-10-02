@@ -1,5 +1,5 @@
 """
-Claim cases and the Form B draft (community rights).
+Claim cases and the Form B draft (community rights). Form C lives in form_c.py.
 
 Who may do what (PROJECT_PLAN §3):
 - Form B is prepared by the FRC on behalf of the Gram Sabha [Rule 11(4)]; the NGO
@@ -16,6 +16,7 @@ from sqlalchemy import select
 from ...auth.deps import CurrentPrincipal, CurrentUser, DbSession, require_village_role
 from ...auth.principal import Principal
 from ...domain.form_b import FORM_B_RIGHTS, MIN_EVIDENCE_ITEMS, RIGHT_SPECS, form_b_completeness
+from ...domain.form_c import DEFAULT_RESOLUTION_STATEMENT
 from ...errors import ApiError
 from ...models import (
     CaseState,
@@ -25,6 +26,7 @@ from ...models import (
     EvidenceRule,
     FormB,
     FormBRightClaim,
+    FormC,
     GramSabha,
     Role,
     Village,
@@ -48,8 +50,8 @@ router = APIRouter(tags=["cases", "form-b"])
 
 FORM_B_EDITORS = (Role.FACILITATOR, Role.FRC_MEMBER)
 
-# Claim types whose forms the API can take so far. Form C (CFR) is next; Form A later.
-AVAILABLE_CLAIM_TYPES = {ClaimType.CR}
+# Claim types whose forms the API can take so far: Form B (CR) and Form C (CFR). Form A later.
+AVAILABLE_CLAIM_TYPES = {ClaimType.CR, ClaimType.CFR}
 
 
 def _case_out(case: ClaimCase, village_id: uuid.UUID) -> CaseOut:
@@ -161,7 +163,7 @@ def create_case(
     user: CurrentUser,
     _: Annotated[Principal, Depends(require_village_role(*FORM_B_EDITORS))],
 ) -> CaseOut:
-    """Open a claim case for the village's Gram Sabha. For `cr`, an empty Form B draft."""
+    """Open a claim case for the village's Gram Sabha: `cr` → empty Form B, `cfr` → empty Form C."""
     if body.claim_type not in AVAILABLE_CLAIM_TYPES:
         raise ApiError(
             422,
@@ -178,7 +180,15 @@ def create_case(
         state=CaseState.DRAFT,
         created_by_user_id=user.id,
     )
-    case.form_b = FormB(claimant_names=[], updated_by_user_id=user.id)
+    if body.claim_type == ClaimType.CR:
+        case.form_b = FormB(claimant_names=[], updated_by_user_id=user.id)
+    else:
+        case.form_c = FormC(
+            resolution_statement=DEFAULT_RESOLUTION_STATEMENT,
+            khasra_compartment_numbers=[],
+            pastoral_seasonal_use=False,
+            updated_by_user_id=user.id,
+        )
     db.add(case)
     db.commit()
     db.refresh(case)

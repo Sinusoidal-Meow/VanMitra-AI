@@ -30,6 +30,12 @@ class Me {
   /// Form B is prepared by the FRC [Rule 11(4)]; the NGO facilitator may draft it.
   bool canEditFormB(String villageId) =>
       roles.any((r) => r.villageId == villageId && (r.role == 'frc_member' || r.role == 'facilitator'));
+
+  /// Form C is prepared the same way [Rule 11(4)].
+  bool canEditFormC(String villageId) => canEditFormB(villageId);
+
+  /// The Gram Sabha roster is kept by the Gram Sabha Secretary [Rule 11(6)].
+  bool canEditRoster(String villageId) => roles.any((r) => r.villageId == villageId && r.role == 'gs_secretary');
 }
 
 class CaseSummary {

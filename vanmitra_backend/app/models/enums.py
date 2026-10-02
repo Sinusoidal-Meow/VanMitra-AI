@@ -100,3 +100,30 @@ class EvidenceRule(StrEnum):
     def is_general(self) -> bool:
         """Rule 13(1) (general) as opposed to 13(2) (community forest resource)."""
         return self.value.startswith("13(1)")
+
+
+class BoundarySide(StrEnum):
+    """Where a Form C landmark lies: the four boundaries (चतु:सीमा) or inside the area."""
+
+    EAST = "east"  # पूर्व
+    WEST = "west"  # पश्चिम
+    NORTH = "north"  # उत्तर
+    SOUTH = "south"  # दक्षिण
+    WITHIN = "within"  # inside the CFR area
+
+
+class LandmarkKind(StrEnum):
+    """Recognisable landmarks used to describe a CFR boundary [Rule 12(1)(g)]."""
+
+    RIVER = "river"
+    STREAM = "stream"  # नाला
+    SPRING = "spring"  # झरा
+    POND = "pond"  # तलाव
+    SACRED_PLACE = "sacred_place"  # देवस्थान
+    SACRED_GROVE = "sacred_grove"  # देवराई / sacred tree
+    BURIAL_GROUND = "burial_ground"  # दफन / दहन भूमी
+    WELL = "well"  # विहीर
+    ROAD = "road"  # रस्ता / path
+    COMPARTMENT_PILLAR = "compartment_pillar"
+    HILL = "hill"
+    OTHER = "other"

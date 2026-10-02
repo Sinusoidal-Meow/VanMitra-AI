@@ -63,3 +63,12 @@ def test_form_b_endpoints_need_login(client: TestClient) -> None:
     assert (
         client.post(f"/api/v1/villages/{case}/cases", json={"claim_type": "cr"}).status_code == 401
     )
+
+
+def test_form_c_and_member_endpoints_need_login(client: TestClient) -> None:
+    some = "00000000-0000-0000-0000-000000000000"
+    assert client.get(f"/api/v1/cases/{some}/form-c").status_code == 401
+    assert client.put(f"/api/v1/cases/{some}/form-c", json={}).status_code == 401
+    assert client.get("/api/v1/forms/form-c/fields").status_code == 401
+    assert client.get(f"/api/v1/villages/{some}/members").status_code == 401
+    assert client.patch(f"/api/v1/members/{some}", json={}).status_code == 401

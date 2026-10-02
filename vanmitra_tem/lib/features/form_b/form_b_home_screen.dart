@@ -1,4 +1,5 @@
-// Entry to Form B: sign in to the VanMitra backend, then list the village's cases.
+// Entry to community claims: sign in to the VanMitra backend, then the village's
+// Form B (community rights) and Form C (community forest resource) cases and roster.
 
 import 'package:flutter/material.dart';
 
@@ -6,6 +7,8 @@ import '../../core/theme/app_colors.dart';
 import 'form_b_api.dart';
 import 'form_b_models.dart';
 import 'form_b_screen.dart';
+import '../form_c/form_c_screen.dart';
+import '../form_c/members_screen.dart';
 
 class FormBHomeScreen extends StatefulWidget {
   const FormBHomeScreen({super.key});
@@ -66,24 +69,35 @@ class _FormBHomeScreenState extends State<FormBHomeScreen> {
     setState(() {
       _me = me;
       _village = village;
-      _cases = cases.where((c) => c.claimType == 'cr').toList();
+      _cases = cases.where((c) => c.claimType == 'cr' || c.claimType == 'cfr').toList();
     });
   }
 
-  Future<void> _newCase() => _run(() async {
-        final created = await formBApi.createCommunityRightsCase(_village!.villageId);
+  Future<void> _newCase(String claimType) => _run(() async {
+        final created = await formBApi.createCase(_village!.villageId, claimType);
         await _loadMeInner();
-        if (mounted) await _open(created.id);
+        if (mounted) await _open(created);
       });
 
-  Future<void> _open(String caseId) async {
+  Future<void> _open(CaseSummary c) async {
+    final villageId = _village!.villageId;
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => FormBScreen(caseId: caseId, canEdit: _me!.canEditFormB(_village!.villageId)),
+        builder: (_) => c.claimType == 'cfr'
+            ? FormCScreen(caseId: c.id, canEdit: _me!.canEditFormC(villageId))
+            : FormBScreen(caseId: c.id, canEdit: _me!.canEditFormB(villageId)),
       ),
     );
     if (mounted) await _loadMe();
+  }
+
+  Future<void> _openMembers() async {
+    final villageId = _village!.villageId;
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => MembersScreen(villageId: villageId, canEdit: _me!.canEditRoster(villageId))),
+    );
   }
 
   String _roleLabel(String role) => switch (role) {
@@ -100,7 +114,7 @@ class _FormBHomeScreenState extends State<FormBHomeScreen> {
       appBar: AppBar(
         backgroundColor: AppColors.forestCanopy,
         foregroundColor: Colors.white,
-        title: const Text('Form B · सामूहिक हक्क दावा'),
+        title: const Text('Community claims · सामूहिक दावे'),
         actions: [
           if (_me != null)
             IconButton(
@@ -122,10 +136,10 @@ class _FormBHomeScreenState extends State<FormBHomeScreen> {
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
-        const Text('Claim Form for Community Rights',
+        const Text('Form B and Form C claims',
             style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
         const SizedBox(height: 4),
-        const Text('Rule 11(1)(a) and (4) · sign in with your VanMitra phone number and PIN',
+        const Text('Community rights and community forest resource · sign in with your VanMitra phone number and PIN',
             style: TextStyle(color: AppColors.textSecondary)),
         const SizedBox(height: 20),
         TextField(
@@ -185,33 +199,52 @@ class _FormBHomeScreenState extends State<FormBHomeScreen> {
             child: Text(_error!, style: const TextStyle(color: AppColors.alertRed)),
           ),
           const SizedBox(height: 8),
-          if (canEdit)
+          if (canEdit) ...[
             SizedBox(
               height: 52,
               child: FilledButton.icon(
                 style: FilledButton.styleFrom(backgroundColor: AppColors.saffron),
-                onPressed: _busy ? null : _newCase,
-                icon: const Icon(Icons.add),
-                label: const Text('Start a new Form B claim', style: TextStyle(fontSize: 16)),
+                onPressed: _busy ? null : () => _newCase('cr'),
+                icon: const Icon(Icons.groups_2_outlined),
+                label: const Text('New Form B · Community Rights', style: TextStyle(fontSize: 16)),
               ),
             ),
+            const SizedBox(height: 10),
+            SizedBox(
+              height: 52,
+              child: FilledButton.icon(
+                style: FilledButton.styleFrom(backgroundColor: AppColors.forestCanopy),
+                onPressed: _busy ? null : () => _newCase('cfr'),
+                icon: const Icon(Icons.forest_outlined),
+                label: const Text('New Form C · Community Forest Resource', style: TextStyle(fontSize: 16)),
+              ),
+            ),
+          ],
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+            onPressed: _openMembers,
+            icon: const Icon(Icons.people_alt_outlined),
+            label: Text(me.canEditRoster(village.villageId) ? 'Gram Sabha members (edit)' : 'Gram Sabha members'),
+          ),
           const SizedBox(height: 16),
-          Text('Community rights claims (${_cases.length})',
+          Text('Community claims (${_cases.length})',
               style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
           const SizedBox(height: 8),
           if (_cases.isEmpty)
             const Padding(
               padding: EdgeInsets.all(16),
-              child: Text('No Form B claims yet.', style: TextStyle(color: AppColors.textSecondary)),
+              child: Text('No Form B or Form C claims yet.', style: TextStyle(color: AppColors.textSecondary)),
             ),
           for (final c in _cases)
             Card(
               child: ListTile(
-                leading: const Icon(Icons.description_outlined, color: AppColors.forestCanopy),
-                title: Text('Form B · ${c.id.substring(0, 8)}'),
+                leading: Icon(c.claimType == 'cfr' ? Icons.forest_outlined : Icons.groups_2_outlined,
+                    color: AppColors.forestCanopy),
+                title: Text('${c.claimType == 'cfr' ? 'Form C' : 'Form B'} · ${c.id.substring(0, 8)}'),
                 subtitle: Text('Status: ${c.state.toUpperCase()} · created ${_date(c.createdAt)}'),
                 trailing: const Icon(Icons.chevron_right),
-                onTap: () => _open(c.id),
+                onTap: () => _open(c),
               ),
             ),
         ],

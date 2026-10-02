@@ -152,10 +152,10 @@ def test_other_village_cannot_see_the_case(
     assert listing.status_code == 403
 
 
-def test_only_cr_cases_for_now(db_client: TestClient, villages: dict[str, uuid.UUID]) -> None:
+def test_form_a_not_available_yet(db_client: TestClient, villages: dict[str, uuid.UUID]) -> None:
     res = db_client.post(
         f"/api/v1/villages/{villages['ozhar']}/cases",
-        json={"claim_type": "cfr"},
+        json={"claim_type": "ifr"},
         headers=auth_headers(db_client, FRC),
     )
     assert res.status_code == 422

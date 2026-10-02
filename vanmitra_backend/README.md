@@ -2,7 +2,7 @@
 
 FastAPI + PostgreSQL/PostGIS API for the **CFR claim module**. Plan and rules: [`../docs/BACKEND_PLAN.md`](../docs/BACKEND_PLAN.md).
 
-**Status:** Stage 0 foundations + the **Form B (community rights) draft**. Form C is next.
+**Status:** Stage 0 foundations + **Form B** (community rights) and **Form C** (community forest resource) drafts + the Gram Sabha member roster.
 
 ## Quick start (Windows, Git Bash)
 
@@ -13,7 +13,7 @@ py -3.12 -m venv venv
 #   or: -r requirements-dev.txt                        # API + tests only, no PyTorch
 cp .env.example .env
 
-docker compose up -d db                              # PostgreSQL 16 + PostGIS 3.4 on :5432
+docker compose up -d db                              # PostgreSQL 16 + PostGIS 3.4 on host port 5433
 
 # Review, then apply, the schema (you run these, not the app):
 ./venv/Scripts/alembic upgrade head --sql            # print the SQL
@@ -60,8 +60,13 @@ tests/             unit/ and api/ (no database) · db/ (needs VANMITRA_TEST_DATA
 | GET | `/api/v1/villages/{village_id}/cases` | any role in village | Cases in the village |
 | GET | `/api/v1/cases/{case_id}/form-b` | any role in village | Form B draft + documentation completeness |
 | PUT | `/api/v1/cases/{case_id}/form-b` | facilitator / FRC | Replace the Form B draft (DRAFT only) |
+| GET | `/api/v1/forms/form-c/fields` | access token | Form C vocabularies (boundary sides, landmark kinds), default statement |
+| GET | `/api/v1/cases/{case_id}/form-c` | any role in village | Form C draft + member sheet + documentation completeness |
+| PUT | `/api/v1/cases/{case_id}/form-c` | facilitator / FRC | Replace the Form C draft (DRAFT only) |
+| GET / POST | `/api/v1/villages/{village_id}/members` | read: any role · add: GS Secretary | Gram Sabha roster (feeds the Form C member sheet) |
+| PATCH | `/api/v1/members/{member_id}` | GS Secretary | Correct or deactivate a member |
 
-Form B contract for the app: [`../docs/API_FORM_B.md`](../docs/API_FORM_B.md).
+Contracts for the app: [`../docs/API_FORM_B.md`](../docs/API_FORM_B.md) · [`../docs/API_FORM_C.md`](../docs/API_FORM_C.md).
 
 Every error has the same body, so the app can show a local-language message:
 

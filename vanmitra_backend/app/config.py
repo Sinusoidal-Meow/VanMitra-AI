@@ -13,7 +13,7 @@ class Settings(BaseSettings):
 
     env: str = "development"  # development | test | production
 
-    database_url: str = "postgresql+psycopg://vanmitra:vanmitra@localhost:5432/vanmitra"
+    database_url: str = "postgresql+psycopg://vanmitra:vanmitra@localhost:5433/vanmitra"
     db_connect_timeout_s: int = 3
 
     jwt_secret: str = _DEV_JWT_SECRET
