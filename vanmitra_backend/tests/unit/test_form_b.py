@@ -99,3 +99,15 @@ def test_input_rejects_unknown_right_and_rule() -> None:
 def test_claimed_right_needs_details() -> None:
     with pytest.raises(ValidationError):
         FormBInput.model_validate({"rights": {"nistar": {"details": ""}}})
+
+
+def test_maharashtra_per_right_details_are_optional_and_validated() -> None:
+    plain = FormBInput.model_validate({"rights": {"nistar": {"details": "Firewood"}}})
+    assert plain.rights[FormBRight.NISTAR].boundaries is None
+    assert plain.rights[FormBRight.NISTAR].survey_compartment_numbers == []
+    with pytest.raises(ValidationError):
+        FormBInput.model_validate({"rights": {"nistar": {"details": "x", "total_area_ha": -5}}})
+    with pytest.raises(ValidationError):
+        FormBInput.model_validate(
+            {"rights": {"nistar": {"details": "x", "boundaries": {"east": "   "}}}}
+        )

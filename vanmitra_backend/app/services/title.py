@@ -123,7 +123,22 @@ def build_title_draft(db: Session, ctx: CaseContext) -> TitleDraftOut:
                 for r in form_b.rights
             ],
             "8_conditions": "None beyond those in the Act and the Rules",
-            "9_boundaries": "As described in the claim and the Gram Sabha resolution",
+            "9_boundaries": [
+                {
+                    "right": RIGHT_SPECS[r.right_code].label_en,
+                    "survey_compartment_numbers": list(r.survey_compartment_numbers),
+                    "area_ha": float(r.total_area_ha) if r.total_area_ha is not None else None,
+                    "east": r.boundary_east,
+                    "west": r.boundary_west,
+                    "north": r.boundary_north,
+                    "south": r.boundary_south,
+                }
+                for r in form_b.rights
+                if r.survey_compartment_numbers
+                or r.total_area_ha is not None
+                or any((r.boundary_east, r.boundary_west, r.boundary_north, r.boundary_south))
+            ]
+            or "As described in the claim and the Gram Sabha resolution",
         }
         return TitleDraftOut(
             case_id=case.id,

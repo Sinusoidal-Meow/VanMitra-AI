@@ -112,6 +112,19 @@ class FormBRightClaim(IdMixin, Base):
     details: Mapped[str] = mapped_column(Text)
     # Optional named things: produce (mahua, tendu), ponds, grazing areas, local names.
     items: Mapped[list[str]] = mapped_column(ARRAY(String(200)), server_default=text("'{}'"))
+    # Maharashtra field practice, "लाभ घेतलेल्या सामूहिक हक्कांचे स्वरूप" (1mitra.md §6.2):
+    # per right, the survey/compartment numbers, the area, the four boundaries by landmark
+    # (चतु:सीमा) and the annual quantity used. All optional.
+    survey_compartment_numbers: Mapped[list[str]] = mapped_column(
+        ARRAY(String(50)), server_default=text("'{}'")
+    )
+    total_area_ha: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    common_use_area_ha: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    boundary_east: Mapped[str | None] = mapped_column(String(200))
+    boundary_west: Mapped[str | None] = mapped_column(String(200))
+    boundary_north: Mapped[str | None] = mapped_column(String(200))
+    boundary_south: Mapped[str | None] = mapped_column(String(200))
+    annual_quantity: Mapped[str | None] = mapped_column(Text)
 
     form_b: Mapped[FormB] = relationship(back_populates="rights")
 

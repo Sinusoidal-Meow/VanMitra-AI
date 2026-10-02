@@ -1,11 +1,18 @@
 """The Form B draft (Community Rights claim) [Rule 11(1)(a) and (4)]."""
 
 import uuid
+from decimal import Decimal
 
 from fastapi import APIRouter
 
 from ...auth.deps import CurrentPrincipal, CurrentUser, DbSession
-from ...domain.form_b import FORM_B_RIGHTS, MIN_EVIDENCE_ITEMS, RIGHT_SPECS, form_b_completeness
+from ...domain.form_b import (
+    FORM_B_RIGHTS,
+    MIN_EVIDENCE_ITEMS,
+    RIGHT_SPECS,
+    RightSpec,
+    form_b_completeness,
+)
 from ...models import ClaimEvidenceEntry, ClaimType, EvidenceRule, FormBRightClaim
 from ...schemas.form_b import (
     EvidenceOut,
@@ -13,12 +20,56 @@ from ...schemas.form_b import (
     FormBFieldsOut,
     FormBInput,
     FormBOut,
+    FourBoundaries,
     RightOut,
 )
 from ...services.cases import CaseContext, ensure_claim_type, ensure_editable, load_case
 from ._shared import completeness_out, village_header
 
 router = APIRouter(tags=["form-b"])
+
+
+def _dec(value: float | None) -> Decimal | None:
+    return Decimal(str(round(value, 2))) if value is not None else None
+
+
+def _right_out(spec: RightSpec, row: FormBRightClaim | None) -> RightOut:
+    if row is None:
+        return RightOut(
+            code=spec.code,
+            form_item=spec.form_item,
+            label_en=spec.label_en,
+            section=spec.section,
+            claimed=False,
+            details=None,
+            items=[],
+        )
+    sides = (row.boundary_east, row.boundary_west, row.boundary_north, row.boundary_south)
+    return RightOut(
+        code=spec.code,
+        form_item=spec.form_item,
+        label_en=spec.label_en,
+        section=spec.section,
+        claimed=True,
+        details=row.details,
+        items=list(row.items),
+        survey_compartment_numbers=list(row.survey_compartment_numbers),
+        total_area_ha=float(row.total_area_ha) if row.total_area_ha is not None else None,
+        common_use_area_ha=(
+            float(row.common_use_area_ha) if row.common_use_area_ha is not None else None
+        ),
+        boundaries=(
+            FourBoundaries(
+                east=row.boundary_east,
+                west=row.boundary_west,
+                north=row.boundary_north,
+                south=row.boundary_south,
+            )
+            if any(sides)
+            else None
+        ),
+        annual_quantity=row.annual_quantity,
+    )
 
 
 def form_b_out(ctx: CaseContext) -> FormBOut:
@@ -43,18 +94,7 @@ def form_b_out(ctx: CaseContext) -> FormBOut:
         claimant_names=list(form.claimant_names),
         is_fdst_community=form.is_fdst_community,
         is_otfd_community=form.is_otfd_community,
-        rights=[
-            RightOut(
-                code=spec.code,
-                form_item=spec.form_item,
-                label_en=spec.label_en,
-                section=spec.section,
-                claimed=spec.code in claimed,
-                details=claimed[spec.code].details if spec.code in claimed else None,
-                items=list(claimed[spec.code].items) if spec.code in claimed else [],
-            )
-            for spec in FORM_B_RIGHTS
-        ],
+        rights=[_right_out(spec, claimed.get(spec.code)) for spec in FORM_B_RIGHTS],
         evidence=[
             EvidenceOut(seq=e.seq, rule_ref=e.rule_ref, description=e.description) for e in evidence
         ],
@@ -118,7 +158,19 @@ def put_form_b(
     db.flush()
     order = list(RIGHT_SPECS)
     form.rights.extend(
-        FormBRightClaim(right_code=code, details=r.details, items=list(r.items))
+        FormBRightClaim(
+            right_code=code,
+            details=r.details,
+            items=list(r.items),
+            survey_compartment_numbers=list(dict.fromkeys(r.survey_compartment_numbers)),
+            total_area_ha=_dec(r.total_area_ha),
+            common_use_area_ha=_dec(r.common_use_area_ha),
+            boundary_east=r.boundaries.east if r.boundaries else None,
+            boundary_west=r.boundaries.west if r.boundaries else None,
+            boundary_north=r.boundaries.north if r.boundaries else None,
+            boundary_south=r.boundaries.south if r.boundaries else None,
+            annual_quantity=r.annual_quantity,
+        )
         for code, r in sorted(body.rights.items(), key=lambda kv: order.index(kv[0]))
     )
     case.evidence_entries.extend(

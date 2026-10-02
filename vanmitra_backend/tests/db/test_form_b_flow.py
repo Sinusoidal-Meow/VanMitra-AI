@@ -121,3 +121,33 @@ def test_form_endpoints_do_not_mix(db_client: TestClient, villages: dict[str, uu
     )
     assert res.status_code == 409
     assert res.json()["error"] == "NOT_A_FORM_A_CASE"
+
+
+MH_RIGHT: dict[str, Any] = {
+    "details": "All nistar rights recorded in the village nistar patrak",
+    "survey_compartment_numbers": ["156", "157", "158", "157"],
+    "total_area_ha": 748.23,
+    "common_use_area_ha": 600,
+    "boundaries": {"east": "Maraban", "west": "Nagdevta", "north": "Marodi dev", "south": "Talav"},
+    "annual_quantity": "As much as is available and used",
+}
+
+
+def test_maharashtra_per_right_details_round_trip(
+    db_client: TestClient, villages: dict[str, uuid.UUID]
+) -> None:
+    case_id = new_case(db_client, villages["ozhar"], VILLAGER, "cr")
+    body = {**FULL_FORM_B, "rights": {"nistar": MH_RIGHT, "grazing": {"details": "Gairan"}}}
+    res = db_client.put(
+        f"/api/v1/cases/{case_id}/form-b", json=body, headers=auth_headers(db_client, VILLAGER)
+    )
+    assert res.status_code == 200, res.text
+    rights = {r["code"]: r for r in res.json()["rights"]}
+    nistar = rights["nistar"]
+    assert nistar["survey_compartment_numbers"] == ["156", "157", "158"]  # de-duplicated
+    assert nistar["total_area_ha"] == 748.23
+    assert nistar["common_use_area_ha"] == 600
+    assert nistar["boundaries"]["south"] == "Talav"
+    assert nistar["annual_quantity"].startswith("As much")
+    assert rights["grazing"]["boundaries"] is None  # all per-right details are optional
+    assert rights["water_bodies"]["claimed"] is False

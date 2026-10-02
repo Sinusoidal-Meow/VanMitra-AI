@@ -11,6 +11,7 @@ from ..models.enums import CaseState, EvidenceRule, FormBRight
 Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
 Label = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
 LongText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=4000)]
+Short = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=50)]
 
 
 # ── Form B input ───────────────────────────────────────────────────────────────
@@ -25,6 +26,24 @@ class RightInput(BaseModel):
         max_length=50,
         description="Optional named things: produce, ponds, grazing areas, local names",
     )
+    # Maharashtra per-right table (all optional): survey/compartment nos., area,
+    # the four boundaries by landmark, annual quantity.
+    survey_compartment_numbers: list[Short] = Field(default_factory=list, max_length=200)
+    total_area_ha: float | None = Field(default=None, ge=0, le=1_000_000)
+    common_use_area_ha: float | None = Field(default=None, ge=0, le=1_000_000)
+    boundaries: "FourBoundaries | None" = None
+    annual_quantity: LongText | None = Field(
+        default=None, examples=["As much as is available and used"]
+    )
+
+
+class FourBoundaries(BaseModel):
+    """चतु:सीमा: the landmark on each side (पूर्व, पश्चिम, उत्तर, दक्षिण)."""
+
+    east: Label | None = None
+    west: Label | None = None
+    north: Label | None = None
+    south: Label | None = None
 
 
 class EvidenceInput(BaseModel):
@@ -87,6 +106,11 @@ class RightOut(BaseModel):
     claimed: bool
     details: str | None
     items: list[str]
+    survey_compartment_numbers: list[str] = []
+    total_area_ha: float | None = None
+    common_use_area_ha: float | None = None
+    boundaries: FourBoundaries | None = None
+    annual_quantity: str | None = None
 
 
 class EvidenceOut(BaseModel):

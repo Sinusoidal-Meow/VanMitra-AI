@@ -36,6 +36,20 @@
 | 8. Any other information | `other_information: string \| null` | Free text |
 | Signature / thumb impression | *(none)* | On the **printed** form (rule R4); signed scan upload comes later |
 
+### Per-right details (Maharashtra field practice, all optional)
+
+Real Maharashtra claim files record each right in a table, *लाभ घेतलेल्या सामूहिक हक्कांचे स्वरूप*. Each entry in `rights` may carry:
+
+| Field | Meaning | Example |
+|---|---|---|
+| `survey_compartment_numbers: string[]` | सर्व्हे / कं. नंबर (duplicates removed) | `["156", "157", "158"]` |
+| `total_area_ha` | एकूण क्षेत्र (हे.आर.) | `748.23` |
+| `common_use_area_ha` | परंपरागत सामूहिक वापराचे क्षेत्र | `600` |
+| `boundaries: {east, west, north, south}` | चतु:सीमा: a landmark on each side | `{"east": "Maraban", "south": "Talav"}` |
+| `annual_quantity` | परिमाण (वार्षिक) | `"As much as is available and used"` |
+
+They come back on each claimed right in `GET`, and they fill the **Annexure III title's boundaries** (`9_boundaries`). When none are given, the title says *"As described in the claim and the Gram Sabha resolution"*.
+
 `details` is required for a right that is switched on (1–4000 chars, any language). Leave a right **out** of `rights` if it is not claimed. `items` is optional (up to 50 short labels).
 
 ## Endpoints

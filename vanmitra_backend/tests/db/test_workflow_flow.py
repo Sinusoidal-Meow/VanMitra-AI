@@ -199,3 +199,44 @@ def test_form_c_by_gram_sabha_reaches_annexure_iv(
     title = db_client.get(f"/api/v1/cases/{case_id}/title-draft", headers=gs).json()
     assert title["annexure"].startswith("Annexure IV")
     assert title["fields"]["6_boundary_description"]["prominent_landmarks"]["east"] == ["Nala"]
+
+
+def test_form_b_title_iii_carries_per_right_boundaries(
+    db_client: TestClient, ids: dict[str, uuid.UUID]
+) -> None:
+    case_id = new_case(db_client, ids["village"], VILLAGER, "cr")
+    body = {
+        "claimant_names": ["Ozhar community"],
+        "is_fdst_community": True,
+        "is_otfd_community": False,
+        "rights": {
+            "minor_forest_produce": {
+                "details": "Bamboo, mahua, tendu leaves",
+                "survey_compartment_numbers": ["156", "157"],
+                "total_area_ha": 748.23,
+                "boundaries": {
+                    "east": "Maraban",
+                    "west": "Nagdevta",
+                    "north": "Marodi",
+                    "south": "Talav",
+                },
+            }
+        },
+    }
+    put = db_client.put(
+        f"/api/v1/cases/{case_id}/form-b", json=body, headers=auth_headers(db_client, VILLAGER)
+    )
+    assert put.status_code == 200, put.text
+    _act(db_client, case_id, VILLAGER, "submit")
+    _act(db_client, case_id, GS, "approve")
+    _act(db_client, case_id, SDO, "approve")
+    for officer in (DFO, DTWO, COLLECTOR):
+        _act(db_client, case_id, officer, "approve")
+    title = db_client.get(
+        f"/api/v1/cases/{case_id}/title-draft", headers=auth_headers(db_client, VILLAGER)
+    ).json()
+    assert title["annexure"].startswith("Annexure III")
+    assert title["status"] == "issued"
+    [boundary] = title["fields"]["9_boundaries"]
+    assert boundary["survey_compartment_numbers"] == ["156", "157"]
+    assert (boundary["east"], boundary["south"]) == ("Maraban", "Talav")
