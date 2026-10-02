@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/routes/app_router.dart';
+import '../../models/user_role.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/localization_service.dart';
 
@@ -72,6 +73,8 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
       Navigator.pushReplacementNamed(context, AppRouter.adminHome);
     } else if (role == 'villager') {
       Navigator.pushReplacementNamed(context, AppRouter.villagerHome);
+    } else {
+      Navigator.pushReplacementNamed(context, AppRouter.cfrRoleDashboard);
     }
   }
 
@@ -275,10 +278,18 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                       child: DropdownButton<String>(
                         value: _selectedRole,
                         isExpanded: true,
-                        items: const [
-                          DropdownMenuItem(value: 'villager', child: Text('Villager / ग्रामस्थ')),
-                          DropdownMenuItem(value: 'admin', child: Text('Gram Panchayat Admin / प्रशासक')),
-                        ],
+                        items: UserRole.values.map((role) {
+                          return DropdownMenuItem<String>(
+                            value: role.name,
+                            child: Text(
+                              '${role.displayNameEn} (${role.displayNameMr})',
+                              style: const TextStyle(
+                                fontFamily: 'NotoSansDevanagari',
+                                fontSize: 13,
+                              ),
+                            ),
+                          );
+                        }).toList(),
                         onChanged: isLoading
                             ? null
                             : (value) => setState(() => _selectedRole = value!),

@@ -1,5 +1,4 @@
 import 'gram_sabha_meeting.dart';
-import 'village_member.dart';
 
 /// Computed quorum status for a Gram Sabha meeting
 /// Implements: Q_valid = 1 if (A/R ≥ 0.5) AND (W/A ≥ 1/3), else 0

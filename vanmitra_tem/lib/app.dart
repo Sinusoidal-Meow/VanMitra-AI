@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/theme/app_theme.dart';
+import 'models/claim.dart';
 import 'providers/locale_provider.dart';
 import 'services/localization_service.dart';
 import 'screens/splash/splash_screen.dart';
@@ -25,10 +26,17 @@ import 'screens/claims/my_claims_screen.dart';
 import 'screens/claims/rejection_analysis_screen.dart';
 import 'screens/claims/appeal_draft_screen.dart';
 import 'screens/claims/rule_13_info_screen.dart';
+
+// CFR Workflow Screens
+import 'screens/cfr/role_dashboard_router.dart';
+import 'screens/cfr/cfr_claim_create_screen.dart';
+import 'screens/cfr/cfr_claim_detail_screen.dart';
+
 // Module C — Gram Sabha advanced screens
 import 'screens/gram_sabha/member_enrolment_screen.dart';
 import 'screens/gram_sabha/resolution_recording_screen.dart';
 import 'screens/gram_sabha/mom_viewer_screen.dart';
+
 // Module B — Satellite alert screens
 import 'screens/home/alert_detail_screen.dart';
 import 'screens/home/alert_history_screen.dart';
@@ -60,7 +68,6 @@ class VanMitraApp extends ConsumerWidget {
             return supported;
           }
         }
-        // Fallback to English if exact match not found
         return const Locale('en');
       },
       initialRoute: AppRouter.splash,
@@ -88,7 +95,12 @@ class VanMitraApp extends ConsumerWidget {
         AppRouter.createMeeting: (_) => const CreateMeetingScreen(),
         AppRouter.meetingDetail: (_) => const MeetingDetailScreen(),
         AppRouter.resolutionLedger: (_) => const ResolutionLedgerScreen(),
-        // Module A — Claims (Phase 6)
+
+        // CFR Role-Based Workflow Routes
+        AppRouter.cfrRoleDashboard: (_) => const RoleDashboardRouter(),
+        AppRouter.cfrClaimCreate: (_) => const CfrClaimCreateScreen(),
+
+        // Module A — Claims
         AppRouter.claimType: (_) => const ClaimTypeSelectionScreen(),
         AppRouter.claimForm: (_) => const ClaimFormScreen(),
         AppRouter.evidenceChecklist: (_) => const EvidenceChecklistScreen(),
@@ -97,15 +109,24 @@ class VanMitraApp extends ConsumerWidget {
         AppRouter.rejectionCheck: (_) => const RejectionAnalysisScreen(),
         AppRouter.appealDraft: (_) => const AppealDraftScreen(),
         AppRouter.rule13Evidence: (_) => const Rule13InfoScreen(),
+
         // Module B — CFR Boundary Map
         AppRouter.boundaryMap: (_) => const BoundaryMapScreen(),
+
         // Module C — Gram Sabha advanced screens
         AppRouter.memberEnrolment: (_) => const MemberEnrolmentScreen(),
+
         // Profile & Settings
         AppRouter.profile: (_) => const ProfileScreen(),
       },
       onGenerateRoute: (settings) {
-        // Routes that require runtime arguments go here
+        if (settings.name == AppRouter.cfrClaimDetail) {
+          final claim = settings.arguments as Claim;
+          return MaterialPageRoute(
+            settings: settings,
+            builder: (_) => CfrClaimDetailScreen(claim: claim),
+          );
+        }
         if (settings.name == AppRouter.attendanceManagement) {
           final args = settings.arguments as Map<String, dynamic>? ?? {};
           return MaterialPageRoute(
@@ -137,7 +158,6 @@ class VanMitraApp extends ConsumerWidget {
             ),
           );
         }
-        // Module B — Alert Detail (argument: BoundaryAlert)
         if (settings.name == AppRouter.alertDetail) {
           final alert = settings.arguments as dynamic;
           return MaterialPageRoute(
@@ -145,14 +165,13 @@ class VanMitraApp extends ConsumerWidget {
             builder: (_) => AlertDetailScreen(alert: alert),
           );
         }
-        // Module B — Alert History (no arguments)
         if (settings.name == AppRouter.alertHistory) {
           return MaterialPageRoute(
             settings: settings,
             builder: (_) => const AlertHistoryScreen(),
           );
         }
-        return null; // Fall through to static routes
+        return null;
       },
     );
   }

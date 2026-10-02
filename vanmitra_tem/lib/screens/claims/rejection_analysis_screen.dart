@@ -51,9 +51,68 @@ class _RejectionAnalysisScreenState
     });
   }
 
+  Future<ImageSource?> _showSourcePicker(BuildContext context) async {
+    return await showModalBottomSheet<ImageSource>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Select Document Source / स्त्रोत निवडा',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: AppColors.forestCanopy,
+              ),
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFE8F5E9),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.camera_alt_rounded,
+                    color: AppColors.forestCanopy),
+              ),
+              title: const Text('Take Photo / कॅमेरा'),
+              subtitle: const Text('Capture rejection order with camera'),
+              onTap: () => Navigator.pop(ctx, ImageSource.camera),
+            ),
+            const Divider(),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFE3F2FD),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.photo_library_rounded,
+                    color: AppColors.govtBlue),
+              ),
+              title: const Text('Phone Gallery / गॅलरी'),
+              subtitle: const Text('Choose rejection order from phone gallery'),
+              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _captureAndAnalyze() async {
+    final source = await _showSourcePicker(context);
+    if (source == null) return;
+
     final imageFile = await _picker.pickImage(
-      source: ImageSource.camera,
+      source: source,
       imageQuality: 85,
       maxWidth: 2000,
     );

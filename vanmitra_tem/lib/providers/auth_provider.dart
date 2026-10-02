@@ -41,7 +41,7 @@ class AuthState {
 
 // ─── Auth Notifier ─────────────────────────────────────────────────────────
 
-/// Manages authentication state using Firebase Email/Password.
+/// Manages authentication state using Firebase Email/Password & Demo Roles.
 class AuthNotifier extends StateNotifier<AuthState> {
   AuthNotifier() : super(const AuthState());
 
@@ -52,14 +52,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
   /// Called from SplashScreen to restore session after app restart.
   Future<void> checkAuth() async {
     state = state.copyWith(isLoading: true);
-
-    final fbUser = _firebaseAuth.currentUser;
-
-    if (fbUser == null) {
-      // Not signed in with Firebase
-      state = const AuthState(isLoading: false);
-      return;
-    }
 
     try {
       // Try reading from Hive first (fast path, already persisted)
@@ -75,6 +67,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
           );
           return;
         }
+      }
+
+      final fbUser = _firebaseAuth.currentUser;
+      if (fbUser == null) {
+        state = const AuthState(isLoading: false);
+        return;
       }
 
       // Hive empty → fetch fresh from Firestore
@@ -132,9 +130,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         isLoading: false,
       );
 
-      // Seed all 12 schema collections for this user's village
       _initializeAndSync(user);
-
       return user.role.name;
     } on Exception catch (e) {
       state = state.copyWith(
@@ -145,10 +141,45 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  // ─── Step 3: Register ────────────────────────────────────────────────
+  // ─── Step 3: Demo Quick Login for any of the 12 roles ─────────────────
+
+  /// Quick login for development/demo mode to switch between any of the 12 roles instantly.
+  Future<String> loginAsDemoRole(UserRole role) async {
+    state = state.copyWith(isLoading: true, clearError: true);
+
+    final demoUser = User(
+      id: 'demo_${role.name}_user',
+      email: role.demoEmail,
+      name: '${role.displayNameEn} (Demo)',
+      role: role,
+      villageId: 'ozhar_jawhar_palghar',
+      tehsil: 'Jawhar',
+      district: 'Palghar',
+      state: 'Maharashtra',
+      createdAt: DateTime.now(),
+    );
+
+    await _persistToHive(demoUser);
+
+    state = AuthState(
+      currentUser: demoUser,
+      isAuthenticated: true,
+      isLoading: false,
+    );
+
+    return role.name;
+  }
+
+  // ─── Step 4: Register ────────────────────────────────────────────────
 
   /// Registers a new user. Returns role string on success for navigation.
-  Future<String?> register(String email, String password, String name, String role, String villageId) async {
+  Future<String?> register(
+    String email,
+    String password,
+    String name,
+    String role,
+    String villageId,
+  ) async {
     state = state.copyWith(isLoading: true, clearError: true);
 
     try {
@@ -159,7 +190,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         role: role,
         villageId: villageId,
       );
-      
+
       final fbUser = credential.user;
       if (fbUser == null) throw Exception('Registration returned null user.');
 
@@ -175,9 +206,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         isLoading: false,
       );
 
-      // Seed all 12 schema collections for this user's village
       _initializeAndSync(user);
-
       return user.role.name;
     } on Exception catch (e) {
       state = state.copyWith(
@@ -190,12 +219,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   // ─── Helpers ─────────────────────────────────────────────────────────
 
-  /// Clears any displayed error message.
   void clearError() {
     state = state.copyWith(clearError: true);
   }
 
-  /// Update preferred language (persisted to Hive, non-Firebase).
   Future<void> updateLanguage(String lang) async {
     if (state.currentUser == null) return;
     final updated = state.currentUser!.copyWith(preferredLanguage: lang);
@@ -203,9 +230,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = state.copyWith(currentUser: updated);
   }
 
-  /// Sign out from Firebase and clear local state.
   Future<void> logout() async {
     await _firebaseAuth.signOut();
+    final box = Hive.box<Map>(HiveDatabase.userBox);
+    await box.clear();
     state = const AuthState();
   }
 
@@ -216,16 +244,17 @@ class AuthNotifier extends StateNotifier<AuthState> {
     Map<String, dynamic> fsData,
   ) {
     final roleStr = fsData['role'] as String? ?? 'villager';
-    final UserRole role = roleStr == 'admin'
-        ? UserRole.admin
-        : UserRole.villager;
+    final role = UserRoleExtension.parse(roleStr);
 
     return User(
       id: uid,
       email: fsData['email'] as String? ?? '',
       name: fsData['name'] as String? ?? '',
       role: role,
-      villageId: fsData['villageId'] as String? ?? '',
+      villageId: fsData['villageId'] as String? ?? 'ozhar_jawhar_palghar',
+      tehsil: fsData['tehsil'] as String? ?? 'Jawhar',
+      district: fsData['district'] as String? ?? 'Palghar',
+      state: fsData['state'] as String? ?? 'Maharashtra',
       preferredLanguage: fsData['preferredLanguage'] as String? ?? 'mr',
       createdAt: fsData['createdAt'] != null
           ? (fsData['createdAt'] as dynamic).toDate()
@@ -239,14 +268,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
     await box.add(user.toJson());
   }
 
-  /// Seeds all 12 Firestore collections for the user's specific village
-  /// then flushes the offline sync queue. Safe to call multiple times — idempotent.
   void _initializeAndSync(User user) {
-    // Initialize all 12 schema collections for this user's village
     FirestoreInitializationService()
         .initializeForUser(user)
         .catchError((_) {});
-    // Also flush any locally queued offline items
     CloudSyncService().syncPendingItems().catchError((_) {});
   }
 } // end AuthNotifier
