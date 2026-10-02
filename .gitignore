@@ -44,3 +44,9 @@ node_modules/
 
 # Coverage
 coverage/
+
+# Claim-packet photos contain personal data (names, thumb impressions, signatures).
+# Keep them local / in the private Drive only. See 1mitra.md §8.
+documents/*.jpg
+documents/*.jpeg
+documents/*.png
