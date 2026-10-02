@@ -9,6 +9,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/routes/app_router.dart';
+import '../../core/theme/app_colors.dart';
 import '../../data/local/hive_database.dart';
 import '../../models/mom_record.dart';
 import '../../models/sync_item.dart';
@@ -228,8 +229,9 @@ class _GramSabhaLogScreenState extends ConsumerState<GramSabhaLogScreen>
         ? DateFormat('MMMM yyyy').format(_meetingStartTime!)
         : DateFormat('MMMM yyyy').format(DateTime.now());
 
+    final c = context.colors;
     return Scaffold(
-      backgroundColor: kSurface,
+      backgroundColor: c.scaffoldBg,
       appBar: const VanMitraTopBar(),
       floatingActionButton: _meetingStarted
           ? FloatingActionButton.extended(
@@ -264,13 +266,14 @@ class _GramSabhaLogScreenState extends ConsumerState<GramSabhaLogScreen>
           // ── Meeting Context Card ──────────────────────────────────────
           Container(
             decoration: BoxDecoration(
-              color: kSurfaceWhite,
+              color: c.cardBg,
               borderRadius: BorderRadius.circular(12),
-              boxShadow: const [
+              border: Border.all(color: c.border),
+              boxShadow: [
                 BoxShadow(
-                  color: Color(0x1A000000),
+                  color: Colors.black.withOpacity(c.isDark ? 0.25 : 0.06),
                   blurRadius: 8,
-                  offset: Offset(0, 2),
+                  offset: const Offset(0, 2),
                 ),
               ],
             ),
@@ -289,10 +292,10 @@ class _GramSabhaLogScreenState extends ConsumerState<GramSabhaLogScreen>
                             _cameraController != null
                         ? CameraPreview(_cameraController!)
                         : Container(
-                            color: const Color(0xFF4A7A3A),
+                            color: c.isDark ? const Color(0xFF1E3A24) : const Color(0xFF4A7A3A),
                             child: const Center(
                               child: Icon(Icons.groups_2_outlined,
-                                  size: 48, color: Colors.white54),
+                                  size: 48, color: Colors.white70),
                             ),
                           ),
                   ),
@@ -309,20 +312,20 @@ class _GramSabhaLogScreenState extends ConsumerState<GramSabhaLogScreen>
                         padding: const EdgeInsets.symmetric(
                             horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: kSurfaceContainerHigh,
+                          color: c.sunkenBg,
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: kOutlineVariant),
+                          border: Border.all(color: c.border),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
-                          children: const [
-                            Icon(Icons.verified,
+                          children: [
+                            const Icon(Icons.verified,
                                 size: 14, color: kStatusSuccess),
-                            SizedBox(width: 4),
+                            const SizedBox(width: 4),
                             Text(
                               'Hash-Chain Integrity: Verified',
                               style: TextStyle(
-                                  fontSize: 12, color: kOnSurfaceVariant),
+                                  fontSize: 12, color: c.textSecondary),
                             ),
                           ],
                         ),
@@ -334,34 +337,35 @@ class _GramSabhaLogScreenState extends ConsumerState<GramSabhaLogScreen>
                           Expanded(
                             child: Text(
                               meetingTitle,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 22,
                                 fontWeight: FontWeight.w700,
-                                color: kOnSurface,
+                                color: c.textPrimary,
                               ),
                             ),
                           ),
                           Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: kSurfaceContainer,
+                              color: c.sunkenBg,
                               borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: c.border),
                             ),
-                            child: const Icon(Icons.history_edu,
-                                color: kOnSurfaceVariant, size: 22),
+                            child: Icon(Icons.history_edu,
+                                color: c.textSecondary, size: 22),
                           ),
                         ],
                       ),
                       const SizedBox(height: 4),
                       Row(
                         children: [
-                          const Icon(Icons.calendar_month_outlined,
-                              size: 16, color: kOnSurfaceVariant),
+                          Icon(Icons.calendar_month_outlined,
+                              size: 16, color: c.textSecondary),
                           const SizedBox(width: 4),
                           Text(meetingDate,
-                              style: const TextStyle(
+                              style: TextStyle(
                                   fontSize: 14,
-                                  color: kOnSurfaceVariant)),
+                                  color: c.textSecondary)),
                         ],
                       ),
                       if (_geotag != null) ...
@@ -385,16 +389,14 @@ class _GramSabhaLogScreenState extends ConsumerState<GramSabhaLogScreen>
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: kSurfaceWhite,
+              color: c.cardBg,
               borderRadius: BorderRadius.circular(12),
-              border: Border(
-                left: BorderSide(color: kStatusSuccess, width: 4),
-              ),
-              boxShadow: const [
+              border: Border.all(color: c.border),
+              boxShadow: [
                 BoxShadow(
-                  color: Color(0x1A000000),
+                  color: Colors.black.withOpacity(c.isDark ? 0.25 : 0.06),
                   blurRadius: 8,
-                  offset: Offset(0, 2),
+                  offset: const Offset(0, 2),
                 ),
               ],
             ),
@@ -403,18 +405,18 @@ class _GramSabhaLogScreenState extends ConsumerState<GramSabhaLogScreen>
               children: [
                 Row(
                   children: [
-                    const Expanded(
+                    Expanded(
                       child: Row(
                         children: [
-                          Icon(Icons.monitor_heart_outlined,
+                          const Icon(Icons.monitor_heart_outlined,
                               color: kPrimary, size: 20),
-                          SizedBox(width: 6),
+                          const SizedBox(width: 6),
                           Text(
                             'Live Quorum Tracker',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
-                              color: kOnSurface,
+                              color: c.textPrimary,
                             ),
                           ),
                         ],
@@ -451,20 +453,20 @@ class _GramSabhaLogScreenState extends ConsumerState<GramSabhaLogScreen>
           // ── Verified Attendees ────────────────────────────────────────
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
                   'Verified Attendees',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: kOnSurface,
+                    color: c.textPrimary,
                   ),
                 ),
               ),
               GestureDetector(
                 onTap: _manualAddAttendee,
-                child: Row(
-                  children: const [
+                child: const Row(
+                  children: [
                     Icon(Icons.filter_list,
                         size: 18, color: kPrimary),
                     SizedBox(width: 4),
@@ -481,25 +483,26 @@ class _GramSabhaLogScreenState extends ConsumerState<GramSabhaLogScreen>
           // Attendee list card
           Container(
             decoration: BoxDecoration(
-              color: kSurfaceWhite,
+              color: c.cardBg,
               borderRadius: BorderRadius.circular(12),
-              boxShadow: const [
+              border: Border.all(color: c.border),
+              boxShadow: [
                 BoxShadow(
-                  color: Color(0x1A000000),
+                  color: Colors.black.withOpacity(c.isDark ? 0.25 : 0.06),
                   blurRadius: 8,
-                  offset: Offset(0, 2),
+                  offset: const Offset(0, 2),
                 ),
               ],
             ),
             child: attendees.isEmpty
-                ? const Padding(
-                    padding: EdgeInsets.all(24),
+                ? Padding(
+                    padding: const EdgeInsets.all(24),
                     child: Center(
                       child: Text(
                         'No attendees yet.\nTap Start Meeting to begin tracking.',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                            fontSize: 14, color: kOnSurfaceVariant, height: 1.6),
+                            fontSize: 14, color: c.textSecondary, height: 1.6),
                       ),
                     ),
                   )
@@ -514,9 +517,9 @@ class _GramSabhaLogScreenState extends ConsumerState<GramSabhaLogScreen>
                                 .removeEntry(attendees[i].memberId),
                           ),
                           if (i < attendees.length - 1)
-                            const Divider(
+                            Divider(
                                 height: 1,
-                                color: Color(0x1ABECAB5),
+                                color: c.border,
                                 indent: 72),
                         ],
                     ],
@@ -532,22 +535,22 @@ class _GramSabhaLogScreenState extends ConsumerState<GramSabhaLogScreen>
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                    color: kOutlineVariant,
-                    width: 2,
+                    color: c.border,
+                    width: 1.5,
                     style: BorderStyle.solid),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.expand_more,
-                      color: kOnSurfaceVariant, size: 20),
+                  Icon(Icons.expand_more,
+                      color: c.textSecondary, size: 20),
                   const SizedBox(width: 8),
                   Text(
                     'View All $totalAdults Attendees',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
-                      color: kOnSurfaceVariant,
+                      color: c.textSecondary,
                     ),
                   ),
                 ],
@@ -665,31 +668,31 @@ class _QuorumMetric extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     final frac = outOf > 0 ? (count / outOf).clamp(0.0, 1.0) : 0.0;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: kSurface,
+        color: c.sunkenBg,
         borderRadius: BorderRadius.circular(8),
-        border:
-            Border.all(color: kSurfaceContainerHighest),
+        border: Border.all(color: c.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label,
-              style: const TextStyle(
-                  fontSize: 13, color: kOnSurfaceVariant)),
+              style: TextStyle(
+                  fontSize: 13, color: c.textSecondary)),
           const SizedBox(height: 4),
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
                 '$count',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w700,
-                  color: kOnSurface,
+                  color: c.textPrimary,
                 ),
               ),
               const SizedBox(width: 4),
@@ -697,8 +700,8 @@ class _QuorumMetric extends StatelessWidget {
                 padding: const EdgeInsets.only(bottom: 2),
                 child: Text(
                   '/ $outOf ($pct%)',
-                  style: const TextStyle(
-                      fontSize: 14, color: kOnSurfaceVariant),
+                  style: TextStyle(
+                      fontSize: 14, color: c.textSecondary),
                 ),
               ),
             ],
@@ -708,7 +711,7 @@ class _QuorumMetric extends StatelessWidget {
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
               value: frac,
-              backgroundColor: kSurfaceContainerHighest,
+              backgroundColor: c.cardBg,
               color: color,
               minHeight: 8,
             ),
@@ -730,6 +733,7 @@ class _AttendeeRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     final initials = entry.memberName.length >= 2
         ? entry.memberName.substring(0, 2).toUpperCase()
         : entry.memberName.toUpperCase();
@@ -744,16 +748,16 @@ class _AttendeeRow extends StatelessWidget {
             height: 48,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: kSurfaceContainerHigh,
+              color: c.sunkenBg,
               border: Border.all(color: kPrimaryContainer, width: 2),
             ),
             child: Center(
               child: Text(
                 initials,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
-                  color: kOnSurfaceVariant,
+                  color: c.textPrimary,
                 ),
               ),
             ),
@@ -767,16 +771,16 @@ class _AttendeeRow extends StatelessWidget {
               children: [
                 Text(
                   entry.memberName,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: kOnSurface,
+                    color: c.textPrimary,
                   ),
                 ),
                 Text(
                   'ID: ${entry.memberId.substring(0, entry.memberId.length.clamp(0, 12))}',
-                  style: const TextStyle(
-                      fontSize: 12, color: kOnSurfaceVariant),
+                  style: TextStyle(
+                      fontSize: 12, color: c.textSecondary),
                 ),
               ],
             ),
@@ -792,8 +796,8 @@ class _AttendeeRow extends StatelessWidget {
               // Remove button
               GestureDetector(
                 onTap: onRemove,
-                child: const Icon(Icons.close,
-                    color: kOnSurfaceVariant, size: 18),
+                child: Icon(Icons.close,
+                    color: c.textTertiary, size: 18),
               ),
             ],
           ),
@@ -872,38 +876,45 @@ class _ManualAddBottomSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DraggableScrollableSheet(
-      initialChildSize: 0.6,
-      expand: false,
-      builder: (_, controller) => Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Manual Add Attendee',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'ℹ️ Manually added entries are tagged with an amber "Manual" chip in the attendance list.',
-              style: TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-            const SizedBox(height: 12),
-            // TODO: Replace with actual village member list
-            Expanded(
-              child: ListView(
-                controller: controller,
-                children: [
-                  ListTile(
-                    title: const Text('Member search coming here'),
-                    subtitle: const Text('Will list village members not yet checked in'),
-                    onTap: () => Navigator.pop(context),
-                  ),
-                ],
+    final c = context.colors;
+    return Container(
+      decoration: BoxDecoration(
+        color: c.bottomSheetBg,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        expand: false,
+        builder: (_, controller) => Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Manual Add Attendee',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: c.textPrimary),
               ),
-            ),
-          ],
+              const SizedBox(height: 8),
+              Text(
+                'ℹ️ Manually added entries are tagged with an amber "Manual" chip in the attendance list.',
+                style: TextStyle(fontSize: 12, color: c.textSecondary),
+              ),
+              const SizedBox(height: 12),
+              // TODO: Replace with actual village member list
+              Expanded(
+                child: ListView(
+                  controller: controller,
+                  children: [
+                    ListTile(
+                      title: Text('Member search coming here', style: TextStyle(color: c.textPrimary)),
+                      subtitle: Text('Will list village members not yet checked in', style: TextStyle(color: c.textSecondary)),
+                      onTap: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

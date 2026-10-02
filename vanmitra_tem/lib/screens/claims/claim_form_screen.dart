@@ -151,9 +151,11 @@ class _ClaimFormScreenState extends ConsumerState<ClaimFormScreen> {
   }
 
   void _showEmptyFieldAlert(String stepName) {
+    final c = context.colors;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
+        backgroundColor: c.dialogBg,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Row(
           children: [
@@ -184,15 +186,15 @@ class _ClaimFormScreenState extends ConsumerState<ClaimFormScreen> {
               ),
               child: Text(
                 '⚠️ Please fill in all required information for $stepName before proceeding to the next step.',
-                style: const TextStyle(fontSize: 12, height: 1.4),
+                style: TextStyle(fontSize: 12, height: 1.4, color: c.textPrimary),
               ),
             ),
             const SizedBox(height: 12),
-            const Text(
+            Text(
               'कृपया पुढील टप्प्यावर जाण्यापूर्वी सर्व आवश्यक माहिती भरा.',
               style: TextStyle(
                 fontSize: 11,
-                color: Colors.black87,
+                color: c.textSecondary,
                 fontFamily: 'NotoSansDevanagari',
               ),
             ),
@@ -202,7 +204,7 @@ class _ClaimFormScreenState extends ConsumerState<ClaimFormScreen> {
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.govtBlue,
+              backgroundColor: c.isDark ? AppColors.accentSaffron : AppColors.govtBlue,
               foregroundColor: Colors.white,
             ),
             child: const Text('OK / समजले'),
@@ -518,16 +520,20 @@ class _ClaimFormScreenState extends ConsumerState<ClaimFormScreen> {
   // ── Navigation bar ────────────────────────────────────────────────────────
 
   Widget _buildNavBar() {
+    final c = context.colors;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-              color: Color(0x15000000),
-              blurRadius: 8,
-              offset: Offset(0, -2))
-        ],
+      decoration: BoxDecoration(
+        color: c.navBg,
+        border: Border(top: BorderSide(color: c.border)),
+        boxShadow: c.isDark
+            ? []
+            : const [
+                BoxShadow(
+                    color: Color(0x15000000),
+                    blurRadius: 8,
+                    offset: Offset(0, -2))
+              ],
       ),
       child: Row(
         children: [
@@ -545,8 +551,8 @@ class _ClaimFormScreenState extends ConsumerState<ClaimFormScreen> {
               style: const TextStyle(fontFamily: 'NotoSansDevanagari'),
             ),
             style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.govtBlue,
-              side: const BorderSide(color: AppColors.govtBlue),
+              foregroundColor: c.isDark ? AppColors.accentSaffron : AppColors.govtBlue,
+              side: BorderSide(color: c.isDark ? AppColors.accentSaffron : AppColors.govtBlue),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(4)),
             ),
@@ -563,7 +569,7 @@ class _ClaimFormScreenState extends ConsumerState<ClaimFormScreen> {
                 style: const TextStyle(fontFamily: 'NotoSansDevanagari'),
               ),
               style: TextButton.styleFrom(
-                  foregroundColor: const Color(0xFF6B7280)),
+                  foregroundColor: c.textSecondary),
             ),
 
           const SizedBox(width: 8),
@@ -578,7 +584,7 @@ class _ClaimFormScreenState extends ConsumerState<ClaimFormScreen> {
                 style: const TextStyle(fontFamily: 'NotoSansDevanagari'),
               ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.govtBlue,
+                backgroundColor: c.isDark ? AppColors.accentSaffron : AppColors.govtBlue,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(4)),
@@ -592,20 +598,24 @@ class _ClaimFormScreenState extends ConsumerState<ClaimFormScreen> {
   // ── Helpers ───────────────────────────────────────────────────────────────
 
   Widget _sectionTitle(String title) {
+    final c = context.colors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           title,
-          style: const TextStyle(
+          style: TextStyle(
             fontFamily: 'NotoSansDevanagari',
             fontSize: 18,
             fontWeight: FontWeight.w700,
-            color: AppColors.govtBlue,
+            color: c.textPrimary,
           ),
         ),
         const SizedBox(height: 4),
-        const Divider(color: AppColors.govtBlue, thickness: 1.5),
+        Divider(
+          color: c.isDark ? AppColors.accentSaffron : AppColors.govtBlue,
+          thickness: 1.5,
+        ),
       ],
     );
   }
@@ -617,6 +627,7 @@ class _ClaimFormScreenState extends ConsumerState<ClaimFormScreen> {
     int maxLines = 1,
     TextInputType keyboardType = TextInputType.text,
   }) {
+    final c = context.colors;
     return TextFormField(
       controller: controller,
       maxLines: maxLines,
@@ -628,34 +639,40 @@ class _ClaimFormScreenState extends ConsumerState<ClaimFormScreen> {
         }
         return null;
       },
-      style: const TextStyle(
+      style: TextStyle(
         fontFamily: 'NotoSansDevanagari',
         fontSize: 14,
+        color: c.textPrimary,
       ),
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
-        labelStyle: const TextStyle(
+        filled: c.isDark,
+        fillColor: c.isDark ? c.sunkenBg : null,
+        labelStyle: TextStyle(
           fontFamily: 'NotoSansDevanagari',
           fontSize: 12,
-          color: AppColors.govtBlue,
+          color: c.isDark ? AppColors.accentSaffron : AppColors.govtBlue,
         ),
-        hintStyle: const TextStyle(
+        hintStyle: TextStyle(
           fontFamily: 'NotoSansDevanagari',
           fontSize: 12,
-          color: Color(0xFFCBD5E1),
+          color: c.textTertiary,
         ),
-        border: const OutlineInputBorder(
-          borderSide: BorderSide(color: Color(0xFFCBD5E1)),
+        border: OutlineInputBorder(
+          borderSide: BorderSide(color: c.border),
         ),
-        enabledBorder: const OutlineInputBorder(
-          borderSide: BorderSide(color: Color(0xFFCBD5E1)),
+        enabledBorder: OutlineInputBorder(
+          borderSide: BorderSide(color: c.border),
         ),
         errorBorder: const OutlineInputBorder(
           borderSide: BorderSide(color: AppColors.alertRed, width: 1.5),
         ),
-        focusedBorder: const OutlineInputBorder(
-          borderSide: BorderSide(color: AppColors.govtBlue, width: 1.5),
+        focusedBorder: OutlineInputBorder(
+          borderSide: BorderSide(
+            color: c.isDark ? AppColors.accentSaffron : AppColors.govtBlue,
+            width: 1.5,
+          ),
         ),
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
@@ -664,26 +681,31 @@ class _ClaimFormScreenState extends ConsumerState<ClaimFormScreen> {
   }
 
   Widget _infoBox(String text) {
+    final c = context.colors;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppColors.govtBlue.withOpacity(0.04),
+        color: c.cardBg,
         borderRadius: BorderRadius.circular(6),
-        border:
-            Border.all(color: AppColors.govtBlue.withOpacity(0.15)),
+        border: Border.all(
+          color: c.isDark ? c.border : AppColors.govtBlue.withOpacity(0.15),
+        ),
       ),
       child: Row(
         children: [
-          const Icon(Icons.info_outline_rounded,
-              color: AppColors.govtBlue, size: 16),
+          Icon(
+            Icons.info_outline_rounded,
+            color: c.isDark ? AppColors.accentSaffron : AppColors.govtBlue,
+            size: 16,
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               text,
-              style: const TextStyle(
+              style: TextStyle(
                 fontFamily: 'NotoSansDevanagari',
                 fontSize: 11,
-                color: AppColors.govtBlue,
+                color: c.textPrimary,
               ),
             ),
           ),

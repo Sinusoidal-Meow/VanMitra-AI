@@ -14,7 +14,6 @@ class AppTypography {
     fontFamily: _devanagariFamily,
     fontSize: 24,
     fontWeight: FontWeight.w700,
-    color: AppColors.textPrimary,
     height: 1.3,
   );
 
@@ -23,7 +22,6 @@ class AppTypography {
     fontFamily: _devanagariFamily,
     fontSize: 18,
     fontWeight: FontWeight.w600,
-    color: AppColors.textPrimary,
     height: 1.4,
   );
 
@@ -32,7 +30,6 @@ class AppTypography {
     fontFamily: _devanagariFamily,
     fontSize: 15,
     fontWeight: FontWeight.w500,
-    color: AppColors.textPrimary,
     height: 1.4,
   );
 
@@ -41,7 +38,6 @@ class AppTypography {
     fontFamily: _devanagariFamily,
     fontSize: 14,
     fontWeight: FontWeight.w400,
-    color: AppColors.textPrimary,
     height: 1.5,
   );
 
@@ -50,7 +46,6 @@ class AppTypography {
     fontFamily: _devanagariFamily,
     fontSize: 12,
     fontWeight: FontWeight.w400,
-    color: AppColors.textSecondary,
     height: 1.5,
   );
 
@@ -59,7 +54,6 @@ class AppTypography {
     fontFamily: _devanagariFamily,
     fontSize: 28,
     fontWeight: FontWeight.w700,
-    color: AppColors.forestCanopy,
     height: 1.2,
   );
 
@@ -68,7 +62,6 @@ class AppTypography {
     fontFamily: _devanagariFamily,
     fontSize: 28,
     fontWeight: FontWeight.w700,
-    color: AppColors.textPrimary,
     height: 1.3,
   );
 
@@ -78,7 +71,6 @@ class AppTypography {
     fontFamily: _devanagariFamily,
     fontSize: 20,
     fontWeight: FontWeight.w600,
-    color: AppColors.textPrimary,
     height: 1.3,
   );
 
@@ -88,7 +80,6 @@ class AppTypography {
     fontFamily: _devanagariFamily,
     fontSize: 16,
     fontWeight: FontWeight.w500,
-    color: AppColors.textPrimary,
     height: 1.4,
   );
 
@@ -97,7 +88,6 @@ class AppTypography {
     fontFamily: _devanagariFamily,
     fontSize: 16,
     fontWeight: FontWeight.w400,
-    color: AppColors.textPrimary,
     height: 1.5,
   );
   static const TextStyle bodyMedium = body;
@@ -107,7 +97,6 @@ class AppTypography {
     fontFamily: _devanagariFamily,
     fontSize: 14,
     fontWeight: FontWeight.w600,
-    color: AppColors.textPrimary,
     letterSpacing: 0.5,
     height: 1.4,
   );
@@ -116,7 +105,6 @@ class AppTypography {
     fontFamily: _devanagariFamily,
     fontSize: 12,
     fontWeight: FontWeight.w500,
-    color: AppColors.textSecondary,
     letterSpacing: 0.4,
     height: 1.4,
   );
@@ -125,7 +113,6 @@ class AppTypography {
     fontFamily: _devanagariFamily,
     fontSize: 11,
     fontWeight: FontWeight.w500,
-    color: AppColors.textTertiary,
     letterSpacing: 0.4,
     height: 1.4,
   );
@@ -134,9 +121,31 @@ class AppTypography {
     fontFamily: 'monospace',
     fontSize: 12,
     fontWeight: FontWeight.w400,
-    color: AppColors.textSecondary,
     letterSpacing: 0.8,
   );
 
   static const TextStyle statNumber = stat;
+
+  // ── Theme-Adaptive Context-Aware Helpers ─────────────────────────────────
+  static TextStyle displayOf(BuildContext context) =>
+      display.copyWith(color: context.colors.textPrimary);
+  static TextStyle titleOf(BuildContext context) =>
+      title.copyWith(color: context.colors.textPrimary);
+  static TextStyle subtitleOf(BuildContext context) =>
+      subtitle.copyWith(color: context.colors.textPrimary);
+  static TextStyle bodyOf(BuildContext context) =>
+      body.copyWith(color: context.colors.textPrimary);
+  static TextStyle captionOf(BuildContext context) =>
+      caption.copyWith(color: context.colors.textSecondary);
+  static TextStyle statOf(BuildContext context) =>
+      stat.copyWith(color: context.colors.statNumber);
+}
+
+extension AppTypographyX on BuildContext {
+  TextStyle get textDisplay => AppTypography.displayOf(this);
+  TextStyle get textTitle => AppTypography.titleOf(this);
+  TextStyle get textSubtitle => AppTypography.subtitleOf(this);
+  TextStyle get textBody => AppTypography.bodyOf(this);
+  TextStyle get textCaption => AppTypography.captionOf(this);
+  TextStyle get textStat => AppTypography.statOf(this);
 }

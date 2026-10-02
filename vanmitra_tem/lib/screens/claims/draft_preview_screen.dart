@@ -150,6 +150,7 @@ class _DraftPreviewScreenState extends ConsumerState<DraftPreviewScreen> {
         ? 'फॉर्म अ — वैयक्तिक वन हक्क दावा'
         : 'फॉर्म ब — सामुदायिक हक्क दावा';
 
+    final c = context.colors;
     return PortalFrameScaffold(
       breadcrumbs: const [
         'मुख्यपृष्ठ',
@@ -158,26 +159,28 @@ class _DraftPreviewScreenState extends ConsumerState<DraftPreviewScreen> {
         'मसुदा पूर्वावलोकन'
       ],
       body: _isLoading
-          ? const Center(
+          ? Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  CircularProgressIndicator(color: AppColors.govtBlue),
-                  SizedBox(height: 16),
+                  CircularProgressIndicator(
+                    color: c.isDark ? AppColors.accentSaffron : AppColors.govtBlue,
+                  ),
+                  const SizedBox(height: 16),
                   Text(
                     'AI मसुदा तयार करत आहे…',
                     style: TextStyle(
                       fontFamily: 'NotoSansDevanagari',
                       fontSize: 14,
-                      color: AppColors.govtBlue,
+                      color: c.textPrimary,
                     ),
                   ),
                 ],
               ),
             )
           : _draft == null
-              ? const Center(
-                  child: Text('दावा सापडला नाही'),
+              ? Center(
+                  child: Text('दावा सापडला नाही', style: TextStyle(color: c.textSecondary)),
                 )
               : SingleChildScrollView(
                   child: Column(
@@ -195,19 +198,19 @@ class _DraftPreviewScreenState extends ConsumerState<DraftPreviewScreen> {
 
                       // Submit feedback
                       if (_isSubmitting)
-                        const Padding(
-                          padding: EdgeInsets.all(16),
+                        Padding(
+                          padding: const EdgeInsets.all(16),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               CircularProgressIndicator(
-                                  color: AppColors.govtBlue),
-                              SizedBox(width: 12),
+                                  color: c.isDark ? AppColors.accentSaffron : AppColors.govtBlue),
+                              const SizedBox(width: 12),
                               Text(
                                 'सादर करत आहे…',
                                 style: TextStyle(
                                   fontFamily: 'NotoSansDevanagari',
-                                  color: AppColors.govtBlue,
+                                  color: c.textPrimary,
                                 ),
                               ),
                             ],

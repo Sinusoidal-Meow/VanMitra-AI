@@ -199,13 +199,14 @@ class _NoticeBoardWidgetState extends State<NoticeBoardWidget>
   }
 
   Widget _buildNoticeCard(Notice notice) {
+    final c = context.colors;
     final color = _severityColor(notice.severity);
     final isExpanded = _expandedIds.contains(notice.noticeId);
 
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: c.cardBg,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: color.withOpacity(0.3)),
         boxShadow: [
@@ -251,10 +252,11 @@ class _NoticeBoardWidgetState extends State<NoticeBoardWidget>
                       children: [
                         Text(
                           notice.titleFor(widget.lang),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontFamily: 'NotoSansDevanagari',
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
+                            color: c.textPrimary,
                           ),
                         ),
                         const SizedBox(height: 2),
@@ -291,7 +293,7 @@ class _NoticeBoardWidgetState extends State<NoticeBoardWidget>
                         isExpanded
                             ? Icons.expand_less
                             : Icons.expand_more,
-                        color: const Color(0xFF94A3B8),
+                        color: c.textTertiary,
                         size: 18,
                       ),
                     ],
@@ -314,14 +316,14 @@ class _NoticeBoardWidgetState extends State<NoticeBoardWidget>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Divider(height: 1),
+                  Divider(height: 1, color: c.border),
                   const SizedBox(height: 8),
                   Text(
                     notice.bodyFor(widget.lang),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontFamily: 'NotoSansDevanagari',
                       fontSize: 12,
-                      color: Color(0xFF374151),
+                      color: c.textSecondary,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -330,9 +332,9 @@ class _NoticeBoardWidgetState extends State<NoticeBoardWidget>
                     children: [
                       Text(
                         'वैध: ${_formatDate(notice.validUntil)} पर्यंत',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 10,
-                          color: Color(0xFF9CA3AF),
+                          color: c.textTertiary,
                         ),
                       ),
                       GestureDetector(

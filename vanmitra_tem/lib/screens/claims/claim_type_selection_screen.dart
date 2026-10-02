@@ -53,6 +53,7 @@ class _ClaimTypeBodyState extends State<_ClaimTypeBody> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -62,9 +63,11 @@ class _ClaimTypeBodyState extends State<_ClaimTypeBody> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppColors.govtBlue.withOpacity(0.04),
+              color: c.isDark ? c.cardBg : AppColors.govtBlue.withOpacity(0.04),
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppColors.govtBlue.withOpacity(0.2)),
+              border: Border.all(
+                color: c.isDark ? c.border : AppColors.govtBlue.withOpacity(0.2),
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -75,7 +78,7 @@ class _ClaimTypeBodyState extends State<_ClaimTypeBody> {
                     fontFamily: 'NotoSansDevanagari',
                     fontWeight: FontWeight.w700,
                     fontSize: 14,
-                    color: AppColors.govtBlue,
+                    color: c.isDark ? c.textPrimary : AppColors.govtBlue,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -83,8 +86,11 @@ class _ClaimTypeBodyState extends State<_ClaimTypeBody> {
                 // Scheduled Tribe toggle
                 Text(
                   context.tr('st_question'),
-                  style: const TextStyle(
-                      fontFamily: 'NotoSansDevanagari', fontSize: 13),
+                  style: TextStyle(
+                    fontFamily: 'NotoSansDevanagari',
+                    fontSize: 13,
+                    color: c.textPrimary,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Row(
@@ -110,16 +116,31 @@ class _ClaimTypeBodyState extends State<_ClaimTypeBody> {
                 // Residence start date
                 Text(
                   context.tr('residence_year'),
-                  style: const TextStyle(
-                      fontFamily: 'NotoSansDevanagari', fontSize: 13),
+                  style: TextStyle(
+                    fontFamily: 'NotoSansDevanagari',
+                    fontSize: 13,
+                    color: c.textPrimary,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 TextFormField(
+                  style: TextStyle(color: c.textPrimary, fontSize: 13),
                   decoration: InputDecoration(
                     hintText: context.tr('date_hint'),
-                    hintStyle: const TextStyle(fontSize: 12),
+                    hintStyle: TextStyle(fontSize: 12, color: c.textTertiary),
+                    filled: c.isDark,
+                    fillColor: c.isDark ? c.sunkenBg : null,
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(4),
+                      borderSide: BorderSide(color: c.border),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(4),
+                      borderSide: BorderSide(color: AppColors.accentSaffron, width: 1.5),
+                    ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(4),
+                      borderSide: BorderSide(color: c.border),
                     ),
                     contentPadding: const EdgeInsets.symmetric(
                         horizontal: 12, vertical: 10),
@@ -138,9 +159,16 @@ class _ClaimTypeBodyState extends State<_ClaimTypeBody> {
                     color: _isScheduledTribe == null || _residenceStart == null
                         ? Colors.transparent
                         : _isEligible
-                            ? AppColors.successGreen.withOpacity(0.08)
-                            : AppColors.alertRed.withOpacity(0.08),
+                            ? AppColors.successGreen.withOpacity(0.12)
+                            : AppColors.alertRed.withOpacity(0.12),
                     borderRadius: BorderRadius.circular(6),
+                    border: _isScheduledTribe != null && _residenceStart != null
+                        ? Border.all(
+                            color: _isEligible
+                                ? AppColors.successGreen.withOpacity(0.4)
+                                : AppColors.alertRed.withOpacity(0.4),
+                          )
+                        : null,
                   ),
                   child: _isScheduledTribe != null && _residenceStart != null
                       ? Text(
@@ -151,8 +179,8 @@ class _ClaimTypeBodyState extends State<_ClaimTypeBody> {
                             fontFamily: 'NotoSansDevanagari',
                             fontSize: 12,
                             color: _isEligible
-                                ? AppColors.successGreen
-                                : AppColors.alertRed,
+                                ? (c.isDark ? const Color(0xFF4ADE80) : AppColors.successGreen)
+                                : (c.isDark ? const Color(0xFFF87171) : AppColors.alertRed),
                             fontWeight: FontWeight.w600,
                           ),
                         )
@@ -165,17 +193,17 @@ class _ClaimTypeBodyState extends State<_ClaimTypeBody> {
           const SizedBox(height: 24),
           Text(
             context.tr('select_claim_type'),
-            style: const TextStyle(
+            style: TextStyle(
               fontFamily: 'NotoSansDevanagari',
               fontWeight: FontWeight.w700,
               fontSize: 16,
-              color: AppColors.govtBlue,
+              color: c.textPrimary,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             context.tr('select_claim_type_sub'),
-            style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+            style: TextStyle(fontSize: 12, color: c.textSecondary),
           ),
           const SizedBox(height: 16),
 
@@ -217,23 +245,27 @@ class _ClaimTypeBodyState extends State<_ClaimTypeBody> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AppColors.govtBlue.withOpacity(0.04),
+              color: c.isDark ? c.cardBg : AppColors.govtBlue.withOpacity(0.04),
               borderRadius: BorderRadius.circular(6),
-              border:
-                  Border.all(color: AppColors.govtBlue.withOpacity(0.15)),
+              border: Border.all(
+                color: c.isDark ? c.border : AppColors.govtBlue.withOpacity(0.15),
+              ),
             ),
             child: Row(
               children: [
-                const Icon(Icons.menu_book_outlined,
-                    color: AppColors.govtBlue, size: 16),
+                Icon(
+                  Icons.menu_book_outlined,
+                  color: c.isDark ? AppColors.accentSaffron : AppColors.govtBlue,
+                  size: 16,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     context.tr('fra_info'),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontFamily: 'NotoSansDevanagari',
                       fontSize: 11,
-                      color: AppColors.govtBlue,
+                      color: c.isDark ? c.textPrimary : AppColors.govtBlue,
                     ),
                   ),
                 ),
@@ -255,19 +287,22 @@ class _EligibilityToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+    final activeBg = c.isDark ? AppColors.accentSaffron : AppColors.govtBlue;
+    final inactiveBg = c.isDark ? c.cardBg : Colors.white;
+    final inactiveBorder = c.isDark ? c.border : const Color(0xFFCBD5E1);
+    final inactiveTextColor = c.isDark ? c.textPrimary : const Color(0xFF374151);
+
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
         decoration: BoxDecoration(
-          color:
-              selected ? AppColors.govtBlue : Colors.white,
+          color: selected ? activeBg : inactiveBg,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: selected
-                ? AppColors.govtBlue
-                : const Color(0xFFCBD5E1),
+            color: selected ? activeBg : inactiveBorder,
           ),
         ),
         child: Text(
@@ -276,7 +311,7 @@ class _EligibilityToggle extends StatelessWidget {
             fontFamily: 'NotoSansDevanagari',
             fontSize: 13,
             fontWeight: FontWeight.w600,
-            color: selected ? Colors.white : const Color(0xFF374151),
+            color: selected ? Colors.white : inactiveTextColor,
           ),
         ),
       ),
@@ -312,6 +347,7 @@ class _FormTypeCardState extends State<_FormTypeCard> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     return GestureDetector(
       onTapDown: (_) => setState(() => _pressed = true),
       onTapUp: (_) {
@@ -325,21 +361,29 @@ class _FormTypeCardState extends State<_FormTypeCard> {
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: c.cardBg,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
               color: widget.isRecommended
                   ? AppColors.accentSaffron
-                  : const Color(0xFFE2E8F0),
+                  : c.border,
               width: widget.isRecommended ? 2 : 1,
             ),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.govtBlue.withOpacity(0.06),
-                blurRadius: 8,
-                offset: const Offset(0, 3),
-              ),
-            ],
+            boxShadow: c.isDark
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ]
+                : [
+                    BoxShadow(
+                      color: AppColors.govtBlue.withOpacity(0.06),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
           ),
           child: Row(
             children: [
@@ -347,7 +391,9 @@ class _FormTypeCardState extends State<_FormTypeCard> {
                 width: 56,
                 height: 56,
                 decoration: BoxDecoration(
-                  color: AppColors.govtBlue.withOpacity(0.08),
+                  color: c.isDark
+                      ? AppColors.forestDeep.withOpacity(0.6)
+                      : AppColors.govtBlue.withOpacity(0.08),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Center(
@@ -366,7 +412,7 @@ class _FormTypeCardState extends State<_FormTypeCard> {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
-                          color: AppColors.accentSaffron.withOpacity(0.1),
+                          color: AppColors.accentSaffron.withOpacity(0.15),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
@@ -381,35 +427,38 @@ class _FormTypeCardState extends State<_FormTypeCard> {
                       ),
                     Text(
                       widget.titleMr,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontFamily: 'NotoSansDevanagari',
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
-                        color: AppColors.govtBlue,
+                        color: c.isDark ? c.textPrimary : AppColors.govtBlue,
                       ),
                     ),
                     Text(
                       widget.titleEn,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11,
-                        color: Color(0xFF6B7280),
+                        color: c.textSecondary,
                       ),
                     ),
                     const SizedBox(height: 6),
                     Text(
                       widget.description,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontFamily: 'NotoSansDevanagari',
                         fontSize: 11,
-                        color: Color(0xFF374151),
+                        color: c.textSecondary,
                         height: 1.5,
                       ),
                     ),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right,
-                  color: AppColors.govtBlue, size: 22),
+              Icon(
+                Icons.chevron_right,
+                color: c.isDark ? AppColors.accentSaffron : AppColors.govtBlue,
+                size: 22,
+              ),
             ],
           ),
         ),

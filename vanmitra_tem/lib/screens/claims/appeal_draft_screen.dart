@@ -120,6 +120,7 @@ class _AppealDraftScreenState
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     return PortalFrameScaffold(
       breadcrumbs: const [
         'मुख्यपृष्ठ',
@@ -128,25 +129,27 @@ class _AppealDraftScreenState
         'अपील मसुदा'
       ],
       body: _isLoading
-          ? const Center(
+          ? Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  CircularProgressIndicator(color: AppColors.govtBlue),
-                  SizedBox(height: 16),
+                  CircularProgressIndicator(
+                    color: c.isDark ? AppColors.accentSaffron : AppColors.govtBlue,
+                  ),
+                  const SizedBox(height: 16),
                   Text(
                     'AI अपील मसुदा तयार करत आहे…',
                     style: TextStyle(
                       fontFamily: 'NotoSansDevanagari',
                       fontSize: 14,
-                      color: AppColors.govtBlue,
+                      color: c.textPrimary,
                     ),
                   ),
                 ],
               ),
             )
           : _appeal == null
-              ? const Center(child: Text('अपील तयार करता आले नाही.'))
+              ? Center(child: Text('अपील तयार करता आले नाही.', style: TextStyle(color: c.textSecondary)))
               : SingleChildScrollView(
                   child: Column(
                     children: [
@@ -158,8 +161,9 @@ class _AppealDraftScreenState
                               16, 12, 16, 0),
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: AppColors.warningAmber
-                                .withOpacity(0.1),
+                            color: c.isDark
+                                ? AppColors.warningAmber.withOpacity(0.15)
+                                : AppColors.warningAmber.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(6),
                             border: Border.all(
                                 color: AppColors.warningAmber
@@ -174,10 +178,12 @@ class _AppealDraftScreenState
                               Expanded(
                                 child: Text(
                                   'अपील मुदत: ${_formatDate(_appeal!.appealDeadline!)}  (60 दिवस — FRA Sec. 6)',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontFamily: 'NotoSansDevanagari',
                                     fontSize: 12,
-                                    color: Color(0xFF92400E),
+                                    color: c.isDark
+                                        ? const Color(0xFFFDE68A)
+                                        : const Color(0xFF92400E),
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
@@ -199,10 +205,10 @@ class _AppealDraftScreenState
                       ),
 
                       if (_isSubmitting)
-                        const Padding(
-                          padding: EdgeInsets.all(16),
+                        Padding(
+                          padding: const EdgeInsets.all(16),
                           child: CircularProgressIndicator(
-                              color: AppColors.govtBlue),
+                              color: c.isDark ? AppColors.accentSaffron : AppColors.govtBlue),
                         ),
 
                       const SizedBox(height: 24),

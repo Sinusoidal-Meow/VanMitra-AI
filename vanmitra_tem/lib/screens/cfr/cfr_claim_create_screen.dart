@@ -110,11 +110,11 @@ class _CfrClaimCreateScreenState extends ConsumerState<CfrClaimCreateScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            const Text(
+            Text(
               'कृपया पुढील टप्प्यावर जाण्यापूर्वी लाल रंगाने दर्शवलेली सर्व आवश्यक माहिती भरा.',
               style: TextStyle(
                 fontSize: 11,
-                color: Colors.black87,
+                color: context.colors.textSecondary,
                 fontFamily: 'NotoSansDevanagari',
               ),
             ),
@@ -194,6 +194,9 @@ class _CfrClaimCreateScreenState extends ConsumerState<CfrClaimCreateScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+    final primaryAccent = c.isDark ? AppColors.forestLight : AppColors.forestCanopy;
+
     return PortalFrameScaffold(
       breadcrumbs: const ['Create CFR Claim | नवीन दावा'],
       body: SingleChildScrollView(
@@ -204,24 +207,24 @@ class _CfrClaimCreateScreenState extends ConsumerState<CfrClaimCreateScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Card(
-                color: AppColors.forestCanopy.withOpacity(0.08),
+                color: c.isDark ? AppColors.forestDarkSurface : AppColors.forestCanopy.withOpacity(0.08),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
-                  side: const BorderSide(color: AppColors.forestCanopy),
+                  side: BorderSide(color: c.isDark ? AppColors.forestLight.withOpacity(0.3) : AppColors.forestCanopy),
                 ),
-                child: const Padding(
-                  padding: EdgeInsets.all(12.0),
+                child: Padding(
+                  padding: const EdgeInsets.all(12.0),
                   child: Row(
                     children: [
-                      Icon(Icons.gavel_rounded, color: AppColors.forestCanopy),
-                      SizedBox(width: 12),
+                      Icon(Icons.gavel_rounded, color: primaryAccent),
+                      const SizedBox(width: 12),
                       Expanded(
                         child: Text(
                           'Community Forest Resource Right (CFRR) Claim under Section 3(1)(i) of Forest Rights Act (FRA), 2006.',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
-                            color: AppColors.forestCanopy,
+                            color: primaryAccent,
                           ),
                         ),
                       ),
@@ -263,12 +266,12 @@ class _CfrClaimCreateScreenState extends ConsumerState<CfrClaimCreateScreen> {
               const SizedBox(height: 12),
 
               // Location details
-              const Text(
+              Text(
                 'Jurisdiction & Location Details',
                 style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.forestCanopy),
+                    color: c.textPrimary),
               ),
               const SizedBox(height: 8),
               Row(
@@ -315,12 +318,12 @@ class _CfrClaimCreateScreenState extends ConsumerState<CfrClaimCreateScreen> {
               const SizedBox(height: 16),
 
               // Claimant / Community
-              const Text(
+              Text(
                 'Community / Claimant Details',
                 style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.forestCanopy),
+                    color: c.textPrimary),
               ),
               const SizedBox(height: 8),
               TextFormField(
@@ -345,12 +348,12 @@ class _CfrClaimCreateScreenState extends ConsumerState<CfrClaimCreateScreen> {
               const SizedBox(height: 16),
 
               // Land & Area
-              const Text(
+              Text(
                 'Land & Resource Boundaries',
                 style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.forestCanopy),
+                    color: c.textPrimary),
               ),
               const SizedBox(height: 8),
               Row(
@@ -396,7 +399,8 @@ class _CfrClaimCreateScreenState extends ConsumerState<CfrClaimCreateScreen> {
                       onPressed: () => _saveClaim(submitImmediately: false),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
-                        side: const BorderSide(color: AppColors.forestCanopy),
+                        side: BorderSide(color: primaryAccent),
+                        foregroundColor: primaryAccent,
                       ),
                       child: const Text('Save Draft'),
                     ),

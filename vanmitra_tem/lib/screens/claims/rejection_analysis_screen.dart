@@ -165,6 +165,7 @@ class _RejectionAnalysisScreenState
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     return PortalFrameScaffold(
       breadcrumbs: const [
         'मुख्यपृष्ठ',
@@ -180,10 +181,12 @@ class _RejectionAnalysisScreenState
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppColors.alertRed.withOpacity(0.06),
+                color: c.isDark
+                    ? AppColors.alertRed.withOpacity(0.12)
+                    : AppColors.alertRed.withOpacity(0.06),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                    color: AppColors.alertRed.withOpacity(0.2)),
+                    color: AppColors.alertRed.withOpacity(0.3)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -209,19 +212,19 @@ class _RejectionAnalysisScreenState
                     _claim != null
                         ? 'दावेदार: ${_claim!.claimantName} (${_claim!.id.substring(0, 12)}…)'
                         : 'नामंजुरी आदेशाचा फोटो काढा, AI नामंजुरीचे कारण ओळखेल.',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontFamily: 'NotoSansDevanagari',
                       fontSize: 12,
-                      color: Color(0xFF7F1D1D),
+                      color: c.isDark ? const Color(0xFFFCA5A5) : const Color(0xFF7F1D1D),
                     ),
                   ),
                   const SizedBox(height: 4),
-                  const Text(
+                  Text(
                     'अपील मुदत: नामंजुरी आदेशापासून 60 दिवस (FRA Sec. 6)',
                     style: TextStyle(
                       fontFamily: 'NotoSansDevanagari',
                       fontSize: 11,
-                      color: Color(0xFF9CA3AF),
+                      color: c.textSecondary,
                     ),
                   ),
                 ],
@@ -265,17 +268,17 @@ class _RejectionAnalysisScreenState
             // ── Analysis result ──────────────────────────────────────────
             if (_analysis != null) ...[
               const SizedBox(height: 24),
-              _buildAnalysisResult(),
+              _buildAnalysisResult(context),
             ],
 
             if (_analysis == null && !_isAnalyzing) ...[
               const SizedBox(height: 24),
-              const Text(
+              Text(
                 'किंवा नामंजुरीचे कारण मॅन्युअली प्रविष्ट करा:',
                 style: TextStyle(
                   fontFamily: 'NotoSansDevanagari',
                   fontSize: 12,
-                  color: Color(0xFF6B7280),
+                  color: c.textSecondary,
                 ),
               ),
               const SizedBox(height: 8),
@@ -299,7 +302,8 @@ class _RejectionAnalysisScreenState
     );
   }
 
-  Widget _buildAnalysisResult() {
+  Widget _buildAnalysisResult(BuildContext context) {
+    final c = context.colors;
     final analysis = _analysis!;
     final color = analysis.appealRecommended
         ? AppColors.accentSaffron
@@ -308,13 +312,13 @@ class _RejectionAnalysisScreenState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'AI विश्लेषण परिणाम',
           style: TextStyle(
             fontFamily: 'NotoSansDevanagari',
             fontWeight: FontWeight.w700,
             fontSize: 14,
-            color: AppColors.govtBlue,
+            color: c.textPrimary,
           ),
         ),
         const SizedBox(height: 10),
@@ -323,12 +327,12 @@ class _RejectionAnalysisScreenState
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: c.cardBg,
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: color.withOpacity(0.4)),
+            border: Border.all(color: color.withOpacity(c.isDark ? 0.6 : 0.4)),
             boxShadow: [
               BoxShadow(
-                  color: color.withOpacity(0.08),
+                  color: color.withOpacity(c.isDark ? 0.15 : 0.08),
                   blurRadius: 8,
                   offset: const Offset(0, 3))
             ],
@@ -341,7 +345,7 @@ class _RejectionAnalysisScreenState
                 value: analysis.rejectionReason ?? 'अज्ञात',
                 color: AppColors.alertRed,
               ),
-              const Divider(),
+              Divider(color: c.border),
               _ResultRow(
                 label: 'नामंजुरी वैध आहे का?',
                 value: analysis.isRejectionValid == true
@@ -353,23 +357,23 @@ class _RejectionAnalysisScreenState
                     ? AppColors.alertRed
                     : AppColors.successGreen,
               ),
-              const Divider(),
+              Divider(color: c.border),
               Text(
                 analysis.validityExplanation,
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: 'NotoSansDevanagari',
                   fontSize: 12,
-                  color: Color(0xFF374151),
+                  color: c.textPrimary,
                   height: 1.6,
                 ),
               ),
               if (!analysis.isOCRProcessed) ...[
                 const SizedBox(height: 8),
-                const Text(
+                Text(
                   '* ऑफलाइन मोड — OCR उपलब्ध नाही',
                   style: TextStyle(
                     fontSize: 10,
-                    color: Color(0xFF9CA3AF),
+                    color: c.textTertiary,
                   ),
                 ),
               ],
@@ -419,6 +423,7 @@ class _ResultRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
@@ -428,10 +433,10 @@ class _ResultRow extends StatelessWidget {
             width: 140,
             child: Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontFamily: 'NotoSansDevanagari',
                 fontSize: 12,
-                color: Color(0xFF6B7280),
+                color: c.textSecondary,
               ),
             ),
           ),
@@ -472,20 +477,31 @@ class _ManualRejectionFormState extends State<_ManualRejectionForm> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     return Column(
       children: [
         TextFormField(
           controller: _ctrl,
           maxLines: 3,
-          style: const TextStyle(
-              fontFamily: 'NotoSansDevanagari', fontSize: 13),
-          decoration: const InputDecoration(
+          style: TextStyle(
+              fontFamily: 'NotoSansDevanagari', fontSize: 13, color: c.textPrimary),
+          decoration: InputDecoration(
             hintText: 'नामंजुरीचे कारण प्रविष्ट करा…',
             hintStyle: TextStyle(
-                fontFamily: 'NotoSansDevanagari', fontSize: 12),
-            border: OutlineInputBorder(),
+                fontFamily: 'NotoSansDevanagari', fontSize: 12, color: c.textTertiary),
+            filled: c.isDark,
+            fillColor: c.isDark ? c.sunkenBg : null,
+            enabledBorder: OutlineInputBorder(
+              borderSide: BorderSide(color: c.border),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderSide: BorderSide(color: AppColors.accentSaffron, width: 1.5),
+            ),
+            border: OutlineInputBorder(
+              borderSide: BorderSide(color: c.border),
+            ),
             contentPadding:
-                EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           ),
         ),
         const SizedBox(height: 10),
@@ -498,7 +514,7 @@ class _ManualRejectionFormState extends State<_ManualRejectionForm> {
               }
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.govtBlue,
+              backgroundColor: c.isDark ? AppColors.accentSaffron : AppColors.govtBlue,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(4)),

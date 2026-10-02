@@ -38,17 +38,27 @@ class _AttendanceManagementScreenState extends ConsumerState<AttendanceManagemen
     final bool isOverallQuorumMet = currentAttendees >= requiredQuorum;
     final bool isWomenQuorumMet = currentWomenAttendees >= requiredWomenQuorum;
 
+    final c = context.colors;
     return Scaffold(
-      appBar: AppBar(title: const Text('Manage Attendance')),
+      backgroundColor: c.scaffoldBg,
+      appBar: AppBar(
+        title: const Text('Manage Attendance'),
+        backgroundColor: c.scaffoldBg,
+        foregroundColor: c.textPrimary,
+        elevation: 0,
+      ),
       body: Column(
         children: [
           // Quorum Dashboard
           Container(
             padding: const EdgeInsets.all(16),
-            color: AppColors.primary.withValues(alpha: 0.1),
+            color: c.isDark ? c.cardBg : AppColors.primary.withValues(alpha: 0.1),
             child: Column(
               children: [
-                const Text('Live Quorum Status', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                Text(
+                  'Live Quorum Status',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: c.textPrimary),
+                ),
                 const SizedBox(height: 16),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -70,11 +80,11 @@ class _AttendanceManagementScreenState extends ConsumerState<AttendanceManagemen
               ],
             ),
           ),
-          const Divider(height: 1),
+          Divider(height: 1, color: c.border),
           // List of attendees
           Expanded(
             child: records.isEmpty
-                ? const Center(child: Text('No attendees yet.'))
+                ? Center(child: Text('No attendees yet.', style: TextStyle(color: c.textSecondary)))
                 : ListView.builder(
                     itemCount: records.length,
                     itemBuilder: (context, index) {
@@ -83,7 +93,7 @@ class _AttendanceManagementScreenState extends ConsumerState<AttendanceManagemen
                         leading: CircleAvatar(
                           backgroundColor: record.method == VerificationMethod.gpsFace
                               ? AppColors.secondary
-                              : AppColors.primary,
+                              : (c.isDark ? AppColors.accentSaffron : AppColors.primary),
                           child: Icon(
                             record.method == VerificationMethod.gpsFace
                                 ? Icons.face
@@ -92,9 +102,9 @@ class _AttendanceManagementScreenState extends ConsumerState<AttendanceManagemen
                             size: 20,
                           ),
                         ),
-                        title: Text('Member ID: ${record.memberId}'),
-                        subtitle: Text('Checked in at ${record.timestamp.hour}:${record.timestamp.minute}'),
-                        trailing: Icon(Icons.check_circle, color: AppColors.success),
+                        title: Text('Member ID: ${record.memberId}', style: TextStyle(color: c.textPrimary)),
+                        subtitle: Text('Checked in at ${record.timestamp.hour}:${record.timestamp.minute}', style: TextStyle(color: c.textSecondary)),
+                        trailing: const Icon(Icons.check_circle, color: AppColors.success),
                       );
                     },
                   ),
@@ -130,7 +140,7 @@ class _AttendanceManagementScreenState extends ConsumerState<AttendanceManagemen
             icon: const Icon(Icons.person_add, color: Colors.white),
             label: const Text('Manual Check-in', style: TextStyle(color: Colors.white, fontSize: 16)),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
+              backgroundColor: c.isDark ? AppColors.accentSaffron : AppColors.primary,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             ),
           ),
@@ -155,9 +165,10 @@ class _QuorumIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     return Column(
       children: [
-        Text(title, style: const TextStyle(fontSize: 14)),
+        Text(title, style: TextStyle(fontSize: 14, color: c.textSecondary)),
         const SizedBox(height: 8),
         Stack(
           alignment: Alignment.center,
@@ -167,7 +178,7 @@ class _QuorumIndicator extends StatelessWidget {
               height: 80,
               child: CircularProgressIndicator(
                 value: (current / required).clamp(0.0, 1.0),
-                backgroundColor: Colors.grey[300],
+                backgroundColor: c.isDark ? AppColors.forestDeep : Colors.grey[300],
                 color: isMet ? AppColors.success : AppColors.error,
                 strokeWidth: 8,
               ),

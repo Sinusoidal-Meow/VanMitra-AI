@@ -19,16 +19,25 @@ class BottomNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+    final isDark = c.isDark;
+
     return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.surfaceCard,
+      decoration: BoxDecoration(
+        color: c.navBg,
         boxShadow: [
           BoxShadow(
-            color: Color(0x140F172A),
-            offset: Offset(0, -2),
+            color: isDark ? const Color(0x40000000) : const Color(0x140F172A),
+            offset: const Offset(0, -2),
             blurRadius: 8,
           ),
         ],
+        border: Border(
+          top: BorderSide(
+            color: c.navBorder,
+            width: isDark ? 1.0 : 0.5,
+          ),
+        ),
       ),
       child: SafeArea(
         top: false,
@@ -124,8 +133,13 @@ class _NavTabItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = isSelected ? AppColors.saffron : AppColors.textTertiary;
-    final bg = isSelected ? AppColors.saffron.withValues(alpha: 0.12) : Colors.transparent;
+    final c = context.colors;
+    final color = isSelected ? c.navSelected : c.navUnselected;
+    final bg = isSelected
+        ? (c.isDark
+            ? AppColors.saffron.withValues(alpha: 0.16)
+            : AppColors.saffron.withValues(alpha: 0.12))
+        : Colors.transparent;
 
     return GestureDetector(
       onTap: onTap,
@@ -149,7 +163,7 @@ class _NavTabItem extends StatelessWidget {
             Text(
               title,
               style: AppTypography.caption.copyWith(
-                color: isSelected ? AppColors.saffron : AppColors.textSecondary,
+                color: color,
                 fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                 fontSize: 10,
               ),

@@ -1,15 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/theme/app_colors.dart';
+import '../core/theme/app_spacing.dart';
 import '../providers/locale_provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/notices_provider.dart';
 import '../services/localization_service.dart';
 import 'notice_board_widget.dart';
 import 'common/app_header.dart';
+import 'common/settings_panel.dart';
 
 /// MAHA-DBT / Forest Canopy Portal Frame — used as root scaffold for core screens.
-class PortalFrameScaffold extends ConsumerWidget {
+///
+/// Phase 2: Now hosts the [SettingsPanel] overlay. A settings gear button in
+/// [AppHeader] toggles the sliding-down panel which contains:
+///   • Profile quick-access row
+///   • Light / Dark theme pill toggle
+///
+/// The panel is positioned absolutely over the content area so it overlays
+/// without pushing the scroll view down.
+class PortalFrameScaffold extends ConsumerStatefulWidget {
   final Widget body;
   final List<String> breadcrumbs;
   final bool showNoticeTicker;
@@ -30,50 +40,114 @@ class PortalFrameScaffold extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PortalFrameScaffold> createState() =>
+      _PortalFrameScaffoldState();
+}
+
+class _PortalFrameScaffoldState extends ConsumerState<PortalFrameScaffold> {
+  final _settingsPanelKey = GlobalKey<SettingsPanelState>();
+  bool _panelOpen = false;
+
+  void _toggleSettings() {
+    final nextOpen = !_panelOpen;
+    setState(() => _panelOpen = nextOpen);
+    if (nextOpen) {
+      _settingsPanelKey.currentState?.toggle();
+    } else {
+      _settingsPanelKey.currentState?.close();
+    }
+  }
+
+  void _closeSettings() {
+    if (_panelOpen) {
+      setState(() => _panelOpen = false);
+      _settingsPanelKey.currentState?.close();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final locale = ref.watch(localeProvider);
     final lang = locale.languageCode;
     final auth = ref.watch(authProvider);
     final notices = ref.watch(noticesProvider);
     final canPop = Navigator.of(context).canPop();
-    final showBack = showBackButton ?? canPop;
+    final showBack = widget.showBackButton ?? canPop;
 
-    final List<String> effectiveBreadcrumbs = breadcrumbs.isEmpty 
+    final List<String> effectiveBreadcrumbs = widget.breadcrumbs.isEmpty
         ? <String>[context.tr('tab_dashboard')]
-        : breadcrumbs;
+        : widget.breadcrumbs;
 
     return Scaffold(
-      backgroundColor: AppColors.surfaceBase,
-      floatingActionButton: floatingActionButton,
-      bottomNavigationBar: bottomNavigationBar,
-      body: Column(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      floatingActionButton: widget.floatingActionButton,
+      bottomNavigationBar: widget.bottomNavigationBar,
+      body: Stack(
         children: [
-          // ── Universal AppHeader (Forest Canopy Theme) ──────────────────────
-          AppHeader(
-            showBack: showBack,
-            actions: actions,
-            title: context.tr('app_title'),
-            subtitle: auth.currentUser?.villageId ?? context.tr('default_village_name'),
+          // ── Base layout column ───────────────────────────────────────────
+          Column(
+            children: [
+              // ── AppHeader with settings trigger ─────────────────────────
+              AppHeader(
+                showBack: showBack,
+                actions: widget.actions,
+                title: context.tr('app_title'),
+                subtitle: auth.currentUser?.villageId ??
+                    context.tr('default_village_name'),
+                onSettingsTap: _toggleSettings,
+              ),
+
+              // ── Notice Ticker ────────────────────────────────────────────
+              if (widget.showNoticeTicker && notices.activeNotices.isNotEmpty)
+                NoticeBoardWidget(
+                  notices: notices.activeNotices,
+                  mode: NoticeBoardMode.ticker,
+                  lang: lang,
+                  onDismiss: (id) =>
+                      ref.read(noticesProvider.notifier).dismissNotice(id),
+                ),
+
+              // ── Breadcrumbs ──────────────────────────────────────────────
+              if (effectiveBreadcrumbs.isNotEmpty)
+                _BreadcrumbBar(breadcrumbs: effectiveBreadcrumbs),
+
+              // ── Main Content Body ────────────────────────────────────────
+              Expanded(child: widget.body),
+
+              // ── Footer ───────────────────────────────────────────────────
+              const _PortalFooter(),
+            ],
           ),
 
-          // ── Notice Ticker ──────────────────────────────────────────────────
-          if (showNoticeTicker && notices.activeNotices.isNotEmpty)
-            NoticeBoardWidget(
-              notices: notices.activeNotices,
-              mode: NoticeBoardMode.ticker,
-              lang: lang,
-              onDismiss: (id) => ref.read(noticesProvider.notifier).dismissNotice(id),
+          // ── Transparent dismiss scrim when panel is open ─────────────────
+          // IMPORTANT: This must be BELOW the SettingsPanel in the Stack so
+          // taps on the panel (e.g. the theme toggle) reach the panel first
+          // and do NOT bubble down to the scrim, keeping the panel open.
+          if (_panelOpen)
+            Positioned.fill(
+              child: GestureDetector(
+                onTap: _closeSettings,
+                behavior: HitTestBehavior.translucent,
+                child: const SizedBox.expand(),
+              ),
             ),
 
-          // ── Breadcrumbs ────────────────────────────────────────────────────
-          if (effectiveBreadcrumbs.isNotEmpty)
-            _BreadcrumbBar(breadcrumbs: effectiveBreadcrumbs),
-
-          // ── Main Content Body ──────────────────────────────────────────────
-          Expanded(child: body),
-
-          // ── Footer ─────────────────────────────────────────────────────────
-          const _PortalFooter(),
+          // ── Settings Panel overlay (sits just below AppHeader) ───────────
+          // Must be ABOVE the scrim so its taps are not intercepted.
+          Positioned(
+            top: kToolbarHeight +
+                MediaQuery.of(context).padding.top +
+                AppSpacing.xs,
+            left: 0,
+            right: 0,
+            // GestureDetector with opaque behaviour absorbs all taps inside
+            // the panel, preventing them from reaching the dismiss scrim below.
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () {}, // absorb — prevents scrim from firing
+              child: SettingsPanel(key: _settingsPanelKey),
+            ),
+          ),
         ],
       ),
     );
@@ -88,17 +162,24 @@ class _BreadcrumbBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: double.infinity,
-      color: AppColors.surfaceSunken,
+      color: isDark ? const Color(0xFF111E17) : AppColors.surfaceSunken,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
       child: Row(
         children: [
           for (int i = 0; i < breadcrumbs.length; i++) ...[
             if (i > 0)
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 4),
-                child: Text('›', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Text('›',
+                    style: TextStyle(
+                      color: isDark
+                          ? AppColors.forestMist
+                          : AppColors.textSecondary,
+                      fontSize: 12,
+                    )),
               ),
             GestureDetector(
               onTap: i < breadcrumbs.length - 1
@@ -116,9 +197,17 @@ class _BreadcrumbBar extends StatelessWidget {
                 style: TextStyle(
                   fontFamily: 'NotoSansDevanagari',
                   fontSize: 12,
-                  color: i == breadcrumbs.length - 1 ? AppColors.forestCanopy : AppColors.textSecondary,
-                  fontWeight: i == breadcrumbs.length - 1 ? FontWeight.w700 : FontWeight.w500,
-                  decoration: i < breadcrumbs.length - 1 ? TextDecoration.underline : TextDecoration.none,
+                  color: i == breadcrumbs.length - 1
+                      ? AppColors.forestSage
+                      : (isDark
+                          ? AppColors.forestMist
+                          : AppColors.textSecondary),
+                  fontWeight: i == breadcrumbs.length - 1
+                      ? FontWeight.w700
+                      : FontWeight.w500,
+                  decoration: i < breadcrumbs.length - 1
+                      ? TextDecoration.underline
+                      : TextDecoration.none,
                 ),
               ),
             ),
@@ -136,15 +225,16 @@ class _PortalFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     return Container(
       width: double.infinity,
-      color: AppColors.forestCanopy,
+      color: c.isDark ? const Color(0xFF0F1E16) : AppColors.forestCanopy,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       child: Text(
         context.tr('footer_text'),
-        style: const TextStyle(
+        style: TextStyle(
           fontFamily: 'NotoSansDevanagari',
-          color: Color(0xDDFFFFFF),
+          color: c.isDark ? AppColors.darkText2 : const Color(0xDDFFFFFF),
           fontSize: 10,
         ),
         textAlign: TextAlign.center,
@@ -152,3 +242,5 @@ class _PortalFooter extends StatelessWidget {
     );
   }
 }
+
+

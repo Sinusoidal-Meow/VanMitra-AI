@@ -67,13 +67,14 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> {
     final yellowCount = _allAlerts.where((a) => a.tier == AlertTier.yellow).length;
     final greenCount = _allAlerts.where((a) => a.tier == AlertTier.green).length;
 
+    final c = context.colors;
     return PortalFrameScaffold(
       breadcrumbs: const ['Map', 'Alert History'],
       body: Column(
         children: [
           // ── Summary Stats Bar ──────────────────────────────────────────
           Container(
-            color: AppColors.surfaceCard,
+            color: c.cardBg,
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: 12),
             child: Row(
               children: [
@@ -97,7 +98,7 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> {
 
           // ── Filter Chips ───────────────────────────────────────────────
           Container(
-            color: AppColors.surfaceCard,
+            color: c.cardBg,
             padding: const EdgeInsets.only(
                 left: AppSpacing.md, right: AppSpacing.md, bottom: AppSpacing.md),
             child: SingleChildScrollView(
@@ -125,18 +126,18 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> {
             ),
           ),
 
-          const Divider(height: 1, color: AppColors.divider),
+          Divider(height: 1, color: c.border),
 
           // ── Count Bar ─────────────────────────────────────────────────
           Container(
-            color: AppColors.surfaceSunken,
+            color: c.sunkenBg,
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: 8),
             child: Row(
               children: [
                 Text(
                   '${filtered.length} parcels',
                   style: AppTypography.caption.copyWith(
-                    color: AppColors.textSecondary,
+                    color: c.textSecondary,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -144,15 +145,14 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> {
                 Text(
                   'Ozar Village · demo-v1-synthetic',
                   style: AppTypography.caption.copyWith(
-                    fontSize: 10,
-                    color: AppColors.textTertiary,
-                    fontStyle: FontStyle.italic,
+                    color: c.textTertiary,
+                    fontSize: 11,
                   ),
                 ),
               ],
             ),
           ),
-          const Divider(height: 1, color: AppColors.divider),
+          Divider(height: 1, color: c.border),
 
           // ── Alerts List ────────────────────────────────────────────────
           Expanded(
@@ -225,22 +225,29 @@ class _FilterPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
         decoration: BoxDecoration(
-          color: selected ? AppColors.forestSage.withValues(alpha: 0.15) : AppColors.surfaceCard,
+          color: selected
+              ? (c.isDark ? AppColors.forestDeep : AppColors.forestSage.withValues(alpha: 0.15))
+              : c.chipUnselectedBg,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: selected ? AppColors.forestSage : AppColors.divider,
+            color: selected
+                ? (c.isDark ? AppColors.accentSaffron : AppColors.forestSage)
+                : c.chipUnselectedBorder,
             width: 1.2,
           ),
         ),
         child: Text(label,
           style: AppTypography.caption.copyWith(
-            color: selected ? AppColors.forestCanopy : AppColors.textSecondary,
+            color: selected
+                ? (c.isDark ? AppColors.accentSaffron : AppColors.forestCanopy)
+                : c.textSecondary,
             fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
             fontSize: 12,
           )),
@@ -258,6 +265,7 @@ class _AlertCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     final tierColor = Color(alert.tier.argbColor);
     final isGreen = alert.tier == AlertTier.green;
 
@@ -294,6 +302,7 @@ class _AlertCard extends StatelessWidget {
                           style: AppTypography.body.copyWith(
                             fontWeight: FontWeight.w700,
                             fontSize: 14,
+                            color: c.textPrimary,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -319,7 +328,7 @@ class _AlertCard extends StatelessWidget {
                   const SizedBox(height: 3),
                   Text(
                     'Survey ${alert.surveyNo ?? "N/A"} · ${alert.landUseType ?? ""}',
-                    style: AppTypography.caption.copyWith(color: AppColors.textSecondary),
+                    style: AppTypography.caption.copyWith(color: c.textSecondary),
                   ),
                   if (!isGreen && alert.areaAffectedSqm != null && alert.areaAffectedSqm! > 0)
                     Text(
@@ -348,8 +357,8 @@ class _AlertCard extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right_rounded,
-                color: AppColors.textTertiary, size: 20),
+            Icon(Icons.chevron_right_rounded,
+                color: c.textTertiary, size: 20),
           ],
         ),
       ),

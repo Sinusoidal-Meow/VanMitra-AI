@@ -96,32 +96,32 @@ class _MyClaimsScreenState extends ConsumerState<MyClaimsScreen> {
       ),
       body: Column(
         children: [
-          // ── Search Bar (DBT Application Tracker pattern) ────────────────
+          // ── Search Bar (DBT Application Tracker pattern) ────────────────────
           Container(
-            color: AppColors.surfaceCard,
+            color: context.colors.cardBg,
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
             child: TextField(
               controller: _searchCtrl,
               onChanged: (v) => setState(() => _searchQuery = v),
-              style: AppTypography.body,
+              style: AppTypography.body.copyWith(color: context.colors.textPrimary),
               decoration: InputDecoration(
                 hintText: context.tr('search_placeholder') /* Search by application ID or claimant */,
-                hintStyle: AppTypography.caption.copyWith(color: AppColors.textTertiary),
-                prefixIcon: const Icon(Icons.search_rounded, color: AppColors.textSecondary),
+                hintStyle: AppTypography.caption.copyWith(color: context.colors.textTertiary),
+                prefixIcon: Icon(Icons.search_rounded, color: context.colors.textSecondary),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(AppRadius.md),
-                  borderSide: const BorderSide(color: AppColors.divider),
+                  borderSide: BorderSide(color: context.colors.border),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(AppRadius.md),
-                  borderSide: const BorderSide(color: AppColors.divider),
+                  borderSide: BorderSide(color: context.colors.border),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(AppRadius.md),
                   borderSide: const BorderSide(color: AppColors.forestSage, width: 2),
                 ),
                 filled: true,
-                fillColor: AppColors.surfaceBase,
+                fillColor: context.colors.sunkenBg,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               ),
             ),
@@ -129,7 +129,7 @@ class _MyClaimsScreenState extends ConsumerState<MyClaimsScreen> {
 
           // ── Status Filter Chips ──────────────────────────────────────────
           Container(
-            color: AppColors.surfaceCard,
+            color: context.colors.cardBg,
             padding: const EdgeInsets.only(left: AppSpacing.md, right: AppSpacing.md, bottom: AppSpacing.md),
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -160,7 +160,7 @@ class _MyClaimsScreenState extends ConsumerState<MyClaimsScreen> {
 
           // ── Summary Metrics Bar ──────────────────────────────────────────
           Container(
-            color: AppColors.surfaceSunken,
+            color: context.colors.sunkenBg,
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: 10),
             child: Row(
               children: [
@@ -184,12 +184,12 @@ class _MyClaimsScreenState extends ConsumerState<MyClaimsScreen> {
                 const Spacer(),
                 Text(
                   '${filtered.length} ${context.tr('claims_count_suffix')}',
-                  style: AppTypography.caption.copyWith(color: AppColors.textSecondary, fontWeight: FontWeight.w600),
+                  style: AppTypography.caption.copyWith(color: context.colors.textSecondary, fontWeight: FontWeight.w600),
                 ),
               ],
             ),
           ),
-          const Divider(height: 1, color: AppColors.divider),
+          Divider(height: 1, color: context.colors.border),
 
           // ── Claims Directory List ────────────────────────────────────────
           Expanded(
@@ -244,20 +244,28 @@ class _FilterChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+    final effectiveColor = (selected && c.isDark && color == AppColors.forestCanopy)
+        ? AppColors.forestSage
+        : color;
+
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
         decoration: BoxDecoration(
-          color: selected ? color : AppColors.surfaceCard,
+          color: selected ? effectiveColor : c.chipUnselectedBg,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: selected ? color : AppColors.divider, width: 1.2),
+          border: Border.all(
+            color: selected ? effectiveColor : c.chipUnselectedBorder,
+            width: 1.2,
+          ),
         ),
         child: Text(
           label,
           style: AppTypography.caption.copyWith(
-            color: selected ? AppColors.textOnBrand : AppColors.textPrimary,
+            color: selected ? AppColors.textOnBrand : c.textPrimary,
             fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
             fontSize: 12,
           ),
@@ -320,6 +328,7 @@ class _ClaimTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     final fmt = DateFormat('dd/MM/yyyy');
     final isRejected = claim.status == ClaimStatus.rejected;
 
@@ -370,8 +379,14 @@ class _ClaimTile extends StatelessWidget {
                   height: 44,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: AppColors.forestCanopy.withValues(alpha: 0.08),
-                    border: Border.all(color: AppColors.forestSage.withValues(alpha: 0.3)),
+                    color: c.isDark
+                        ? AppColors.forestMist.withValues(alpha: 0.15)
+                        : AppColors.forestCanopy.withValues(alpha: 0.08),
+                    border: Border.all(
+                      color: c.isDark
+                          ? AppColors.forestMist.withValues(alpha: 0.4)
+                          : AppColors.forestSage.withValues(alpha: 0.3),
+                    ),
                   ),
                   child: Center(
                     child: Text(claim.status.icon, style: const TextStyle(fontSize: 20)),
@@ -388,7 +403,11 @@ class _ClaimTile extends StatelessWidget {
                           Expanded(
                             child: Text(
                               claim.claimantName,
-                              style: AppTypography.title.copyWith(fontSize: 15, fontWeight: FontWeight.w700),
+                              style: AppTypography.title.copyWith(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: c.textPrimary,
+                              ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -400,29 +419,29 @@ class _ClaimTile extends StatelessWidget {
                       const SizedBox(height: 4),
                       Text(
                         '${context.tr('application_no')}: ${claim.id.length > 12 ? "${claim.id.substring(0, 12)}…" : claim.id}',
-                        style: AppTypography.caption.copyWith(color: AppColors.textTertiary, fontFamily: 'monospace'),
+                        style: AppTypography.caption.copyWith(color: c.textTertiary, fontFamily: 'monospace'),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         '${context.tr('survey_no')}: ${claim.surveyNumber ?? "N/A"}  •  ${claim.areaSqMeters?.toStringAsFixed(0) ?? "?"} ${context.tr('sq_meters')}',
-                        style: AppTypography.body.copyWith(fontSize: 13, color: AppColors.textSecondary),
+                        style: AppTypography.body.copyWith(fontSize: 13, color: c.textSecondary),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         '${context.tr('date_prefix')}: ${fmt.format(claim.createdAt)}',
-                        style: AppTypography.caption.copyWith(color: AppColors.textTertiary),
+                        style: AppTypography.caption.copyWith(color: c.textTertiary),
                       ),
                     ],
                   ),
                 ),
-                const Icon(Icons.chevron_right_rounded, color: AppColors.textTertiary, size: 22),
+                Icon(Icons.chevron_right_rounded, color: c.textTertiary, size: 22),
               ],
             ),
 
             // Mini Status Progression Timeline
             if (claim.status != ClaimStatus.draft) ...[
               const SizedBox(height: AppSpacing.md),
-              const Divider(height: 1, color: AppColors.divider),
+              Divider(height: 1, color: c.border),
               const SizedBox(height: AppSpacing.md),
               StatusTimelineWidget(
                 steps: [
@@ -525,9 +544,9 @@ class _SatelliteTierBadgeState extends State<_SatelliteTierBadge> {
                 fontSize: 11,
               ),
             ),
-            if (_alert != null) ...const [
-              SizedBox(width: 6),
-              Icon(Icons.open_in_new_rounded, size: 12, color: AppColors.textTertiary),
+            if (_alert != null) ...[
+              const SizedBox(width: 6),
+              Icon(Icons.open_in_new_rounded, size: 12, color: context.colors.textTertiary),
             ],
           ],
         ),

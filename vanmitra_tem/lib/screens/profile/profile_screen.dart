@@ -79,7 +79,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 // 2. Offline Storage & Cloud Diagnostics Card
                 Text(
                   'Cloud Sync & Offline Storage Diagnostics',
-                  style: AppTypography.title.copyWith(color: AppColors.textPrimary),
+                  style: AppTypography.title.copyWith(color: context.colors.textPrimary),
                 ),
                 const SizedBox(height: AppSpacing.md),
                 AppCard(
@@ -93,11 +93,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         children: [
                           Row(
                             children: [
-                              const Icon(Icons.cloud_sync_rounded, color: AppColors.forestCanopy, size: 24),
+                              Icon(
+                                Icons.cloud_sync_rounded,
+                                color: context.colors.isDark ? AppColors.forestMist : AppColors.forestCanopy,
+                                size: 24,
+                              ),
                               const SizedBox(width: AppSpacing.sm),
                               Text(
                                 'Hive Local Queue State',
-                                style: AppTypography.subtitle.copyWith(color: AppColors.textPrimary, fontWeight: FontWeight.w700),
+                                style: AppTypography.subtitle.copyWith(
+                                  color: context.colors.textPrimary,
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
                             ],
                           ),
@@ -107,7 +114,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       const SizedBox(height: AppSpacing.sm),
                       Text(
                         'VanMitra-AI buffers all attendance check-ins, resolutions, and FRA claim filings locally in encrypted Hive storage during field surveys before syncing to Cloud Firestore.',
-                        style: AppTypography.caption.copyWith(color: AppColors.textSecondary, height: 1.3),
+                        style: AppTypography.caption.copyWith(color: context.colors.textSecondary, height: 1.3),
                       ),
                       const SizedBox(height: AppSpacing.md),
                       PrimaryButton(
@@ -124,7 +131,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 // 3. User Preferences & Document Directory
                 Text(
                   'Account Preferences & Documents',
-                  style: AppTypography.title.copyWith(color: AppColors.textPrimary),
+                  style: AppTypography.title.copyWith(color: context.colors.textPrimary),
                 ),
                 const SizedBox(height: AppSpacing.md),
                 ActionListItem(
@@ -179,7 +186,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         'DIGITAL INDIA • TRIBAL DEVELOPMENT DEPARTMENT',
                         style: AppTypography.caption.copyWith(
                           fontSize: 10,
-                          color: AppColors.textTertiary,
+                          color: context.colors.textTertiary,
                           letterSpacing: 0.8,
                           fontWeight: FontWeight.w600,
                         ),
@@ -207,9 +214,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   void _showLanguagePicker(BuildContext context) {
+    final c = context.colors;
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppColors.surfaceCard,
+      backgroundColor: c.bottomSheetBg,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.lg)),
       ),
@@ -221,7 +229,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           children: [
             Text(
               'Select Interface Language',
-              style: AppTypography.title.copyWith(color: AppColors.textPrimary, fontSize: 18),
+              style: AppTypography.title.copyWith(color: c.textPrimary, fontSize: 18),
             ),
             const SizedBox(height: AppSpacing.md),
             ...[
@@ -233,7 +241,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               return ListTile(
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
                 leading: const Icon(Icons.language_rounded, color: AppColors.forestSage),
-                title: Text(pair.$1, style: AppTypography.subtitle.copyWith(color: AppColors.textPrimary)),
+                title: Text(pair.$1, style: AppTypography.subtitle.copyWith(color: c.textPrimary)),
                 onTap: () {
                   ref.read(localeProvider.notifier).setLocale(pair.$2);
                   Navigator.pop(context);
@@ -247,20 +255,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   void _confirmLogout(BuildContext context) {
+    final c = context.colors;
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
-        backgroundColor: AppColors.surfaceCard,
-        title: Text('Logout from Portal', style: AppTypography.title.copyWith(color: AppColors.textPrimary)),
+        backgroundColor: c.dialogBg,
+        title: Text('Logout from Portal', style: AppTypography.title.copyWith(color: c.textPrimary)),
         content: Text(
           'Are you sure you want to securely end your current session? Offline Hive data will remain preserved.',
-          style: AppTypography.body.copyWith(color: AppColors.textSecondary),
+          style: AppTypography.body.copyWith(color: c.textSecondary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Cancel', style: AppTypography.subtitle.copyWith(color: AppColors.textSecondary)),
+            child: Text('Cancel', style: AppTypography.subtitle.copyWith(color: c.textSecondary)),
           ),
           ElevatedButton(
             onPressed: () {

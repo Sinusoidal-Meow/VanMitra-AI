@@ -50,7 +50,7 @@ class _StatusTimelineWidgetState extends State<StatusTimelineWidget>
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: Colors.white,
+      color: Colors.transparent,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       child: Column(
         children: [
@@ -58,8 +58,8 @@ class _StatusTimelineWidgetState extends State<StatusTimelineWidget>
           Row(
             children: [
               for (int i = 0; i < widget.steps.length; i++) ...[
-                _buildStepCircle(i),
-                if (i < widget.steps.length - 1) _buildConnector(i),
+                _buildStepCircle(context, i),
+                if (i < widget.steps.length - 1) _buildConnector(context, i),
               ],
             ],
           ),
@@ -74,7 +74,7 @@ class _StatusTimelineWidgetState extends State<StatusTimelineWidget>
                     style: TextStyle(
                       fontFamily: 'NotoSansDevanagari',
                       fontSize: 9,
-                      color: _labelColor(i),
+                      color: _labelColor(context, i),
                       fontWeight: i == widget.currentStep
                           ? FontWeight.w700
                           : FontWeight.w400,
@@ -91,7 +91,8 @@ class _StatusTimelineWidgetState extends State<StatusTimelineWidget>
     );
   }
 
-  Widget _buildStepCircle(int i) {
+  Widget _buildStepCircle(BuildContext context, int i) {
+    final c = context.colors;
     final isDone = i < widget.currentStep;
     final isCurrent = i == widget.currentStep;
     final isLast = i == widget.steps.length - 1;
@@ -115,11 +116,11 @@ class _StatusTimelineWidgetState extends State<StatusTimelineWidget>
         ),
       );
     } else {
-      circleColor = const Color(0xFFCBD5E1);
+      circleColor = c.isDark ? c.sunkenBg : const Color(0xFFCBD5E1);
       child = Text(
         '${i + 1}',
-        style: const TextStyle(
-          color: Color(0xFF94A3B8),
+        style: TextStyle(
+          color: c.isDark ? c.textTertiary : const Color(0xFF94A3B8),
           fontSize: 11,
           fontWeight: FontWeight.w500,
         ),
@@ -132,6 +133,9 @@ class _StatusTimelineWidgetState extends State<StatusTimelineWidget>
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: circleColor,
+        border: (c.isDark && !isDone && !isCurrent)
+            ? Border.all(color: c.border.withValues(alpha: 0.5))
+            : null,
         boxShadow: isCurrent
             ? [
                 BoxShadow(
@@ -155,9 +159,12 @@ class _StatusTimelineWidgetState extends State<StatusTimelineWidget>
     return circle;
   }
 
-  Widget _buildConnector(int i) {
+  Widget _buildConnector(BuildContext context, int i) {
+    final c = context.colors;
     final isCompleted = i < widget.currentStep - 1 ||
         (i == widget.currentStep - 1);
+    final inactiveLineColor = c.isDark ? c.border : const Color(0xFFCBD5E1);
+
     return Expanded(
       child: Container(
         height: 2,
@@ -166,21 +173,22 @@ class _StatusTimelineWidgetState extends State<StatusTimelineWidget>
               ? const LinearGradient(
                   colors: [AppColors.successGreen, AppColors.successGreen],
                 )
-              : const LinearGradient(
-                  colors: [Color(0xFFCBD5E1), Color(0xFFCBD5E1)],
+              : LinearGradient(
+                  colors: [inactiveLineColor, inactiveLineColor],
                 ),
         ),
       ),
     );
   }
 
-  Color _labelColor(int i) {
+  Color _labelColor(BuildContext context, int i) {
+    final c = context.colors;
     if (i < widget.currentStep) return AppColors.successGreen;
     if (i == widget.currentStep) {
       return (i == widget.steps.length - 1 && widget.isRejected)
           ? AppColors.alertRed
           : AppColors.accentSaffron;
     }
-    return const Color(0xFF94A3B8);
+    return c.isDark ? c.textTertiary : const Color(0xFF94A3B8);
   }
 }

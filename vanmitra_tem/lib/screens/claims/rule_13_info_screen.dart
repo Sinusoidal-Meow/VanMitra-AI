@@ -127,19 +127,28 @@ class Rule13InfoScreen extends StatelessWidget {
     required int weight,
     required Color color,
   }) {
+    final c = context.colors;
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: c.cardBg,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade200),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        border: Border.all(color: c.border),
+        boxShadow: c.isDark
+            ? [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.2),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ]
+            : [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.03),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
       ),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -149,7 +158,7 @@ class Rule13InfoScreen extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
+                color: color.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(icon, color: color, size: 28),
@@ -165,11 +174,11 @@ class Rule13InfoScreen extends StatelessWidget {
                       Expanded(
                         child: Text(
                           context.tr('ev_cat_$keyName'),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontFamily: 'NotoSansDevanagari',
                             fontWeight: FontWeight.bold,
                             fontSize: 15,
-                            color: AppColors.textPrimary,
+                            color: c.textPrimary,
                           ),
                         ),
                       ),
@@ -193,10 +202,10 @@ class Rule13InfoScreen extends StatelessWidget {
                   const SizedBox(height: 8),
                   Text(
                     context.tr('ev_desc_$keyName'),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontFamily: 'NotoSansDevanagari',
                       fontSize: 13,
-                      color: AppColors.textSecondary,
+                      color: c.textSecondary,
                       height: 1.4,
                     ),
                   ),

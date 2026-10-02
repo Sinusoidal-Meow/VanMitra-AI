@@ -156,7 +156,7 @@ class _HomeTab extends ConsumerWidget {
                 // 4. FRA Claims Action Module
                 Text(
                   context.tr('claims') /* Claims Management */,
-                  style: AppTypography.title.copyWith(color: AppColors.textPrimary),
+                  style: AppTypography.title.copyWith(color: context.colors.textPrimary),
                 ),
                 const SizedBox(height: AppSpacing.md),
                 ActionListItem(
@@ -179,7 +179,7 @@ class _HomeTab extends ConsumerWidget {
                 // 5. Gram Sabha & Governance Actions
                 Text(
                   context.tr('gram_sabha') /* Gram Sabha & Records */,
-                  style: AppTypography.title.copyWith(color: AppColors.textPrimary),
+                  style: AppTypography.title.copyWith(color: context.colors.textPrimary),
                 ),
                 const SizedBox(height: AppSpacing.md),
                 ActionListItem(
@@ -226,7 +226,7 @@ class _HomeTab extends ConsumerWidget {
                 // 6. Satellite Parcel Status Card (Module B)
                 Text(
                   'Satellite Monitoring',
-                  style: AppTypography.title.copyWith(color: AppColors.textPrimary),
+                  style: AppTypography.title.copyWith(color: context.colors.textPrimary),
                 ),
                 const SizedBox(height: AppSpacing.md),
                 _ParcelStatusCard(
@@ -269,11 +269,11 @@ class _HomeTab extends ConsumerWidget {
                 children: [
                   Text(
                     context.tr('next_meeting') /* Next Meeting */,
-                    style: AppTypography.subtitle.copyWith(color: AppColors.textPrimary),
+                    style: AppTypography.subtitle.copyWith(color: context.colors.textPrimary),
                   ),
                   Text(
                     context.tr('no_meeting_scheduled'),
-                    style: AppTypography.caption.copyWith(color: AppColors.textSecondary),
+                    style: AppTypography.caption.copyWith(color: context.colors.textSecondary),
                   ),
                 ],
               ),
@@ -316,17 +316,17 @@ class _HomeTab extends ConsumerWidget {
           const SizedBox(height: AppSpacing.md),
           Text(
             meeting.type.displayNameMr,
-            style: AppTypography.title.copyWith(fontSize: 17, color: AppColors.textPrimary),
+            style: AppTypography.title.copyWith(fontSize: 17, color: context.colors.textPrimary),
           ),
           const SizedBox(height: AppSpacing.xs),
           Row(
             children: [
-              const Icon(Icons.location_on_outlined, size: 15, color: AppColors.textSecondary),
+              Icon(Icons.location_on_outlined, size: 15, color: context.colors.textSecondary),
               const SizedBox(width: 4),
               Expanded(
                 child: Text(
                   '${context.tr('venue')}: ${meeting.venue}',
-                  style: AppTypography.body.copyWith(fontSize: 13, color: AppColors.textSecondary),
+                  style: AppTypography.body.copyWith(fontSize: 13, color: context.colors.textSecondary),
                 ),
               ),
             ],
@@ -446,7 +446,10 @@ class _ParcelStatusCardState extends State<_ParcelStatusCard> {
                     children: [
                       Text(
                         'Your Parcel',
-                        style: AppTypography.body.copyWith(fontWeight: FontWeight.w700),
+                        style: AppTypography.body.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: context.colors.textPrimary,
+                        ),
                       ),
                       const Spacer(),
                       Container(
@@ -470,7 +473,7 @@ class _ParcelStatusCardState extends State<_ParcelStatusCard> {
                   const SizedBox(height: 3),
                   Text(
                     cause,
-                    style: AppTypography.caption.copyWith(color: AppColors.textSecondary),
+                    style: AppTypography.caption.copyWith(color: context.colors.textSecondary),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -481,13 +484,15 @@ class _ParcelStatusCardState extends State<_ParcelStatusCard> {
                         if (feasibility != null) feasibility.label,
                       ].join(' · '),
                       style: AppTypography.caption.copyWith(
-                        fontSize: 11, color: AppColors.textTertiary),
+                        fontSize: 11,
+                        color: context.colors.textTertiary,
+                      ),
                     ),
                 ],
               ),
             ),
             const SizedBox(width: AppSpacing.sm),
-            const Icon(Icons.chevron_right_rounded, color: AppColors.textTertiary, size: 20),
+            Icon(Icons.chevron_right_rounded, color: context.colors.textTertiary, size: 20),
           ],
         ),
       ),

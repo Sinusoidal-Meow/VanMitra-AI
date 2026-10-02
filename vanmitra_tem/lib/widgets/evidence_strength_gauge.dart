@@ -38,16 +38,17 @@ class EvidenceStrengthGauge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     return Container(
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: c.cardBg,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: _color.withOpacity(0.3), width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: _color.withOpacity(0.1),
+            color: c.isDark ? Colors.black.withOpacity(0.4) : _color.withOpacity(0.1),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -89,10 +90,10 @@ class EvidenceStrengthGauge extends StatelessWidget {
               children: [
                 Text(
                   context.tr('evidence_score_label'),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: 'NotoSansDevanagari',
                     fontSize: 11,
-                    color: Color(0xFF6B7280),
+                    color: c.textSecondary,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -113,17 +114,17 @@ class EvidenceStrengthGauge extends StatelessWidget {
                     value:
                         totalCount > 0 ? presentCount / totalCount : 0.0,
                     minHeight: 6,
-                    backgroundColor: const Color(0xFFE2E8F0),
+                    backgroundColor: c.sunkenBg,
                     valueColor: AlwaysStoppedAnimation<Color>(_color),
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   '$presentCount/$totalCount ${context.tr('evidence_submitted')}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: 'NotoSansDevanagari',
                     fontSize: 10,
-                    color: Color(0xFF9CA3AF),
+                    color: c.textTertiary,
                   ),
                 ),
               ],
@@ -184,13 +185,14 @@ class EvidenceTableRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     return Container(
       decoration: BoxDecoration(
         color: verificationStatus == 'auto_verified'
-            ? AppColors.successGreen.withOpacity(0.03)
-            : Colors.white,
+            ? AppColors.successGreen.withOpacity(c.isDark ? 0.08 : 0.03)
+            : c.cardBg,
         border: Border(
-          bottom: BorderSide(color: const Color(0xFFE2E8F0)),
+          bottom: BorderSide(color: c.border),
         ),
       ),
       child: Padding(
@@ -206,9 +208,10 @@ class EvidenceTableRow extends StatelessWidget {
                 children: [
                   Text(
                     categoryLabelMr,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontFamily: 'NotoSansDevanagari',
                       fontSize: 12,
+                      color: c.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -291,9 +294,9 @@ class EvidenceTableRow extends StatelessWidget {
               width: 36,
               child: Text(
                 '${(weight * 100).toStringAsFixed(0)}%',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 11,
-                  color: Color(0xFF6B7280),
+                  color: c.textSecondary,
                   fontWeight: FontWeight.w600,
                 ),
                 textAlign: TextAlign.center,
@@ -317,7 +320,7 @@ class EvidenceTableRow extends StatelessWidget {
                     fontFamily: 'NotoSansDevanagari',
                     fontSize: 9,
                     color: _chipColor == const Color(0xFFCBD5E1)
-                        ? const Color(0xFF6B7280)
+                        ? c.textSecondary
                         : _chipColor,
                     fontWeight: FontWeight.w600,
                   ),

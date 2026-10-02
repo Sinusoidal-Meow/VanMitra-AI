@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/theme/app_theme.dart';
 import 'models/claim.dart';
 import 'providers/locale_provider.dart';
+import 'providers/theme_provider.dart';
 import 'services/localization_service.dart';
 import 'screens/splash/splash_screen.dart';
 import 'screens/onboarding/language_selection_screen.dart';
@@ -48,11 +49,14 @@ class VanMitraApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final locale = ref.watch(localeProvider);
+    final themeMode = ref.watch(themeModeProvider);
 
     return MaterialApp(
       title: 'VanMitra-AI | वनमित्र',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: themeMode,
       locale: locale,
       supportedLocales: LocaleNotifier.supportedLocales,
       localizationsDelegates: const [

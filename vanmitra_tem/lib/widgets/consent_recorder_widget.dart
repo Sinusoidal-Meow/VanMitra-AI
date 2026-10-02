@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:record/record.dart';
+import '../core/theme/app_colors.dart';
 import '../services/audio_capture_service.dart';
 
 /// Mandatory consent-recording gate for face enrolment.
@@ -143,7 +144,7 @@ class _ConsentRecorderWidgetState extends State<ConsentRecorderWidget>
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: context.colors.cardBg,
               borderRadius: BorderRadius.circular(10),
               border:
                   Border.all(color: const Color(0xFFF57F17).withOpacity(0.3)),
@@ -155,24 +156,25 @@ class _ConsentRecorderWidgetState extends State<ConsentRecorderWidget>
                   'म्हणा | Say:',
                   style: TextStyle(
                     fontSize: 11,
-                    color: Colors.grey.shade600,
+                    color: context.colors.textSecondary,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   '"मी ${widget.memberName} माझ्या चेहऱ्याची ओळख नोंदवण्यास संमती देतो/देते."',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: 'NotoSansDevanagari',
                     fontSize: 14,
                     height: 1.6,
                     fontWeight: FontWeight.w600,
+                    color: context.colors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   '"I, ${widget.memberName}, consent to face enrolment for attendance."',
-                  style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+                  style: TextStyle(fontSize: 11, color: context.colors.textSecondary),
                 ),
               ],
             ),

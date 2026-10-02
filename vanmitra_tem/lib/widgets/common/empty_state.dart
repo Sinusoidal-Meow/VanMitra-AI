@@ -23,6 +23,12 @@ class EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+    final iconColor = c.isDark ? AppColors.forestMist : AppColors.forestSage;
+    final circleBg = c.isDark
+        ? AppColors.forestMist.withValues(alpha: 0.15)
+        : AppColors.forestCanopy.withValues(alpha: 0.08);
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.xl),
@@ -33,22 +39,22 @@ class EmptyState extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(AppSpacing.lg),
               decoration: BoxDecoration(
-                color: AppColors.forestCanopy.withValues(alpha: 0.08),
+                color: circleBg,
                 shape: BoxShape.circle,
               ),
-              child: Icon(icon, size: 48, color: AppColors.forestSage),
+              child: Icon(icon, size: 48, color: iconColor),
             ),
             const SizedBox(height: AppSpacing.md),
             Text(
               title,
-              style: AppTypography.title.copyWith(color: AppColors.textPrimary),
+              style: AppTypography.title.copyWith(color: c.textPrimary),
               textAlign: TextAlign.center,
             ),
             if (description != null) ...[
               const SizedBox(height: AppSpacing.xs),
               Text(
                 description!,
-                style: AppTypography.body.copyWith(color: AppColors.textSecondary),
+                style: AppTypography.body.copyWith(color: c.textSecondary),
                 textAlign: TextAlign.center,
               ),
             ],
