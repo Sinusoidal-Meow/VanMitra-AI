@@ -7,6 +7,7 @@ import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/theme_provider.dart';
+import '../../providers/locale_provider.dart';
 
 /// A sliding-down settings panel that appears beneath the AppHeader on tap.
 ///
@@ -88,6 +89,7 @@ class SettingsPanelState extends ConsumerState<SettingsPanel>
     final user = auth.currentUser;
     final isDark = ref.watch(themeModeProvider) == ThemeMode.dark;
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final locale = ref.watch(localeProvider);
 
     // Panel surface colors adapt to current theme
     final panelBg = isDarkMode
@@ -262,8 +264,131 @@ class SettingsPanelState extends ConsumerState<SettingsPanel>
                   ],
                 ),
               ),
+
+              Divider(height: 1, thickness: 1, color: dividerColor),
+
+              // ── Language Selection Row ──────────────────────────────────
+              _PanelTile(
+                onTap: () => _showLanguagePicker(context),
+                child: Row(
+                  children: [
+                    // Icon
+                    Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? AppColors.forestSage.withValues(alpha: 0.25)
+                            : AppColors.forestSage.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.translate_rounded,
+                        color: AppColors.forestSage,
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.md),
+                    // Label
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Language / भाषा निवड',
+                            style: AppTypography.subtitle.copyWith(
+                              color: textPrimary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            _langLabel(locale.languageCode),
+                            style: AppTypography.caption.copyWith(
+                              color: textSecondary,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      size: 13,
+                      color: textSecondary,
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  String _langLabel(String code) {
+    const map = {
+      'mr': 'मराठी (Marathi)',
+      'hi': 'हिंदी (Hindi)',
+      'en': 'English (EN)',
+      'kn': 'ಕನ್ನಡ (Kannada)',
+    };
+    return map[code] ?? 'मराठी (Marathi)';
+  }
+
+  void _showLanguagePicker(BuildContext context) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final bottomSheetBg = isDarkMode ? const Color(0xFF14241C) : Colors.white;
+    final sheetTextPrimary = isDarkMode ? const Color(0xFFE8F5ED) : AppColors.textPrimary;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: bottomSheetBg,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.lg)),
+      ),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Select Interface Language / भाषा निवडा',
+              style: AppTypography.title.copyWith(color: sheetTextPrimary, fontSize: 18),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            ...[
+              ('मराठी (Marathi)', 'mr'),
+              ('हिंदी (Hindi)', 'hi'),
+              ('English (UK/IND)', 'en'),
+              ('ಕನ್ನಡ (Kannada)', 'kn'),
+            ].map((pair) {
+              final isSelected = ref.watch(localeProvider).languageCode == pair.$2;
+              return ListTile(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+                leading: Icon(
+                  Icons.language_rounded,
+                  color: isSelected ? AppColors.forestCanopy : AppColors.forestSage,
+                ),
+                title: Text(
+                  pair.$1,
+                  style: AppTypography.subtitle.copyWith(
+                    color: isSelected ? AppColors.forestCanopy : sheetTextPrimary,
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                  ),
+                ),
+                trailing: isSelected
+                    ? const Icon(Icons.check_circle_rounded, color: AppColors.forestCanopy, size: 20)
+                    : null,
+                onTap: () {
+                  ref.read(localeProvider.notifier).setLocale(pair.$2);
+                  Navigator.pop(context);
+                },
+              );
+            }),
+          ],
         ),
       ),
     );

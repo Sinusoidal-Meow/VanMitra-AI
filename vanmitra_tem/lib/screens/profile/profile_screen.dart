@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/routes/app_router.dart';
 import '../../models/user_role.dart';
 import '../../providers/auth_provider.dart';
-import '../../providers/locale_provider.dart';
 import '../../services/cloud_sync_service.dart';
 import '../../widgets/common/app_components.dart';
 import '../../widgets/portal_frame_scaffold.dart';
@@ -51,12 +50,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final auth = ref.watch(authProvider);
-    final locale = ref.watch(localeProvider);
 
     final userName = auth.currentUser?.name ?? 'VanMitra User';
     final userRole = auth.currentUser?.role.displayNameEn ?? 'CITIZEN';
     final village = auth.currentUser?.villageId ?? 'Ozhar Gram Panchayat';
-    final langDisplay = _langLabel(locale.languageCode);
 
     return PortalFrameScaffold(
       breadcrumbs: const ['Dashboard', 'Profile & Settings'],
@@ -135,14 +132,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
                 const SizedBox(height: AppSpacing.md),
                 ActionListItem(
-                  icon: Icons.translate_rounded,
-                  title: 'Language Selection / भाषा निवड',
-                  subtitle: 'Current language: $langDisplay',
-                  iconColor: AppColors.forestSage,
-                  onTap: () => _showLanguagePicker(context),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                ActionListItem(
                   icon: Icons.folder_open_rounded,
                   title: 'My Documents & FRA Claims',
                   subtitle: 'Inspect filed claims, survey evidence & approved titles',
@@ -199,57 +188,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  String _langLabel(String code) {
-    const map = {
-      'mr': 'मराठी (Marathi)',
-      'hi': 'हिंदी (Hindi)',
-      'en': 'English (EN)',
-      'kn': 'ಕನ್ನಡ (Kannada)',
-    };
-    return map[code] ?? 'मराठी (Marathi)';
-  }
-
-  void _showLanguagePicker(BuildContext context) {
-    final c = context.colors;
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: c.bottomSheetBg,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.lg)),
-      ),
-      builder: (_) => Padding(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Select Interface Language',
-              style: AppTypography.title.copyWith(color: c.textPrimary, fontSize: 18),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            ...[
-              ('मराठी (Marathi)', 'mr'),
-              ('हिंदी (Hindi)', 'hi'),
-              ('English (UK/IND)', 'en'),
-              ('ಕನ್ನಡ (Kannada)', 'kn'),
-            ].map((pair) {
-              return ListTile(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
-                leading: const Icon(Icons.language_rounded, color: AppColors.forestSage),
-                title: Text(pair.$1, style: AppTypography.subtitle.copyWith(color: c.textPrimary)),
-                onTap: () {
-                  ref.read(localeProvider.notifier).setLocale(pair.$2);
-                  Navigator.pop(context);
-                },
-              );
-            }),
-          ],
-        ),
       ),
     );
   }
