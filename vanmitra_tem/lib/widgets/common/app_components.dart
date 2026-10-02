@@ -28,3 +28,4 @@ export 'animated_bottom_nav_bar.dart';
 export 'animated_counter.dart';
 export 'bouncing_card.dart';
 export 'settings_panel.dart';
+export 'statistic_card_stack.dart';
