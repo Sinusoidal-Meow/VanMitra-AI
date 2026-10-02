@@ -1,11 +1,12 @@
 """
-Seed demo data for local development: Ozhar village, its Gram Sabha and one
-demo user per role. Safe to run twice (existing rows are left alone).
+Seed demo data for local development: Ozhar village (Jawhar, Palghar), its Gram Sabha,
+five fictional members and one demo login for every role of the three levels.
+Safe to run again: existing rows are kept, demo users get their name and role synced.
 
     python -m scripts.seed_demo
 
 Run it yourself, after `alembic upgrade head`. It writes to VANMITRA_DATABASE_URL.
-Demo phones are fake (9000000001-4). Every demo PIN is 123456: development only.
+Demo phones are fake (9000000001-8). Every demo PIN is 123456: development only.
 """
 
 import sys
@@ -29,8 +30,22 @@ from app.models import (
 )
 
 DEMO_PIN = "123456"
+TALUKA, DISTRICT = "Jawhar", "Palghar"
 
-# Fictional demo members for the Form C member sheet (item 5) and quorum tests.
+# (phone, name, role or None for admin). Village roles get Ozhar; the SDO gets
+# Jawhar/Palghar; district officers get Palghar.
+DEMO_USERS: list[tuple[str, str, Role | None]] = [
+    ("9000000001", "Demo Village User", Role.VILLAGER),
+    ("9000000002", "Demo Village User 2", Role.VILLAGER),
+    ("9000000003", "Demo Gram Sabha (Ozhar)", Role.GRAM_SABHA),
+    ("9000000004", "Demo Admin (back-office)", None),
+    ("9000000005", "Demo SDO (Jawhar)", Role.SDO),
+    ("9000000006", "Demo Collector (Palghar)", Role.COLLECTOR),
+    ("9000000007", "Demo DFO (Palghar)", Role.DFO),
+    ("9000000008", "Demo District Tribal Welfare Officer (Palghar)", Role.TRIBAL_WELFARE_OFFICER),
+]
+
+# Fictional demo members for the Form C member sheet (item 5).
 DEMO_MEMBERS: list[tuple[str, Gender, MemberCategory]] = [
     ("Demo Member 1", Gender.FEMALE, MemberCategory.ST),
     ("Demo Member 2", Gender.MALE, MemberCategory.ST),
@@ -39,31 +54,31 @@ DEMO_MEMBERS: list[tuple[str, Gender, MemberCategory]] = [
     ("Demo Member 5", Gender.FEMALE, MemberCategory.OTHER),
 ]
 
-DEMO_USERS: list[tuple[str, str, Role | None]] = [
-    ("9000000001", "Demo Facilitator (NGO)", Role.FACILITATOR),
-    ("9000000002", "Demo FRC Member", Role.FRC_MEMBER),
-    ("9000000003", "Demo Gram Sabha Secretary", Role.GS_SECRETARY),
-    ("9000000004", "Demo Admin (back-office)", None),
-]
+
+def _grant(user: AppUser, role: Role, village: Village) -> UserRole:
+    if role in (Role.VILLAGER, Role.GRAM_SABHA):
+        return UserRole(user_id=user.id, role=role, village_id=village.id)
+    if role is Role.SDO:
+        return UserRole(user_id=user.id, role=role, taluka=TALUKA, district=DISTRICT)
+    return UserRole(user_id=user.id, role=role, district=DISTRICT)
 
 
 def seed(db: Session) -> None:
-    village = db.scalar(
-        select(Village).where(Village.name_en == "Ozhar", Village.taluka == "Jawhar")
-    )
+    village = db.scalar(select(Village).where(Village.name_en == "Ozhar", Village.taluka == TALUKA))
     if village is None:
         village = Village(
             name_mr="ओझर",
             name_en="Ozhar",
             gram_panchayat="Ozhar",  # TODO: confirm the Gram Panchayat name and LGD code
-            taluka="Jawhar",
-            district="Palghar",
+            taluka=TALUKA,
+            district=DISTRICT,
             state="Maharashtra",
             consolidation_status=ConsolidationStatus.RECOGNISED,
         )
         db.add(village)
         db.flush()
         db.add(GramSabha(village_id=village.id))
+        db.flush()
         print(f"created village Ozhar ({village.id})")
 
     for phone, name, role in DEMO_USERS:
@@ -74,21 +89,28 @@ def seed(db: Session) -> None:
             )
             db.add(user)
             db.flush()
-            if role is not None:
-                db.add(UserRole(user_id=user.id, village_id=village.id, role=role))
             print(f"created user {phone}  {name}")
-        else:
-            print(f"exists  user {phone}  {name}")
+        elif user.name != name:
+            user.name = name
+            print(f"renamed user {phone}  {name}")
+        if role is None:
+            continue
+        held = set(db.scalars(select(UserRole.role).where(UserRole.user_id == user.id)))
+        if role not in held:
+            db.add(_grant(user, role, village))
+            print(f"granted   {phone}  {role.value}")
 
     gram_sabha = db.scalar(select(GramSabha).where(GramSabha.village_id == village.id))
     assert gram_sabha is not None
     existing = set(db.scalars(select(GsMember.name).where(GsMember.gram_sabha_id == gram_sabha.id)))
-    for name, gender, category in DEMO_MEMBERS:
-        if name not in existing:
+    for member_name, gender, category in DEMO_MEMBERS:
+        if member_name not in existing:
             db.add(
-                GsMember(gram_sabha_id=gram_sabha.id, name=name, gender=gender, category=category)
+                GsMember(
+                    gram_sabha_id=gram_sabha.id, name=member_name, gender=gender, category=category
+                )
             )
-            print(f"created member {name}")
+            print(f"created member {member_name}")
 
     db.commit()
 

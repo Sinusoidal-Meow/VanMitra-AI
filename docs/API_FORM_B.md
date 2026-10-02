@@ -4,6 +4,8 @@
 > **Source form:** FRA Rules 2007 (amended 2012), Annexure I, **Form B: Claim Form for Community Rights** [Rule 11(1)(a) and (4)], printed page 29 of `FRARulesBook_Highlighted.pdf`.
 > Live schema: `http://localhost:8000/docs` (OpenAPI). Every call needs `Authorization: Bearer <access_token>` from `POST /api/v1/auth/login`.
 
+> ⚠️ **Roles and workflow superseded by [`API_MODULE3.md`](API_MODULE3.md)** (three levels: village user · Gram Sabha · SDO · district officers). The form fields below are unchanged.
+
 ## Who can do what
 
 | Role | Create case | Edit Form B draft | Read |

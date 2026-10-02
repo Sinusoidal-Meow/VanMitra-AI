@@ -1,11 +1,9 @@
 """
 The Form C draft (Community Forest Resource claim) [Sec 3(1)(i); Rule 11(1), 11(4)].
 
-Who may do what (PROJECT_PLAN §3):
-- The FRC prepares Form C on behalf of the Gram Sabha [Rule 11(4)]; the NGO facilitator
-  may help draft it (rule C5: drafts only). Both may edit drafts.
-- Any role in the village may read it. The member sheet (item 5) comes from the roster
-  kept by the Gram Sabha Secretary.
+Prepared and filed by the Gram Sabha (services.cases.CREATORS); only the claimant edits,
+only while the case is a draft. Anyone who may see the case may read it. The member
+sheet (item 5) comes from the roster kept by the Gram Sabha.
 """
 
 import uuid
@@ -15,7 +13,6 @@ from fastapi import APIRouter
 from sqlalchemy import select
 
 from ...auth.deps import CurrentPrincipal, CurrentUser, DbSession
-from ...auth.principal import Principal
 from ...domain.form_c import (
     DEFAULT_RESOLUTION_STATEMENT,
     MIN_CFR_EVIDENCE,
@@ -23,11 +20,8 @@ from ...domain.form_c import (
     form_c_completeness,
     member_sheet_counts,
 )
-from ...errors import ApiError
 from ...models import (
     BoundarySide,
-    CaseState,
-    ClaimCase,
     ClaimEvidenceEntry,
     ClaimType,
     EvidenceRule,
@@ -35,10 +29,8 @@ from ...models import (
     FormCLandmark,
     GsMember,
     LandmarkKind,
-    Role,
-    Village,
 )
-from ...schemas.form_b import CompletenessItemOut, CompletenessOut, EvidenceOut, VillageHeader
+from ...schemas.form_b import EvidenceOut
 from ...schemas.form_c import (
     BorderingVillageOut,
     FormCFieldsOut,
@@ -48,23 +40,14 @@ from ...schemas.form_c import (
     MemberSheetOut,
     MemberSheetRow,
 )
-from ...services.cases import load_case
+from ...services.cases import CaseContext, ensure_claim_type, ensure_editable, load_case
+from ._shared import completeness_out, village_header
 
 router = APIRouter(tags=["form-c"])
 
-FORM_C_EDITORS = (Role.FACILITATOR, Role.FRC_MEMBER)
 
-
-def _load_form_c_case(
-    db: DbSession, principal: Principal, case_id: uuid.UUID, roles: tuple[Role, ...] | None
-) -> tuple[ClaimCase, Village]:
-    case, village = load_case(db, principal, case_id, roles)
-    if case.claim_type != ClaimType.CFR or case.form_c is None:
-        raise ApiError(409, "NOT_A_FORM_C_CASE", "case.not_form_c", {"claim_type": case.claim_type})
-    return case, village
-
-
-def _form_c_out(db: DbSession, case: ClaimCase, village: Village) -> FormCOut:
+def _form_c_out(db: DbSession, ctx: CaseContext) -> FormCOut:
+    case, village = ctx.case, ctx.village
     form = case.form_c
     assert form is not None
     members = db.scalars(
@@ -88,15 +71,8 @@ def _form_c_out(db: DbSession, case: ClaimCase, village: Village) -> FormCOut:
     return FormCOut(
         case_id=case.id,
         state=case.state,
-        editable=case.state == CaseState.DRAFT,
-        header=VillageHeader(
-            village_id=village.id,
-            village_name_mr=village.name_mr,
-            village_name_en=village.name_en,
-            gram_panchayat=village.gram_panchayat,
-            taluka=village.taluka,
-            district=village.district,
-        ),
+        editable=ctx.editable,
+        header=village_header(village),
         member_sheet=MemberSheetOut(
             total=counts.total,
             st=counts.st,
@@ -127,16 +103,7 @@ def _form_c_out(db: DbSession, case: ClaimCase, village: Village) -> FormCOut:
         evidence=[
             EvidenceOut(seq=e.seq, rule_ref=e.rule_ref, description=e.description) for e in evidence
         ],
-        completeness=CompletenessOut(
-            done=completeness.done,
-            total=completeness.total,
-            items=[
-                CompletenessItemOut(
-                    id=i.id, ok=i.ok, form_item=i.form_item, rule=i.rule, message_key=i.message_key
-                )
-                for i in completeness.items
-            ],
-        ),
+        completeness=completeness_out(completeness),
         updated_at=form.updated_at,
     )
 
@@ -159,8 +126,9 @@ def form_c_fields(_: CurrentUser) -> FormCFieldsOut:
 @router.get("/cases/{case_id}/form-c", response_model=FormCOut)
 def get_form_c(case_id: uuid.UUID, db: DbSession, principal: CurrentPrincipal) -> FormCOut:
     """The Form C draft: items 1-4 from the registry, item 5 from the roster, completeness."""
-    case, village = _load_form_c_case(db, principal, case_id, None)
-    return _form_c_out(db, case, village)
+    ctx = load_case(db, principal, case_id)
+    ensure_claim_type(ctx, ClaimType.CFR, "NOT_A_FORM_C_CASE")
+    return _form_c_out(db, ctx)
 
 
 @router.put("/cases/{case_id}/form-c", response_model=FormCOut)
@@ -175,9 +143,10 @@ def put_form_c(
     Replace the Form C draft. Allowed only while the case is a DRAFT; after that the form
     is part of the signed record and changes need a superseding record (BR-15).
     """
-    case, village = _load_form_c_case(db, principal, case_id, FORM_C_EDITORS)
-    if case.state != CaseState.DRAFT:
-        raise ApiError(409, "CASE_NOT_EDITABLE", "case.not_editable", {"state": case.state})
+    ctx = load_case(db, principal, case_id)
+    ensure_claim_type(ctx, ClaimType.CFR, "NOT_A_FORM_C_CASE")
+    ensure_editable(ctx)
+    case = ctx.case
     form = case.form_c
     assert form is not None
 
@@ -217,4 +186,4 @@ def put_form_c(
     db.commit()
     db.refresh(case)
     db.refresh(form)
-    return _form_c_out(db, case, village)
+    return _form_c_out(db, ctx)

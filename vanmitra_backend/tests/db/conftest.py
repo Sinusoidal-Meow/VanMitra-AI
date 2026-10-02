@@ -3,7 +3,6 @@ Fixtures for tests against a real PostgreSQL + PostGIS database.
 
 Every test here is skipped unless VANMITRA_TEST_DATABASE_URL points at a THROWAWAY
 database: the session fixture migrates it up once, and back down to empty at the end.
-CI provides one (.github/workflows/backend-ci.yml).
 """
 
 import os
@@ -63,13 +62,15 @@ def db_client(session_factory: sessionmaker[Session]) -> TestClient:
     return TestClient(app)
 
 
-def make_village(db: Session, name_en: str) -> Village:
+def make_village(
+    db: Session, name_en: str, taluka: str = "Jawhar", district: str = "Palghar"
+) -> Village:
     village = Village(
         name_mr=name_en,
         name_en=name_en,
         gram_panchayat=name_en,
-        taluka="Jawhar",
-        district="Palghar",
+        taluka=taluka,
+        district=district,
         state="Maharashtra",
     )
     db.add(village)
@@ -79,12 +80,32 @@ def make_village(db: Session, name_en: str) -> Village:
     return village
 
 
-def make_user(db: Session, phone: str, grants: list[tuple[uuid.UUID, Role]]) -> AppUser:
-    user = AppUser(phone=phone, name=f"User {phone}", pin_hash=hash_pin(TEST_PIN))
+def make_user(
+    db: Session,
+    phone: str,
+    role: Role | None,
+    *,
+    village: Village | None = None,
+    taluka: str | None = None,
+    district: str | None = None,
+) -> AppUser:
+    """A user with one role. role=None makes an admin."""
+    user = AppUser(
+        phone=phone, name=f"User {phone}", pin_hash=hash_pin(TEST_PIN), is_admin=role is None
+    )
     db.add(user)
     db.flush()
-    db.add_all(UserRole(user_id=user.id, village_id=v, role=r) for v, r in grants)
-    db.flush()
+    if role is not None:
+        db.add(
+            UserRole(
+                user_id=user.id,
+                role=role,
+                village_id=village.id if village else None,
+                taluka=taluka,
+                district=district,
+            )
+        )
+        db.flush()
     return user
 
 
@@ -92,3 +113,13 @@ def auth_headers(client: TestClient, phone: str) -> dict[str, str]:
     res = client.post("/api/v1/auth/login", json={"phone": phone, "pin": TEST_PIN})
     assert res.status_code == 200, res.text
     return {"Authorization": f"Bearer {res.json()['access_token']}"}
+
+
+def new_case(client: TestClient, village_id: uuid.UUID, phone: str, claim_type: str) -> str:
+    res = client.post(
+        f"/api/v1/villages/{village_id}/cases",
+        json={"claim_type": claim_type},
+        headers=auth_headers(client, phone),
+    )
+    assert res.status_code == 201, res.text
+    return str(res.json()["id"])

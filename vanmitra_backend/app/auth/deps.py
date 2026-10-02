@@ -1,4 +1,4 @@
-"""FastAPI dependencies: current user, principal, role and village checks."""
+"""FastAPI dependencies: current user, principal, role and jurisdiction checks."""
 
 import uuid
 from collections.abc import Callable
@@ -12,8 +12,8 @@ from sqlalchemy.orm import Session
 
 from ..db import get_db
 from ..errors import ApiError
-from ..models import AppUser, Role, UserRole
-from .principal import Principal, active_grants
+from ..models import AppUser, Role, UserRole, Village
+from .principal import Principal, VillageRef, active_grants
 from .security import decode_token
 
 _bearer = HTTPBearer(auto_error=False)
@@ -39,44 +39,56 @@ CurrentUser = Annotated[AppUser, Depends(get_current_user)]
 
 def get_principal(db: DbSession, user: CurrentUser) -> Principal:
     rows = db.execute(
-        select(UserRole.village_id, UserRole.role, UserRole.valid_from, UserRole.valid_to).where(
-            UserRole.user_id == user.id
-        )
+        select(
+            UserRole.role,
+            UserRole.village_id,
+            UserRole.taluka,
+            UserRole.district,
+            UserRole.valid_from,
+            UserRole.valid_to,
+        ).where(UserRole.user_id == user.id)
     ).all()
     return Principal(
         user_id=user.id,
+        name=user.name,
         is_admin=user.is_admin,
-        grants=active_grants(((r[0], r[1], r[2], r[3]) for r in rows), date.today()),
+        grants=active_grants(((r[0], r[1], r[2], r[3], r[4], r[5]) for r in rows), date.today()),
     )
 
 
 CurrentPrincipal = Annotated[Principal, Depends(get_principal)]
 
 
-def require_village_role(*roles: Role) -> Callable[[uuid.UUID, Principal], Principal]:
-    """
-    Dependency for routes with a `village_id` path parameter.
-    With no roles given, any role in the village is enough.
+def village_ref(village: Village) -> VillageRef:
+    return VillageRef(id=village.id, taluka=village.taluka, district=village.district)
 
-        @router.post("/villages/{village_id}/members")
-        def add_member(p: Annotated[Principal, Depends(require_village_role(Role.GS_SECRETARY))]):
+
+def require_village_role(*roles: Role) -> Callable[..., tuple[Principal, Village]]:
+    """
+    Dependency for routes with a `village_id` path parameter. Returns (principal, village).
+    With no roles given, any role whose jurisdiction covers the village is enough.
     """
 
-    def dependency(village_id: uuid.UUID, principal: CurrentPrincipal) -> Principal:
-        if not principal.has(village_id, roles or None):
+    def dependency(
+        village_id: uuid.UUID, db: DbSession, principal: CurrentPrincipal
+    ) -> tuple[Principal, Village]:
+        village = db.get(Village, village_id)
+        if village is None:
+            raise ApiError(404, "VILLAGE_NOT_FOUND", "village.not_found")
+        if not principal.has(village_ref(village), roles or None):
             raise ApiError(
                 403,
                 "FORBIDDEN",
                 "auth.forbidden_in_village",
                 {"village_id": village_id, "required_roles": [r.value for r in roles]},
             )
-        return principal
+        return principal, village
 
     return dependency
 
 
 def require_admin(principal: CurrentPrincipal) -> Principal:
-    """Back-office endpoints only (master data). Never for case content."""
+    """Back-office endpoints only (accounts, master data). Never for case content."""
     if not principal.is_admin:
         raise ApiError(403, "FORBIDDEN", "auth.admin_only")
     return principal

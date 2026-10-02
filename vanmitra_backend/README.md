@@ -2,7 +2,7 @@
 
 FastAPI + PostgreSQL/PostGIS API for the **CFR claim module**. Plan and rules: [`../docs/BACKEND_PLAN.md`](../docs/BACKEND_PLAN.md).
 
-**Status:** Stage 0 foundations + **Form B** (community rights) and **Form C** (community forest resource) drafts + the Gram Sabha member roster.
+**Status:** **Module 3** complete: registration and login for three levels (village user / Gram Sabha · SDO · Collector, DFO, Tribal Welfare Officer), Forms A, B and C, the review workflow and the title draft. Full API: [`../docs/API_MODULE3.md`](../docs/API_MODULE3.md).
 
 ## Quick start (Windows, Git Bash)
 

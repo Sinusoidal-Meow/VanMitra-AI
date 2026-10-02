@@ -6,28 +6,11 @@ from typing import Annotated
 
 from pydantic import BaseModel, Field, StringConstraints, field_validator
 
-from ..models.enums import CaseState, ClaimType, EvidenceRule, FormBRight
+from ..models.enums import CaseState, EvidenceRule, FormBRight
 
 Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
 Label = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
 LongText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=4000)]
-
-
-# ── Cases ──────────────────────────────────────────────────────────────────────
-
-
-class CaseCreate(BaseModel):
-    claim_type: ClaimType = Field(examples=["cr"])
-
-
-class CaseOut(BaseModel):
-    id: uuid.UUID
-    village_id: uuid.UUID
-    gram_sabha_id: uuid.UUID
-    claim_type: ClaimType
-    state: CaseState
-    created_at: datetime
-    updated_at: datetime
 
 
 # ── Form B input ───────────────────────────────────────────────────────────────

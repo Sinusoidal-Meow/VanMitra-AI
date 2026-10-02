@@ -4,11 +4,32 @@ from enum import StrEnum
 
 
 class Role(StrEnum):
-    """The three app roles (PROJECT_PLAN §3, decision D1)."""
+    """
+    Module 3 logins, in three levels (claim path: village → SDO → district).
+    Village roles are scoped to one village, the SDO to a taluka (sub-division),
+    district officers to a district.
+    """
 
-    FACILITATOR = "facilitator"  # NGO field worker: drafts only
-    FRC_MEMBER = "frc_member"  # Forest Rights Committee member [Rule 3]
-    GS_SECRETARY = "gs_secretary"  # Gram Panchayat Secretary [Rule 11(6)]
+    # Level 1: village
+    VILLAGER = "villager"  # village user / claimant: files Forms A, B, C
+    GRAM_SABHA = "gram_sabha"  # Gram Panchayat / Gram Sabha office: reviews, forwards to SDO
+    # Level 2: sub-division
+    SDO = "sdo"  # Sub-Divisional Officer, chair of the SDLC [Rule 5, 6(j)]
+    # Level 3: district (all three sign the title, Rule 8(h)(i))
+    COLLECTOR = "collector"  # District Collector / Deputy Commissioner, chair of the DLC
+    DFO = "dfo"  # Divisional Forest Officer / Deputy Conservator of Forests
+    TRIBAL_WELFARE_OFFICER = "tribal_welfare_officer"  # District Tribal Welfare Officer
+
+    @property
+    def level(self) -> str:
+        if self in (Role.VILLAGER, Role.GRAM_SABHA):
+            return "village"
+        if self is Role.SDO:
+            return "subdivision"
+        return "district"
+
+
+DISTRICT_ROLES: tuple[Role, ...] = (Role.COLLECTOR, Role.DFO, Role.TRIBAL_WELFARE_OFFICER)
 
 
 class Gender(StrEnum):
@@ -43,26 +64,26 @@ class ClaimType(StrEnum):
 
 
 class CaseState(StrEnum):
-    """Claim state machine (PROJECT_PLAN §4.2). Only DRAFT is reachable so far."""
+    """
+    Module 3 claim path:
+    DRAFT → GS_REVIEW (filed to the Gram Panchayat / Gram Sabha) → SDO_REVIEW →
+    DISTRICT_REVIEW (Collector, DFO, Tribal Welfare Officer each approve) → TITLE_ISSUED.
+    Returns go one level down with remarks; REJECTED needs written reasons [Rule 12A(7)].
+    """
 
     DRAFT = "draft"
-    EVIDENCE_COLLECTION = "evidence_collection"
-    MAPPING_IN_PROGRESS = "mapping_in_progress"
-    DISPUTE_JOINT_HEARING = "dispute_joint_hearing"
-    FRC_VERIFICATION = "frc_verification"
-    GS_READY = "gs_ready"
-    GS_RESOLVED = "gs_resolved"
-    SUBMITTED_SDLC = "submitted_sdlc"
-    SDLC_UNDER_EXAM = "sdlc_under_exam"
-    SDLC_FORWARDED = "sdlc_forwarded"
-    DLC_UNDER_CONSIDERATION = "dlc_under_consideration"
-    REMANDED_TO_GS = "remanded_to_gs"
-    MODIFIED_REJECTED = "modified_rejected"
-    PETITION_FILED = "petition_filed"
-    TITLE_APPROVED = "title_approved"
-    SURVEY_PENDING = "survey_pending"
-    RECORD_UPDATED = "record_updated"
-    CFR_ACTIVE = "cfr_active"
+    GS_REVIEW = "gs_review"
+    SDO_REVIEW = "sdo_review"
+    DISTRICT_REVIEW = "district_review"
+    TITLE_ISSUED = "title_issued"
+    REJECTED = "rejected"
+
+
+class WorkflowAction(StrEnum):
+    SUBMIT = "submit"  # village user / Gram Sabha files the draft
+    APPROVE = "approve"
+    RETURN = "return"  # back one level, with remarks
+    REJECT = "reject"  # terminal, with written reasons
 
 
 class FormBRight(StrEnum):
@@ -127,3 +148,16 @@ class LandmarkKind(StrEnum):
     COMPARTMENT_PILLAR = "compartment_pillar"
     HILL = "hill"
     OTHER = "other"
+
+
+class FormAClaim(StrEnum):
+    """Form A, "Nature of claim on land", items 1-7 (Annexure I)."""
+
+    HABITATION = "habitation"  # item 1(a) [Sec 3(1)(a)]
+    SELF_CULTIVATION = "self_cultivation"  # item 1(b) [Sec 3(1)(a)]
+    DISPUTED_LAND = "disputed_land"  # item 2 [Sec 3(1)(f)]
+    PATTA_LEASE_GRANT = "patta_lease_grant"  # item 3 [Sec 3(1)(g)]
+    IN_SITU_REHABILITATION = "in_situ_rehabilitation"  # item 4 [Sec 3(1)(m)]
+    DISPLACED_WITHOUT_COMPENSATION = "displaced_without_compensation"  # item 5 [Sec 4(8)]
+    FOREST_VILLAGE = "forest_village"  # item 6 [Sec 3(1)(h)]
+    OTHER_TRADITIONAL = "other_traditional"  # item 7 [Sec 3(1)(l)]

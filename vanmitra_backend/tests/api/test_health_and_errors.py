@@ -72,3 +72,36 @@ def test_form_c_and_member_endpoints_need_login(client: TestClient) -> None:
     assert client.get("/api/v1/forms/form-c/fields").status_code == 401
     assert client.get(f"/api/v1/villages/{some}/members").status_code == 401
     assert client.patch(f"/api/v1/members/{some}", json={}).status_code == 401
+
+
+def test_module3_endpoints_need_login(client: TestClient) -> None:
+    some = "00000000-0000-0000-0000-000000000000"
+    for method, path in [
+        ("get", f"/api/v1/cases/{some}/form-a"),
+        ("put", f"/api/v1/cases/{some}/form-a"),
+        ("get", "/api/v1/cases/mine"),
+        ("get", f"/api/v1/cases/{some}"),
+        ("post", f"/api/v1/cases/{some}/submit"),
+        ("post", f"/api/v1/cases/{some}/approve"),
+        ("post", f"/api/v1/cases/{some}/return"),
+        ("post", f"/api/v1/cases/{some}/reject"),
+        ("get", f"/api/v1/cases/{some}/history"),
+        ("get", f"/api/v1/cases/{some}/title-draft"),
+        ("get", "/api/v1/review/queue"),
+        ("get", "/api/v1/admin/users"),
+        ("post", "/api/v1/admin/users"),
+    ]:
+        res = (
+            getattr(client, method)(path, json={})
+            if method in ("put", "post")
+            else client.get(path)
+        )
+        assert res.status_code in (401, 422), (method, path, res.status_code)
+        if res.status_code == 422:  # body validated before auth only for bodies with fields
+            assert method in ("post", "put")
+
+
+def test_register_validates_before_touching_the_database(client: TestClient) -> None:
+    res = client.post("/api/v1/auth/register", json={"name": "", "phone": "123", "pin": "1"})
+    assert res.status_code == 422
+    assert res.json()["error"] == "VALIDATION_ERROR"

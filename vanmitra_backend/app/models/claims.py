@@ -10,6 +10,7 @@ from sqlalchemy import (
     ForeignKey,
     Integer,
     Numeric,
+    SmallInteger,
     String,
     Text,
     UniqueConstraint,
@@ -20,7 +21,17 @@ from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base, IdMixin, TimestampMixin
-from .enums import BoundarySide, CaseState, ClaimType, EvidenceRule, FormBRight, LandmarkKind
+from .enums import (
+    BoundarySide,
+    CaseState,
+    ClaimType,
+    EvidenceRule,
+    FormAClaim,
+    FormBRight,
+    LandmarkKind,
+    Role,
+    WorkflowAction,
+)
 from .people import GramSabha, pg_enum
 
 
@@ -39,8 +50,17 @@ class ClaimCase(IdMixin, TimestampMixin, Base):
         pg_enum(CaseState, "case_state"), default=CaseState.DRAFT
     )
     created_by_user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("app_user.id"))
+    # Furthest level the case has reached (0 draft, 1 Gram Sabha, 2 SDO, 3 district,
+    # 4 title). Officials see a case once it has reached their level, even if returned.
+    reached_stage: Mapped[int] = mapped_column(SmallInteger, server_default=text("0"))
 
     gram_sabha: Mapped[GramSabha] = relationship()
+    form_a: Mapped["FormA | None"] = relationship(
+        back_populates="case", cascade="all, delete-orphan", uselist=False
+    )
+    events: Mapped[list["WorkflowEvent"]] = relationship(
+        back_populates="case", order_by="WorkflowEvent.created_at"
+    )
     form_b: Mapped["FormB | None"] = relationship(
         back_populates="case", cascade="all, delete-orphan", uselist=False
     )
@@ -179,3 +199,88 @@ class FormCBorderingVillage(IdMixin, Base):
     sharing_details: Mapped[str | None] = mapped_column(Text)
 
     form_c: Mapped[FormC] = relationship(back_populates="bordering_villages")
+
+
+class FormA(TimestampMixin, Base):
+    """
+    The Form A draft for an IFR case: Claim Form for Rights to Forest Land [Rule 11(1)(a)].
+    Items 5-8 (village, GP, tehsil, district) come from the village registry.
+    """
+
+    __tablename__ = "form_a"
+
+    case_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("claim_case.id"), primary_key=True)
+    claimant_names: Mapped[list[str]] = mapped_column(
+        ARRAY(String(200)), server_default=text("'{}'")
+    )  # item 1
+    spouse_name: Mapped[str | None] = mapped_column(String(200))  # item 2
+    father_mother_name: Mapped[str | None] = mapped_column(String(200))  # item 3
+    address: Mapped[str | None] = mapped_column(Text)  # item 4
+    is_scheduled_tribe: Mapped[bool | None] = mapped_column(Boolean)  # item 9(a)
+    is_otfd: Mapped[bool | None] = mapped_column(Boolean)  # item 9(b)
+    spouse_is_scheduled_tribe: Mapped[bool | None] = mapped_column(Boolean)  # item 9 note
+    other_information: Mapped[str | None] = mapped_column(Text)  # claim item 9
+    updated_by_user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("app_user.id"))
+
+    case: Mapped[ClaimCase] = relationship(back_populates="form_a")
+    family_members: Mapped[list["FormAFamilyMember"]] = relationship(
+        back_populates="form_a", cascade="all, delete-orphan", order_by="FormAFamilyMember.seq"
+    )
+    claims: Mapped[list["FormAClaimItem"]] = relationship(
+        back_populates="form_a", cascade="all, delete-orphan"
+    )
+
+
+class FormAFamilyMember(IdMixin, Base):
+    """Item 10: other members of the family with age (children and adult dependents)."""
+
+    __tablename__ = "form_a_family_member"
+    __table_args__ = (UniqueConstraint("case_id", "seq", name="uq_form_a_family_member_seq"),)
+
+    case_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("form_a.case_id"), index=True)
+    seq: Mapped[int] = mapped_column(Integer)
+    name: Mapped[str] = mapped_column(String(200))
+    age: Mapped[int | None] = mapped_column(SmallInteger)
+    relation: Mapped[str | None] = mapped_column(String(100))
+
+    form_a: Mapped[FormA] = relationship(back_populates="family_members")
+
+
+class FormAClaimItem(IdMixin, Base):
+    """
+    A claimed item under Form A "Nature of claim on land" (items 1-7).
+
+    No row means the item is not claimed.
+    """
+
+    __tablename__ = "form_a_claim"
+    __table_args__ = (UniqueConstraint("case_id", "claim_code", name="uq_form_a_claim_code"),)
+
+    case_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("form_a.case_id"), index=True)
+    claim_code: Mapped[FormAClaim] = mapped_column(pg_enum(FormAClaim, "form_a_claim_code"))
+    extent_ha: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
+    details: Mapped[str] = mapped_column(Text)
+
+    form_a: Mapped[FormA] = relationship(back_populates="claims")
+
+
+class WorkflowEvent(IdMixin, Base):
+    """
+    Append-only history of every action on a case: who, in which role, what, remarks.
+    District approvals are recorded one per officer (from_state = to_state =
+    district_review) until all three have approved.
+    """
+
+    __tablename__ = "workflow_event"
+
+    case_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("claim_case.id"), index=True)
+    action: Mapped[WorkflowAction] = mapped_column(pg_enum(WorkflowAction, "workflow_action"))
+    from_state: Mapped[CaseState] = mapped_column(pg_enum(CaseState, "case_state"))
+    to_state: Mapped[CaseState] = mapped_column(pg_enum(CaseState, "case_state"))
+    actor_user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("app_user.id"))
+    actor_role: Mapped[Role] = mapped_column(pg_enum(Role, "app_role"))
+    actor_name: Mapped[str] = mapped_column(String(200))  # as it was at the time
+    remarks: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    case: Mapped[ClaimCase] = relationship(back_populates="events")

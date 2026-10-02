@@ -96,23 +96,35 @@ class AppUser(IdMixin, TimestampMixin, Base):
 
 
 class UserRole(IdMixin, Base):
-    """A role held by a user in one village, with validity dates (transfers keep history)."""
+    """
+    A role held by a user within a jurisdiction, with validity dates (transfers keep
+    history). Village roles name a village; the SDO a taluka + district; district
+    officers a district.
+    """
 
     __tablename__ = "user_role"
     __table_args__ = (
         UniqueConstraint("user_id", "village_id", "role", "valid_from", name="uq_user_role_grant"),
         CheckConstraint("valid_to IS NULL OR valid_to >= valid_from", name="valid_range"),
+        CheckConstraint(
+            "(role IN ('villager', 'gram_sabha') AND village_id IS NOT NULL)"
+            " OR (role = 'sdo' AND taluka IS NOT NULL AND district IS NOT NULL)"
+            " OR (role IN ('collector', 'dfo', 'tribal_welfare_officer') AND district IS NOT NULL)",
+            name="scope",
+        ),
     )
 
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("app_user.id"), index=True)
-    village_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("village.id"), index=True)
+    village_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("village.id"), index=True)
+    taluka: Mapped[str | None] = mapped_column(String(100))
+    district: Mapped[str | None] = mapped_column(String(100))
     role: Mapped[Role] = mapped_column(pg_enum(Role, "app_role"))
     valid_from: Mapped[date] = mapped_column(Date, server_default=func.current_date())
     valid_to: Mapped[date | None] = mapped_column(Date)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     user: Mapped[AppUser] = relationship(back_populates="roles")
-    village: Mapped[Village] = relationship()
+    village: Mapped[Village | None] = relationship()
 
     def is_active_on(self, day: date) -> bool:
         return self.valid_from <= day and (self.valid_to is None or day <= self.valid_to)

@@ -4,6 +4,8 @@
 > **Source form:** FRA Rules (amended 2012), Annexure I, **Form C: Claim Form for Rights to Community Forest Resource** [Sec 3(1)(i); Rule 11(1) and (4)], printed page 30 of `FRARulesBook_Highlighted.pdf`. Field reference: `1mitra.md` §6.3.
 > Every call needs `Authorization: Bearer <access_token>`. Same error body as everywhere: `{error, message_key, rule?, details}`.
 
+> ⚠️ **Roles and workflow superseded by [`API_MODULE3.md`](API_MODULE3.md)** (three levels: village user · Gram Sabha · SDO · district officers). The form fields below are unchanged.
+
 ## Who can do what
 
 | Role | Create CFR case | Edit Form C | Edit roster | Read |
