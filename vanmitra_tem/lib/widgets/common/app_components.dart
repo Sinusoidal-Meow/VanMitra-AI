@@ -22,3 +22,9 @@ export 'secondary_button.dart';
 export 'stat_tile.dart';
 export 'status_badge.dart';
 export 'sync_status_chip.dart';
+
+// Shared Components (Phase 2 — Animation & Polish)
+export 'animated_bottom_nav_bar.dart';
+export 'animated_counter.dart';
+export 'bouncing_card.dart';
+export 'settings_panel.dart';

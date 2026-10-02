@@ -36,6 +36,7 @@ class _StateMonitoringDashboardState
   }
 
   Widget _buildDashboardContent(BuildContext context, List<Claim> allClaims) {
+    final c = context.colors;
     var filtered = allClaims;
     if (_selectedDistrict != 'All Districts') {
       filtered = filtered.where((c) => c.district.contains(_selectedDistrict)).toList();
@@ -95,7 +96,8 @@ class _StateMonitoringDashboardState
           const SizedBox(height: 16),
 
           Card(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            color: c.cardBg,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: c.border)),
             child: Padding(
               padding: const EdgeInsets.all(12.0),
               child: Row(
@@ -103,13 +105,14 @@ class _StateMonitoringDashboardState
                   Expanded(
                     child: DropdownButtonFormField<String>(
                       initialValue: _selectedDistrict,
+                      dropdownColor: c.cardBg,
                       decoration: const InputDecoration(
                         labelText: 'District',
                         contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                         border: OutlineInputBorder(),
                       ),
                       items: ['All Districts', 'Palghar', 'Gadchiroli', 'Nandurbar']
-                          .map((d) => DropdownMenuItem(value: d, child: Text(d, style: const TextStyle(fontSize: 12))))
+                          .map((d) => DropdownMenuItem(value: d, child: Text(d, style: TextStyle(fontSize: 12, color: c.textPrimary))))
                           .toList(),
                       onChanged: (val) {
                         if (val != null) setState(() => _selectedDistrict = val);
@@ -120,13 +123,14 @@ class _StateMonitoringDashboardState
                   Expanded(
                     child: DropdownButtonFormField<String>(
                       initialValue: _selectedTehsil,
+                      dropdownColor: c.cardBg,
                       decoration: const InputDecoration(
                         labelText: 'Tehsil',
                         contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                         border: OutlineInputBorder(),
                       ),
                       items: ['All Tehsils', 'Jawhar', 'Dahanu', 'Vikramgad']
-                          .map((t) => DropdownMenuItem(value: t, child: Text(t, style: const TextStyle(fontSize: 12))))
+                          .map((t) => DropdownMenuItem(value: t, child: Text(t, style: TextStyle(fontSize: 12, color: c.textPrimary))))
                           .toList(),
                       onChanged: (val) {
                         if (val != null) setState(() => _selectedTehsil = val);
@@ -147,27 +151,27 @@ class _StateMonitoringDashboardState
             mainAxisSpacing: 8,
             childAspectRatio: 1.2,
             children: [
-              _buildStatTile('Total Claims', '$total', AppColors.forestCanopy),
-              _buildStatTile('Gram Sabha', '$inGramSabha', AppColors.saffron),
-              _buildStatTile('Field Verif.', '$inFieldVerif', AppColors.govtBlue),
-              _buildStatTile('SDLC Pending', '$inSdlc', Colors.teal),
-              _buildStatTile('DLC Pending', '$inDlc', Colors.purple),
-              _buildStatTile('Annexure IV', '$inAnnexureIV', Colors.pink),
-              _buildStatTile('Record Inc.', '$inRecords', Colors.blueGrey),
-              _buildStatTile('Completed', '$completed', AppColors.successGreen),
-              _buildStatTile('Rejected', '$rejected', AppColors.alertRed),
+              _buildStatTile('Total Claims', '$total', c.isDark ? AppColors.forestLight : AppColors.forestCanopy, c),
+              _buildStatTile('Gram Sabha', '$inGramSabha', AppColors.saffron, c),
+              _buildStatTile('Field Verif.', '$inFieldVerif', AppColors.govtBlue, c),
+              _buildStatTile('SDLC Pending', '$inSdlc', Colors.teal, c),
+              _buildStatTile('DLC Pending', '$inDlc', Colors.purple, c),
+              _buildStatTile('Annexure IV', '$inAnnexureIV', Colors.pink, c),
+              _buildStatTile('Record Inc.', '$inRecords', Colors.blueGrey, c),
+              _buildStatTile('Completed', '$completed', AppColors.successGreen, c),
+              _buildStatTile('Rejected', '$rejected', AppColors.alertRed, c),
             ],
           ),
           const SizedBox(height: 20),
 
           Row(
             children: [
-              const Text(
+              Text(
                 'Claims Stream',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.forestCanopy),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: c.textPrimary),
               ),
               const Spacer(),
-              Text('${filtered.length} records', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+              Text('${filtered.length} records', style: TextStyle(fontSize: 12, color: c.textSecondary)),
             ],
           ),
           const SizedBox(height: 8),
@@ -180,13 +184,14 @@ class _StateMonitoringDashboardState
             itemBuilder: (context, index) {
               final claim = filtered[index];
               return Card(
+                color: c.cardBg,
                 elevation: 1,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: c.border)),
                 child: ListTile(
-                  title: Text(claim.id, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  title: Text(claim.id, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: c.textPrimary)),
                   subtitle: Text(
                     '${claim.claimantNameEn} • ${claim.villageName} • Authority: ${claim.assignedAuthority.displayNameEn}',
-                    style: const TextStyle(fontSize: 11),
+                    style: TextStyle(fontSize: 11, color: c.textSecondary),
                   ),
                   trailing: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -220,7 +225,7 @@ class _StateMonitoringDashboardState
     );
   }
 
-  Widget _buildStatTile(String label, String value, Color color) {
+  Widget _buildStatTile(String label, String value, Color color, AppColorScheme c) {
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
@@ -239,7 +244,7 @@ class _StateMonitoringDashboardState
           Text(
             label,
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.grey.shade800),
+            style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: c.textSecondary),
           ),
         ],
       ),

@@ -31,10 +31,15 @@ class MeetingDetailScreen extends ConsumerWidget {
 
     final authState = ref.watch(authProvider);
     final isAdmin = authState.currentUser?.role == UserRole.admin;
+    final c = context.colors;
 
     return Scaffold(
+      backgroundColor: c.scaffoldBg,
       appBar: AppBar(
         title: const Text('सभेचा तपशील | Details'),
+        backgroundColor: c.scaffoldBg,
+        foregroundColor: c.textPrimary,
+        elevation: 0,
         actions: [
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -57,20 +62,21 @@ class MeetingDetailScreen extends ConsumerWidget {
           children: [
             Text(
               meeting.type.displayNameMr,
-              style: const TextStyle(
+              style: TextStyle(
                 fontFamily: 'NotoSansDevanagari',
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
+                color: c.textPrimary,
               ),
             ),
             const SizedBox(height: 16),
-            _buildInfoRow(Icons.calendar_today, 'Date', DateFormat('dd MMMM yyyy').format(meeting.scheduledDate)),
-            _buildInfoRow(Icons.access_time, 'Time', DateFormat('hh:mm a').format(meeting.scheduledDate)),
-            _buildInfoRow(Icons.location_on, 'Venue', meeting.venue),
+            _buildInfoRow(context, Icons.calendar_today, 'Date', DateFormat('dd MMMM yyyy').format(meeting.scheduledDate)),
+            _buildInfoRow(context, Icons.access_time, 'Time', DateFormat('hh:mm a').format(meeting.scheduledDate)),
+            _buildInfoRow(context, Icons.location_on, 'Venue', meeting.venue),
             const SizedBox(height: 24),
-            const Text(
+            Text(
               'अजेंडा | Agenda',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: c.textPrimary),
             ),
             const SizedBox(height: 8),
             if (meeting.agenda != null && meeting.agenda!.isNotEmpty)
@@ -79,8 +85,8 @@ class MeetingDetailScreen extends ConsumerWidget {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('• ', style: TextStyle(fontSize: 16)),
-                        Expanded(child: Text(item, style: const TextStyle(fontSize: 16))),
+                        Text('• ', style: TextStyle(fontSize: 16, color: c.textPrimary)),
+                        Expanded(child: Text(item, style: TextStyle(fontSize: 16, color: c.textPrimary))),
                       ],
                     ),
                   )),
@@ -93,34 +99,40 @@ class MeetingDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildInfoRow(IconData icon, String label, String value) {
+  Widget _buildInfoRow(BuildContext context, IconData icon, String label, String value) {
+    final c = context.colors;
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         children: [
-          Icon(icon, size: 20, color: Colors.grey[600]),
+          Icon(icon, size: 20, color: c.isDark ? AppColors.accentSaffron : AppColors.primary),
           const SizedBox(width: 8),
-          Text('$label: ', style: TextStyle(color: Colors.grey[600], fontSize: 16)),
-          Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+          Text('$label: ', style: TextStyle(color: c.textSecondary, fontSize: 16)),
+          Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: c.textPrimary)),
         ],
       ),
     );
   }
 
   Widget _buildAdminControls(BuildContext context, WidgetRef ref, GramSabhaMeeting meeting) {
+    final c = context.colors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Divider(),
+        Divider(color: c.border),
         const SizedBox(height: 16),
-        const Text('Admin Controls', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        Text('Admin Controls', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: c.textPrimary)),
         const SizedBox(height: 16),
         if (meeting.status == MeetingStatus.scheduled)
           ElevatedButton(
             onPressed: () {
               ref.read(meetingsProvider.notifier).startMeeting(meeting.id);
             },
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.secondary, padding: const EdgeInsets.symmetric(vertical: 16)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.secondary,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+            ),
             child: const Text('Start Meeting'),
           ),
         if (meeting.status == MeetingStatus.inProgress) ...[
@@ -141,7 +153,11 @@ class MeetingDetailScreen extends ConsumerWidget {
             },
             icon: const Icon(Icons.people),
             label: const Text('Manage Attendance & Quorum'),
-            style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: c.isDark ? AppColors.accentSaffron : AppColors.primary,
+              side: BorderSide(color: c.border),
+              padding: const EdgeInsets.symmetric(vertical: 16),
+            ),
           ),
           const SizedBox(height: 12),
           OutlinedButton.icon(
@@ -151,14 +167,22 @@ class MeetingDetailScreen extends ConsumerWidget {
             },
             icon: const Icon(Icons.gavel),
             label: const Text('Record Resolution'),
-            style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: c.isDark ? AppColors.accentSaffron : AppColors.primary,
+              side: BorderSide(color: c.border),
+              padding: const EdgeInsets.symmetric(vertical: 16),
+            ),
           ),
           const SizedBox(height: 12),
           ElevatedButton(
             onPressed: () {
               ref.read(meetingsProvider.notifier).completeMeeting(meeting.id);
             },
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, padding: const EdgeInsets.symmetric(vertical: 16)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+            ),
             child: const Text('End Meeting'),
           ),
         ],
@@ -169,18 +193,23 @@ class MeetingDetailScreen extends ConsumerWidget {
             },
             icon: const Icon(Icons.history),
             label: const Text('View Resolutions Ledger'),
-            style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: c.isDark ? AppColors.accentSaffron : AppColors.primary,
+              side: BorderSide(color: c.border),
+              padding: const EdgeInsets.symmetric(vertical: 16),
+            ),
           ),
       ],
     );
   }
 
   Widget _buildVillagerControls(BuildContext context, WidgetRef ref, GramSabhaMeeting meeting) {
+    final c = context.colors;
     if (meeting.status == MeetingStatus.inProgress) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Divider(),
+          Divider(color: c.border),
           const SizedBox(height: 16),
           ElevatedButton.icon(
             onPressed: () {
@@ -192,7 +221,11 @@ class MeetingDetailScreen extends ConsumerWidget {
             },
             icon: const Icon(Icons.how_to_reg),
             label: const Text('Self Check-In (Attendance)'),
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.secondary, padding: const EdgeInsets.symmetric(vertical: 16)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.secondary,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+            ),
           ),
         ],
       );
@@ -200,7 +233,7 @@ class MeetingDetailScreen extends ConsumerWidget {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Divider(),
+          Divider(color: c.border),
           const SizedBox(height: 16),
           OutlinedButton.icon(
             onPressed: () {
@@ -208,7 +241,11 @@ class MeetingDetailScreen extends ConsumerWidget {
             },
             icon: const Icon(Icons.history),
             label: const Text('View Resolutions Ledger'),
-            style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: c.isDark ? AppColors.accentSaffron : AppColors.primary,
+              side: BorderSide(color: c.border),
+              padding: const EdgeInsets.symmetric(vertical: 16),
+            ),
           ),
         ],
       );

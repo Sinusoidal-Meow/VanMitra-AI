@@ -107,16 +107,17 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
       }
     });
 
+    final c = context.colors;
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: c.scaffoldBg,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: c.scaffoldBg,
         elevation: 0,
-        title: const Text(
+        title: Text(
           'वनमित्र | VanMitra',
           style: TextStyle(
             fontSize: 16,
-            color: AppColors.primary,
+            color: c.textPrimary,
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -125,7 +126,7 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
           child: Row(
             children: [
               Expanded(child: Container(height: 3, color: AppColors.secondary)),
-              Expanded(child: Container(height: 3, color: Colors.white)),
+              Expanded(child: Container(height: 3, color: c.border)),
               Expanded(child: Container(height: 3, color: AppColors.success)),
             ],
           ),
@@ -142,11 +143,11 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                 // ── Heading ──────────────────────────────────────────────
                 Text(
                   _isLogin ? localizations.loginTitle : 'Create Account',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: 'NotoSansDevanagari',
                     fontSize: 32,
                     fontWeight: FontWeight.w700,
-                    color: AppColors.primary,
+                    color: c.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -154,9 +155,9 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                   _isLogin
                       ? localizations.loginSubtitle
                       : 'Sign up to join your Gram Panchayat on VanMitra',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 16,
-                    color: AppColors.textSecondary,
+                    color: c.textSecondary,
                   ),
                 ),
                 const SizedBox(height: 32),
@@ -265,17 +266,18 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                   const SizedBox(height: 20),
 
                   // ── Role Selector ─────────────────────────────────────
-                  _buildLabel('Select Role'),
+                  _buildLabel('Select Role', context),
                   const SizedBox(height: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     decoration: BoxDecoration(
-                      color: AppColors.cardElevated,
-                      border: Border.all(color: AppColors.divider),
+                      color: c.isDark ? c.sunkenBg : AppColors.cardElevated,
+                      border: Border.all(color: c.border),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: DropdownButtonHideUnderline(
                       child: DropdownButton<String>(
+                        dropdownColor: c.dialogBg,
                         value: _selectedRole,
                         isExpanded: true,
                         items: UserRole.values.map((role) {
@@ -283,9 +285,10 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                             value: role.name,
                             child: Text(
                               '${role.displayNameEn} (${role.displayNameMr})',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontFamily: 'NotoSansDevanagari',
                                 fontSize: 13,
+                                color: c.textPrimary,
                               ),
                             ),
                           );
@@ -347,8 +350,8 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                       _isLogin
                           ? "Don't have an account? Sign Up"
                           : 'Already have an account? Login',
-                      style: const TextStyle(
-                        color: AppColors.primary,
+                      style: TextStyle(
+                        color: c.isDark ? AppColors.accentSaffron : AppColors.primary,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -360,31 +363,39 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: AppColors.surface,
+                    color: c.cardBg,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.divider),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.02),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
+                    border: Border.all(color: c.border),
+                    boxShadow: c.isDark
+                        ? [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.2),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ]
+                        : [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.02),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
                   ),
                   child: Row(
                     children: [
                       Icon(
                         Icons.shield_outlined,
-                        color: AppColors.primary.withValues(alpha: 0.6),
+                        color: c.isDark ? AppColors.accentSaffron : AppColors.primary.withValues(alpha: 0.6),
                         size: 24,
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
                           localizations.legalNotice,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
-                            color: AppColors.textSecondary,
+                            color: c.textSecondary,
                             height: 1.4,
                           ),
                         ),
@@ -402,34 +413,36 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
 
   // ─── Widget Helpers ───────────────────────────────────────────────────
 
-  Widget _buildLabel(String text) {
+  Widget _buildLabel(String text, [BuildContext? ctx]) {
+    final c = (ctx ?? context).colors;
     return Text(
       text,
-      style: const TextStyle(
+      style: TextStyle(
         fontFamily: 'NotoSansDevanagari',
         fontSize: 14,
         fontWeight: FontWeight.w600,
-        color: AppColors.textPrimary,
+        color: c.textPrimary,
       ),
     );
   }
 
   InputDecoration _inputDecoration(String hint, IconData prefixIcon) {
+    final c = context.colors;
     return InputDecoration(
       hintText: hint,
-      hintStyle: const TextStyle(color: AppColors.textTertiary),
-      prefixIcon: Icon(prefixIcon, color: AppColors.textTertiary),
+      hintStyle: TextStyle(color: c.textTertiary),
+      prefixIcon: Icon(prefixIcon, color: c.textTertiary),
       filled: true,
-      fillColor: AppColors.cardElevated,
+      fillColor: c.isDark ? c.sunkenBg : AppColors.cardElevated,
       contentPadding:
           const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppColors.divider),
+        borderSide: BorderSide(color: c.border),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppColors.divider),
+        borderSide: BorderSide(color: c.border),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
@@ -437,7 +450,7 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
       ),
       disabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: AppColors.divider.withValues(alpha: 0.5)),
+        borderSide: BorderSide(color: c.border.withValues(alpha: 0.5)),
       ),
     );
   }

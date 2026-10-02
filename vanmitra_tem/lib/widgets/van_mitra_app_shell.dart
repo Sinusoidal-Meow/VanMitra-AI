@@ -45,8 +45,12 @@ class VanMitraTopBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+    final titleColor = c.isDark ? AppColors.forestMist : kPrimary;
+    final headerBg = c.isDark ? c.surface : kSurfaceContainerHighest;
+
     return Container(
-      color: kSurfaceContainerHighest,
+      color: headerBg,
       child: SafeArea(
         bottom: false,
         child: SizedBox(
@@ -56,26 +60,26 @@ class VanMitraTopBar extends StatelessWidget implements PreferredSizeWidget {
               // Left: emblem or back
               if (showBack)
                 IconButton(
-                  icon: const Icon(Icons.arrow_back_ios_new_rounded,
-                      color: kPrimary, size: 20),
+                  icon: Icon(Icons.arrow_back_ios_new_rounded,
+                      color: titleColor, size: 20),
                   onPressed: () => Navigator.of(context).pop(),
                 )
               else
-                const SizedBox(
+                SizedBox(
                   width: 48,
                   height: 48,
                   child: Center(
-                    child: Icon(Icons.account_balance, color: kPrimary, size: 24),
+                    child: Icon(Icons.account_balance, color: titleColor, size: 24),
                   ),
                 ),
 
               // Center: title
-              const Expanded(
+              Expanded(
                 child: Text(
                   'VanMitra-AI',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: kPrimary,
+                    color: titleColor,
                     fontSize: 20,
                     fontWeight: FontWeight.w700,
                     letterSpacing: -0.3,
@@ -89,7 +93,7 @@ class VanMitraTopBar extends StatelessWidget implements PreferredSizeWidget {
                 width: 48,
                 height: 48,
                 child: IconButton(
-                  icon: const Icon(Icons.language, color: kPrimary, size: 24),
+                  icon: Icon(Icons.language, color: titleColor, size: 24),
                   onPressed: () {},
                 ),
               ),
@@ -104,7 +108,7 @@ class VanMitraTopBar extends StatelessWidget implements PreferredSizeWidget {
 // ── Bottom Navigation Bar ────────────────────────────────────────────────────
 
 /// Shared bottom navigation bar: Home | Claims | Map | Ledger | Profile
-/// Active tab shows a green pill background (primary-container style).
+/// Active tab shows an accent pill background.
 class VanMitraBottomNav extends StatelessWidget {
   final VanMitraTab activeTab;
 
@@ -112,13 +116,17 @@ class VanMitraBottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     return Container(
       decoration: BoxDecoration(
-        color: kSurfaceWhite,
+        color: c.navBg,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+        border: Border(
+          top: BorderSide(color: c.navBorder, width: 1),
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withOpacity(c.isDark ? 0.3 : 0.08),
             blurRadius: 8,
             offset: const Offset(0, -2),
           ),
@@ -196,6 +204,12 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+    final itemColor = isActive ? c.navSelected : c.navUnselected;
+    final activeBg = c.isDark
+        ? AppColors.saffron.withValues(alpha: 0.16)
+        : kPrimaryContainer;
+
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -205,7 +219,7 @@ class _NavItem extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: isActive
             ? BoxDecoration(
-                color: kPrimaryContainer,
+                color: activeBg,
                 borderRadius: BorderRadius.circular(16),
               )
             : null,
@@ -215,7 +229,7 @@ class _NavItem extends StatelessWidget {
             Icon(
               isActive ? activeIcon : icon,
               size: 24,
-              color: isActive ? kOnPrimaryContainer : kOnSurfaceVariant,
+              color: itemColor,
             ),
             const SizedBox(height: 2),
             Text(
@@ -224,8 +238,7 @@ class _NavItem extends StatelessWidget {
                 fontSize: 12,
                 fontWeight:
                     isActive ? FontWeight.w700 : FontWeight.w500,
-                color:
-                    isActive ? kOnPrimaryContainer : kOnSurfaceVariant,
+                color: itemColor,
               ),
             ),
           ],

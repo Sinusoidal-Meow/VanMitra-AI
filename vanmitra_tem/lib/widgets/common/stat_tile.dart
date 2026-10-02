@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
+import 'animated_counter.dart';
+import 'bouncing_card.dart';
 
 enum StatTileType {
   claims,
@@ -11,7 +13,11 @@ enum StatTileType {
   custom,
 }
 
-/// Unified KPI StatTile with semantic icon background colors, compact padding, and zero-overflow layout.
+/// Modernized KPI StatTile with:
+/// - AnimatedCounter for smooth count-up from 0 → target
+/// - BouncingCard tactile press feedback
+/// - Subtle colored ambient glow shadow matching the icon color
+/// - Enhanced gradient icon background
 class StatTile extends StatelessWidget {
   final StatTileType type;
   final String label;
@@ -22,6 +28,9 @@ class StatTile extends StatelessWidget {
   final Color? customBackgroundColor;
   final bool isLoading;
   final VoidCallback? onTap;
+
+  /// Whether to animate the counter from 0 on first build.
+  final bool animateValue;
 
   const StatTile({
     super.key,
@@ -34,10 +43,12 @@ class StatTile extends StatelessWidget {
     this.customBackgroundColor,
     this.isLoading = false,
     this.onTap,
+    this.animateValue = true,
   });
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     Color activeIconColor;
     Color iconBgColor;
 
@@ -47,8 +58,8 @@ class StatTile extends StatelessWidget {
     } else {
       switch (type) {
         case StatTileType.claims:
-          activeIconColor = AppColors.forestCanopy;
-          iconBgColor = AppColors.forestCanopy.withValues(alpha: 0.1);
+          activeIconColor = c.isDark ? AppColors.forestMist : AppColors.forestCanopy;
+          iconBgColor = activeIconColor.withValues(alpha: c.isDark ? 0.2 : 0.1);
           break;
         case StatTileType.meetings:
           activeIconColor = AppColors.successGreen;
@@ -59,96 +70,126 @@ class StatTile extends StatelessWidget {
           iconBgColor = AppColors.saffron.withValues(alpha: 0.15);
           break;
         case StatTileType.members:
-          activeIconColor = AppColors.womenPurple;
-          iconBgColor = AppColors.womenPurple.withValues(alpha: 0.12);
+          activeIconColor = c.isDark ? const Color(0xFFC084FC) : AppColors.womenPurple;
+          iconBgColor = activeIconColor.withValues(alpha: 0.15);
           break;
         case StatTileType.custom:
-          activeIconColor = customIconColor ?? AppColors.forestCanopy;
+          activeIconColor = customIconColor ?? (c.isDark ? AppColors.forestMist : AppColors.forestCanopy);
           iconBgColor = customBackgroundColor ?? activeIconColor.withValues(alpha: 0.1);
           break;
       }
     }
 
     final displayValue = (value == '-' || (value.isEmpty && !isLoading)) ? '0' : value;
+    final numericValue = int.tryParse(displayValue);
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
+    final cardContent = Container(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm + 2),
+      decoration: BoxDecoration(
+        color: c.cardBg,
         borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm + 2),
-          decoration: BoxDecoration(
-            color: AppColors.surfaceCard,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x0F0F172A),
-                offset: Offset(0, 2),
-                blurRadius: 8,
-              ),
-            ],
-            border: Border.all(color: AppColors.divider.withValues(alpha: 0.5)),
+        boxShadow: [
+          // Primary subtle shadow
+          BoxShadow(
+            color: c.isDark ? Colors.black.withOpacity(0.3) : const Color(0x0F0F172A),
+            offset: const Offset(0, 2),
+            blurRadius: 8,
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
+          // Colored ambient glow — subtle tint shadow matching the icon color
+          BoxShadow(
+            color: activeIconColor.withValues(alpha: c.isDark ? 0.05 : 0.08),
+            offset: const Offset(0, 4),
+            blurRadius: 16,
+          ),
+        ],
+        border: Border.all(color: c.border.withValues(alpha: c.isDark ? 0.6 : 0.4)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(AppSpacing.xs + 2),
-                    decoration: BoxDecoration(
-                      color: iconBgColor,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(icon, color: activeIconColor, size: 20),
+              // Enhanced gradient icon background
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.xs + 2),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      iconBgColor,
+                      iconBgColor.withValues(alpha: iconBgColor.a * 0.5),
+                    ],
                   ),
-                  if (onTap != null)
-                    const Icon(
-                      Icons.arrow_forward_ios_rounded,
-                      size: 12,
-                      color: AppColors.textTertiary,
-                    ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              if (isLoading)
-                Container(
-                  height: 22,
-                  width: 44,
-                  decoration: BoxDecoration(
-                    color: AppColors.divider,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                )
-              else
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    displayValue,
-                    style: AppTypography.stat.copyWith(fontSize: 22, height: 1.1),
-                    maxLines: 1,
-                  ),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-              const SizedBox(height: 2),
-              Text(
-                label,
-                style: AppTypography.caption.copyWith(
-                  color: AppColors.textSecondary,
-                  fontWeight: FontWeight.w500,
-                  fontSize: 11,
+                child: Icon(icon, color: activeIconColor, size: 20),
+              ),
+              if (onTap != null)
+                Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 12,
+                  color: c.textTertiary,
+                ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          if (isLoading)
+            // Shimmer placeholder
+            Container(
+              height: 22,
+              width: 44,
+              decoration: BoxDecoration(
+                color: c.sunkenBg,
+                borderRadius: BorderRadius.circular(6),
+              ),
+            )
+          else if (animateValue && numericValue != null)
+            // Animated count-up
+            AnimatedCounter(
+              targetValue: numericValue,
+              duration: const Duration(milliseconds: 1200),
+              style: AppTypography.stat.copyWith(
+                fontSize: 22,
+                height: 1.1,
+                color: c.statNumber,
+              ),
+            )
+          else
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                displayValue,
+                style: AppTypography.stat.copyWith(
+                  fontSize: 22,
+                  height: 1.1,
+                  color: c.statNumber,
                 ),
                 maxLines: 1,
-                overflow: TextOverflow.ellipsis,
               ),
-            ],
+            ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: AppTypography.caption.copyWith(
+              color: c.textSecondary,
+              fontWeight: FontWeight.w500,
+              fontSize: 11,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
-        ),
+        ],
       ),
+    );
+
+    return BouncingCard(
+      onTap: onTap,
+      child: cardContent,
     );
   }
 }

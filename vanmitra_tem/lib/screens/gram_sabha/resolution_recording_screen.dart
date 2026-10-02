@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/theme/app_colors.dart';
 import '../../models/resolution_model.dart';
 import '../../providers/gram_sabha_module_c_provider.dart';
 import '../../widgets/trilingual_summary_tabs.dart';
@@ -157,13 +158,15 @@ class _ResolutionRecordingScreenState
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final c = context.colors;
     final isReady = ref.watch(translationReadyProvider);
 
     return Scaffold(
+      backgroundColor: c.scaffoldBg,
       appBar: AppBar(
         title: const Text('Record Resolution'),
-        backgroundColor: const Color(0xFF6A1B9A),
-        foregroundColor: Colors.white,
+        backgroundColor: c.scaffoldBg,
+        foregroundColor: c.textPrimary,
         elevation: 0,
       ),
       body: SingleChildScrollView(
@@ -186,6 +189,7 @@ class _ResolutionRecordingScreenState
               'Transcript (${widget.language.toUpperCase()})',
               style: theme.textTheme.titleSmall?.copyWith(
                 fontWeight: FontWeight.w600,
+                color: c.textPrimary,
               ),
             ),
             const SizedBox(height: 6),
@@ -194,18 +198,26 @@ class _ResolutionRecordingScreenState
               initialValue: _rawTranscript,
               onChanged: (v) => _rawTranscript = v,
               maxLines: 4,
-              style: const TextStyle(
+              style: TextStyle(
                 fontFamily: 'NotoSansDevanagari',
                 fontSize: 14,
                 height: 1.6,
+                color: c.textPrimary,
               ),
               decoration: InputDecoration(
                 hintText: _isListening
                     ? 'Listening…'
                     : 'Transcript will appear here, or type manually',
-                filled: true,
+                hintStyle: TextStyle(color: c.textTertiary),
+                filled: c.isDark,
+                fillColor: c.isDark ? c.sunkenBg : null,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: c.border),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: c.border),
                 ),
                 suffixIcon: _isListening
                     ? const Padding(
@@ -248,6 +260,7 @@ class _ResolutionRecordingScreenState
                 'Trilingual Summary — Review Each Tab',
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w600,
+                  color: c.textPrimary,
                 ),
               ),
               const SizedBox(height: 8),
@@ -267,16 +280,17 @@ class _ResolutionRecordingScreenState
               CheckboxListTile(
                 value: _isUserReviewed,
                 onChanged: (v) => setState(() => _isUserReviewed = v ?? false),
-                title: const Text(
+                title: Text(
                   'मी हे पुनरावलोकन केले आहे | I have reviewed all three language versions',
                   style: TextStyle(
                     fontFamily: 'NotoSansDevanagari',
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
+                    color: c.textPrimary,
                   ),
                 ),
                 controlAffinity: ListTileControlAffinity.leading,
-                activeColor: const Color(0xFF2E7D32),
+                activeColor: c.isDark ? AppColors.accentSaffron : const Color(0xFF2E7D32),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -305,8 +319,8 @@ class _ResolutionRecordingScreenState
                       _isSaving ? 'Saving…' : 'Confirm Resolution'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _isUserReviewed
-                        ? const Color(0xFF2E7D32)
-                        : Colors.grey,
+                        ? (c.isDark ? AppColors.accentSaffron : const Color(0xFF2E7D32))
+                        : (c.isDark ? c.sunkenBg : Colors.grey),
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
@@ -339,6 +353,7 @@ class _SttStatusBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     final Color color;
     final String label;
     final Widget trailing;
@@ -360,12 +375,16 @@ class _SttStatusBar extends StatelessWidget {
         child: CircularProgressIndicator(strokeWidth: 2),
       );
     } else {
-      color = Colors.grey;
+      color = c.textSecondary;
       label = 'Tap to re-record or edit manually below';
       trailing = OutlinedButton.icon(
         onPressed: onRestart,
         icon: const Icon(Icons.mic),
         label: const Text('Re-record'),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: c.isDark ? AppColors.accentSaffron : AppColors.primary,
+          side: BorderSide(color: c.border),
+        ),
       );
     }
 

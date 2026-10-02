@@ -69,6 +69,7 @@ class _CfrClaimDetailScreenState extends ConsumerState<CfrClaimDetailScreen>
     final auth = ref.watch(authProvider);
     final currentUser = auth.currentUser;
 
+    final c = context.colors;
     return PortalFrameScaffold(
       breadcrumbs: [_currentClaim.id],
       body: Column(
@@ -80,8 +81,8 @@ class _CfrClaimDetailScreenState extends ConsumerState<CfrClaimDetailScreen>
           TabBar(
             controller: _tabController,
             isScrollable: true,
-            labelColor: AppColors.forestCanopy,
-            unselectedLabelColor: Colors.grey.shade600,
+            labelColor: c.isDark ? AppColors.forestLight : AppColors.forestCanopy,
+            unselectedLabelColor: c.textSecondary,
             indicatorColor: AppColors.saffron,
             tabs: const [
               Tab(icon: Icon(Icons.gavel_rounded), text: 'Workflow Action'),
@@ -136,9 +137,13 @@ class _CfrClaimDetailScreenState extends ConsumerState<CfrClaimDetailScreen>
   }
 
   Widget _buildHeaderCard(BuildContext context) {
+    final c = context.colors;
     return Container(
       width: double.infinity,
-      color: AppColors.forestCanopy.withOpacity(0.06),
+      decoration: BoxDecoration(
+        color: c.cardBg,
+        border: Border(bottom: BorderSide(color: c.border)),
+      ),
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -147,10 +152,10 @@ class _CfrClaimDetailScreenState extends ConsumerState<CfrClaimDetailScreen>
             children: [
               Text(
                 _currentClaim.id,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: AppColors.forestCanopy,
+                  color: c.textPrimary,
                 ),
               ),
               const Spacer(),
@@ -179,25 +184,25 @@ class _CfrClaimDetailScreenState extends ConsumerState<CfrClaimDetailScreen>
           const SizedBox(height: 6),
           Text(
             'Community: ${_currentClaim.claimantNameEn} (${_currentClaim.claimantName})',
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: c.textPrimary),
           ),
           const SizedBox(height: 2),
           Text(
             '${_currentClaim.villageName} • ${_currentClaim.tehsil} • ${_currentClaim.district}',
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+            style: TextStyle(fontSize: 12, color: c.textSecondary),
           ),
           const SizedBox(height: 6),
           Row(
             children: [
               Icon(Icons.assignment_ind_rounded,
-                  size: 14, color: Colors.grey.shade700),
+                  size: 14, color: c.textSecondary),
               const SizedBox(width: 4),
               Text(
                 'Assigned Authority: ${_currentClaim.assignedAuthority.displayNameEn}',
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.govtBlue),
+                    color: c.isDark ? AppColors.forestLight : AppColors.govtBlue),
               ),
             ],
           ),
@@ -793,8 +798,9 @@ class _CfrClaimDetailScreenState extends ConsumerState<CfrClaimDetailScreen>
   Widget _buildAuditLogTab(BuildContext context) {
     final trail = _currentClaim.auditTrail;
 
+    final c = context.colors;
     if (trail.isEmpty) {
-      return const Center(child: Text('No audit history logged yet.'));
+      return Center(child: Text('No audit history logged yet.', style: TextStyle(color: c.textSecondary)));
     }
 
     return ListView.separated(
@@ -805,22 +811,24 @@ class _CfrClaimDetailScreenState extends ConsumerState<CfrClaimDetailScreen>
       itemBuilder: (context, index) {
         final event = trail[index];
         return Card(
+          color: c.cardBg,
           elevation: 1,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: c.border)),
           child: ListTile(
-            leading: const Icon(Icons.history_edu_rounded,
-                color: AppColors.forestCanopy),
+            leading: Icon(Icons.history_edu_rounded,
+                color: c.isDark ? AppColors.forestLight : AppColors.forestCanopy),
             title: Text(
               event.action,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: c.textPrimary),
             ),
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(event.comment, style: const TextStyle(fontSize: 12)),
+                Text(event.comment, style: TextStyle(fontSize: 12, color: c.textPrimary)),
                 const SizedBox(height: 2),
                 Text(
                   'By: ${event.actorRole.displayNameEn} • ${DateFormat('dd MMM yyyy, hh:mm a').format(event.timestamp)}',
-                  style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+                  style: TextStyle(fontSize: 10, color: c.textSecondary),
                 ),
               ],
             ),

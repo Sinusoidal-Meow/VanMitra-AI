@@ -87,9 +87,14 @@ class _CreateMeetingScreenState extends ConsumerState<CreateMeetingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     return Scaffold(
+      backgroundColor: c.scaffoldBg,
       appBar: AppBar(
         title: const Text('Schedule Meeting'),
+        backgroundColor: c.scaffoldBg,
+        foregroundColor: c.textPrimary,
+        elevation: 0,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -98,15 +103,22 @@ class _CreateMeetingScreenState extends ConsumerState<CreateMeetingScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Meeting Type', style: TextStyle(fontWeight: FontWeight.bold)),
+              Text('Meeting Type', style: TextStyle(fontWeight: FontWeight.bold, color: c.textPrimary)),
               const SizedBox(height: 8),
               DropdownButtonFormField<MeetingType>(
+                dropdownColor: c.dialogBg,
+                style: TextStyle(color: c.textPrimary, fontSize: 14),
                 value: _selectedType,
-                decoration: const InputDecoration(border: OutlineInputBorder()),
+                decoration: InputDecoration(
+                  filled: c.isDark,
+                  fillColor: c.isDark ? c.sunkenBg : null,
+                  border: OutlineInputBorder(borderSide: BorderSide(color: c.border)),
+                  enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: c.border)),
+                ),
                 items: MeetingType.values.map((type) {
                   return DropdownMenuItem(
                     value: type,
-                    child: Text(type.displayNameMr),
+                    child: Text(type.displayNameMr, style: TextStyle(color: c.textPrimary)),
                   );
                 }).toList(),
                 onChanged: (val) {
@@ -115,13 +127,17 @@ class _CreateMeetingScreenState extends ConsumerState<CreateMeetingScreen> {
               ),
               const SizedBox(height: 24),
               
-              const Text('Date & Time', style: TextStyle(fontWeight: FontWeight.bold)),
+              Text('Date & Time', style: TextStyle(fontWeight: FontWeight.bold, color: c.textPrimary)),
               const SizedBox(height: 8),
               Row(
                 children: [
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: _pickDate,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: c.isDark ? AppColors.accentSaffron : AppColors.primary,
+                        side: BorderSide(color: c.border),
+                      ),
                       icon: const Icon(Icons.calendar_today),
                       label: Text(_selectedDate == null 
                           ? 'Select Date' 
@@ -132,6 +148,10 @@ class _CreateMeetingScreenState extends ConsumerState<CreateMeetingScreen> {
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: _pickTime,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: c.isDark ? AppColors.accentSaffron : AppColors.primary,
+                        side: BorderSide(color: c.border),
+                      ),
                       icon: const Icon(Icons.access_time),
                       label: Text(_selectedTime == null 
                           ? 'Select Time' 
@@ -142,22 +162,33 @@ class _CreateMeetingScreenState extends ConsumerState<CreateMeetingScreen> {
               ),
               const SizedBox(height: 24),
               
-              const Text('Venue', style: TextStyle(fontWeight: FontWeight.bold)),
+              Text('Venue', style: TextStyle(fontWeight: FontWeight.bold, color: c.textPrimary)),
               const SizedBox(height: 8),
               TextFormField(
                 controller: _venueController,
-                decoration: const InputDecoration(border: OutlineInputBorder()),
+                style: TextStyle(color: c.textPrimary),
+                decoration: InputDecoration(
+                  filled: c.isDark,
+                  fillColor: c.isDark ? c.sunkenBg : null,
+                  border: OutlineInputBorder(borderSide: BorderSide(color: c.border)),
+                  enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: c.border)),
+                ),
                 validator: (val) => val == null || val.isEmpty ? 'Venue is required' : null,
               ),
               const SizedBox(height: 24),
               
-              const Text('Agenda (One item per line)', style: TextStyle(fontWeight: FontWeight.bold)),
+              Text('Agenda (One item per line)', style: TextStyle(fontWeight: FontWeight.bold, color: c.textPrimary)),
               const SizedBox(height: 8),
               TextFormField(
                 controller: _agendaController,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
+                style: TextStyle(color: c.textPrimary),
+                decoration: InputDecoration(
+                  filled: c.isDark,
+                  fillColor: c.isDark ? c.sunkenBg : null,
+                  border: OutlineInputBorder(borderSide: BorderSide(color: c.border)),
+                  enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: c.border)),
                   hintText: 'e.g.\n1. Review claims\n2. Discuss boundary',
+                  hintStyle: TextStyle(color: c.textTertiary),
                 ),
                 maxLines: 5,
                 validator: (val) => val == null || val.isEmpty ? 'Agenda is required' : null,
@@ -170,6 +201,7 @@ class _CreateMeetingScreenState extends ConsumerState<CreateMeetingScreen> {
                   onPressed: _saveMeeting,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.secondary,
+                    foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
                   child: const Text('Schedule Meeting', style: TextStyle(fontSize: 16)),

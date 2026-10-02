@@ -348,6 +348,7 @@ class _EvidenceChecklistScreenState
   }
 
   Widget _buildBody(AiAgentConfig config, ModuleAService service) {
+    final c = context.colors;
     final weights = config.evidenceWeights;
     final score = _currentScore(weights);
     final presentCount = _verificationStatus.values
@@ -365,7 +366,7 @@ class _EvidenceChecklistScreenState
 
         // ── Table header ─────────────────────────────────────────────────
         Container(
-          color: AppColors.govtBlue,
+          color: c.isDark ? AppColors.forestDarkSurface : AppColors.govtBlue,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: Row(
             children: [
@@ -434,17 +435,18 @@ class _EvidenceChecklistScreenState
                 child: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: AppColors.govtBlue.withOpacity(0.04),
+                    color: c.cardBg,
                     borderRadius: BorderRadius.circular(6),
-                    border:
-                        Border.all(color: AppColors.govtBlue.withOpacity(0.2)),
+                    border: Border.all(
+                      color: c.isDark ? c.border : AppColors.govtBlue.withOpacity(0.2),
+                    ),
                   ),
                   child: Text(
                     context.tr('evidence_rule_13_note'),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontFamily: 'NotoSansDevanagari',
                       fontSize: 11,
-                      color: AppColors.govtBlue,
+                      color: c.isDark ? c.textPrimary : AppColors.govtBlue,
                     ),
                   ),
                 ),
@@ -457,7 +459,10 @@ class _EvidenceChecklistScreenState
         // ── Continue button ───────────────────────────────────────────────
         Container(
           padding: const EdgeInsets.all(16),
-          color: Colors.white,
+          decoration: BoxDecoration(
+            color: c.navBg,
+            border: Border(top: BorderSide(color: c.border)),
+          ),
           child: SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
@@ -482,7 +487,7 @@ class _EvidenceChecklistScreenState
                     ? AppColors.successGreen
                     : score >= 0.6
                         ? AppColors.warningAmber
-                        : AppColors.govtBlue.withOpacity(0.5),
+                        : (c.isDark ? AppColors.accentSaffron.withOpacity(0.5) : AppColors.govtBlue.withOpacity(0.5)),
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(

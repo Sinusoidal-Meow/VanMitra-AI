@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../../core/constants/village_constants.dart';
+import '../../core/theme/app_colors.dart';
 import '../../models/boundary_alert.dart';
 import '../../services/module_b_service.dart';
 import '../../widgets/van_mitra_app_shell.dart';
@@ -488,15 +489,18 @@ class _BasemapSelectorCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.95),
+        color: (c.isDark ? c.cardBg : Colors.white).withValues(alpha: 0.95),
         borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: c.border.withValues(alpha: 0.6)),
         boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 6, offset: Offset(0, 2))],
       ),
       child: PopupMenuButton<BasemapMode>(
         initialValue: currentMode,
         onSelected: onChanged,
+        color: c.cardBg,
         tooltip: 'Select Map Layer',
         itemBuilder: (ctx) => [
           for (final mode in BasemapMode.values)
@@ -504,7 +508,7 @@ class _BasemapSelectorCard extends StatelessWidget {
               value: mode,
               child: Row(
                 children: [
-                  Text(mode.label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                  Text(mode.label, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: c.textPrimary)),
                   if (mode == currentMode) const Spacer(),
                   if (mode == currentMode) const Icon(Icons.check_rounded, color: Colors.green, size: 18),
                 ],
@@ -518,10 +522,10 @@ class _BasemapSelectorCard extends StatelessWidget {
             children: [
               Text(
                 currentMode.label,
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF212121)),
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: c.textPrimary),
               ),
               const SizedBox(width: 4),
-              const Icon(Icons.arrow_drop_down, color: Color(0xFF212121), size: 18),
+              Icon(Icons.arrow_drop_down, color: c.textPrimary, size: 18),
             ],
           ),
         ),
@@ -539,11 +543,13 @@ class _LayerToggleRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.95),
+        color: (c.isDark ? c.cardBg : Colors.white).withValues(alpha: 0.95),
         borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: c.border.withValues(alpha: 0.6)),
         boxShadow: const [BoxShadow(color: Color(0x22000000), blurRadius: 4, offset: Offset(0, 2))],
       ),
       child: Row(
@@ -571,14 +577,16 @@ class _TierToggleChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     final isSelected = selected == tier;
+    final activeBg = c.isDark ? AppColors.forestSage : kPrimary;
     return GestureDetector(
       onTap: () => onSelected(isSelected ? null : tier),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 130),
         padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
         decoration: BoxDecoration(
-          color: isSelected ? kPrimary : Colors.transparent,
+          color: isSelected ? activeBg : Colors.transparent,
           borderRadius: BorderRadius.circular(6),
         ),
         child: Text(
@@ -586,7 +594,7 @@ class _TierToggleChip extends StatelessWidget {
           style: TextStyle(
             fontSize: 11,
             fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-            color: isSelected ? Colors.white : kOnSurface,
+            color: isSelected ? Colors.white : c.textPrimary,
           ),
         ),
       ),
@@ -603,11 +611,13 @@ class _LandUseToggleRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.92),
+        color: (c.isDark ? c.cardBg : Colors.white).withValues(alpha: 0.95),
         borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: c.border.withValues(alpha: 0.6)),
         boxShadow: const [BoxShadow(color: Color(0x11000000), blurRadius: 3)],
       ),
       child: Row(
@@ -633,13 +643,16 @@ class _LandUseChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     final isSelected = selected == value;
     return GestureDetector(
       onTap: () => onSelected(isSelected ? null : value),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFFF8F00).withValues(alpha: 0.15) : Colors.transparent,
+          color: isSelected
+              ? const Color(0xFFFF8F00).withValues(alpha: c.isDark ? 0.25 : 0.15)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
             color: isSelected ? const Color(0xFFFF8F00) : Colors.transparent,
@@ -650,7 +663,9 @@ class _LandUseChip extends StatelessWidget {
           style: TextStyle(
             fontSize: 10,
             fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-            color: isSelected ? const Color(0xFFE65100) : Colors.grey[700],
+            color: isSelected
+                ? (c.isDark ? const Color(0xFFFFB74D) : const Color(0xFFE65100))
+                : c.textSecondary,
           ),
         ),
       ),
@@ -698,6 +713,7 @@ class _ParcelBottomSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     final tierColor = Color(alert.tier.argbColor);
     final isHomestead = alert.landUseType == 'Domestic/Homestead';
 
@@ -712,7 +728,7 @@ class _ParcelBottomSheet extends StatelessWidget {
             child: Container(
               width: 36, height: 4,
               decoration: BoxDecoration(
-                color: const Color(0xFFDDDDDD),
+                color: c.isDark ? c.border : const Color(0xFFDDDDDD),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -730,13 +746,17 @@ class _ParcelBottomSheet extends StatelessWidget {
                   children: [
                     Text(
                       alert.claimantName ?? 'Unknown Claimant',
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: c.textPrimary,
+                      ),
                     ),
                     Row(
                       children: [
                         Text(
                           'Survey ${alert.surveyNo ?? "N/A"}',
-                          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                          style: TextStyle(fontSize: 12, color: c.textSecondary),
                         ),
                         const SizedBox(width: 8),
                         Container(
@@ -750,7 +770,9 @@ class _ParcelBottomSheet extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w600,
-                              color: isHomestead ? Colors.orange[800] : Colors.green[800],
+                              color: isHomestead
+                                  ? (c.isDark ? const Color(0xFFFFB74D) : Colors.orange[800])
+                                  : (c.isDark ? const Color(0xFF81C784) : Colors.green[800]),
                             ),
                           ),
                         ),
@@ -835,15 +857,16 @@ class _SheetInfo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label,
-          style: const TextStyle(fontSize: 11, color: Color(0xFF9E9E9E), letterSpacing: 0.5)),
+          style: TextStyle(fontSize: 11, color: c.textSecondary, letterSpacing: 0.5)),
         Text(value,
           style: TextStyle(
             fontSize: 14, fontWeight: FontWeight.w700,
-            color: color ?? const Color(0xFF212121),
+            color: color ?? c.textPrimary,
           )),
       ],
     );
@@ -880,18 +903,18 @@ class _MapCanvasDiagram extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.85),
+                  color: context.colors.cardBg.withOpacity(0.9),
                   borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: kOutlineVariant),
+                  border: Border.all(color: context.colors.border),
                   boxShadow: const [
                     BoxShadow(color: Color(0x22000000), blurRadius: 4, offset: Offset(0, 2)),
                   ],
                 ),
-                child: const Column(
+                child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('Ozhar', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: kOnSurface)),
-                    Text('CFR Boundary', style: TextStyle(fontSize: 11, color: kOnSurfaceVariant)),
+                    Text('Ozhar', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: context.colors.textPrimary)),
+                    Text('CFR Boundary', style: TextStyle(fontSize: 11, color: context.colors.textSecondary)),
                   ],
                 ),
               ),
@@ -1078,11 +1101,12 @@ class _MapControlCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: c.cardBg,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: kOutlineVariant.withValues(alpha: 0.4)),
+        border: Border.all(color: c.border.withValues(alpha: 0.6)),
         boxShadow: const [BoxShadow(color: Color(0x1A000000), blurRadius: 4, offset: Offset(0, 2))],
       ),
       child: Column(mainAxisSize: MainAxisSize.min, children: children),
@@ -1097,12 +1121,13 @@ class _MapControlButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
       child: SizedBox(
         width: 44, height: 44,
-        child: Icon(icon, color: kOnSurface, size: 20),
+        child: Icon(icon, color: c.textPrimary, size: 20),
       ),
     );
   }
@@ -1118,13 +1143,20 @@ class _AlertPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     final tierColor = Color(alert.tier.argbColor);
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: c.cardBg,
         borderRadius: BorderRadius.circular(12),
         border: Border(top: BorderSide(color: tierColor, width: 4)),
-        boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 16, offset: Offset(0, 4))],
+        boxShadow: [
+          BoxShadow(
+            color: c.isDark ? Colors.black.withOpacity(0.5) : const Color(0x33000000),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -1142,13 +1174,17 @@ class _AlertPanel extends StatelessWidget {
                     children: [
                       Text(
                         alert.claimantName ?? 'Change Alert',
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: kOnSurface),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: c.textPrimary,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                       Text(
                         'Survey ${alert.surveyNo ?? "N/A"} · ${alert.landUseType ?? ""}',
-                        style: const TextStyle(fontSize: 12, color: kOnSurfaceVariant),
+                        style: TextStyle(fontSize: 12, color: c.textSecondary),
                       ),
                     ],
                   ),
@@ -1164,13 +1200,13 @@ class _AlertPanel extends StatelessWidget {
                 const SizedBox(width: 8),
                 GestureDetector(
                   onTap: onDismiss,
-                  child: const Icon(Icons.close_rounded, color: kOnSurfaceVariant, size: 20),
+                  child: Icon(Icons.close_rounded, color: c.textSecondary, size: 20),
                 ),
               ],
             ),
           ),
 
-          const Divider(height: 1, color: Color(0x1A000000)),
+          Divider(height: 1, color: c.border),
 
           // Body
           Padding(
@@ -1197,9 +1233,9 @@ class _AlertPanel extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 12),
-                const Text('LIKELY CAUSE',
+                Text('LIKELY CAUSE',
                     style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
-                        color: kOnSurfaceVariant, letterSpacing: 1.1)),
+                        color: c.textSecondary, letterSpacing: 1.1)),
                 const SizedBox(height: 4),
                 Row(
                   children: [
@@ -1208,7 +1244,7 @@ class _AlertPanel extends StatelessWidget {
                     Expanded(
                       child: Text(
                         '${alert.likelyCause ?? "Unknown"} (rule-based v1)',
-                        style: const TextStyle(fontSize: 14, color: kOnSurface),
+                        style: TextStyle(fontSize: 14, color: c.textPrimary),
                       ),
                     ),
                   ],
@@ -1275,15 +1311,16 @@ class _AlertMetric extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label,
-            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
-                color: kOnSurfaceVariant, letterSpacing: 1.1)),
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
+                color: c.textSecondary, letterSpacing: 1.1)),
         const SizedBox(height: 2),
         Text(value,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: kOnSurface)),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: c.textPrimary)),
       ],
     );
   }

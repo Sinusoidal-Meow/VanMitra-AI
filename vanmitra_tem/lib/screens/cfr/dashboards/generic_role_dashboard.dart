@@ -29,6 +29,7 @@ class GenericRoleDashboard extends ConsumerWidget {
   }
 
   Widget _buildRoleContent(BuildContext context, List<Claim> assignedClaims) {
+    final c = context.colors;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -101,12 +102,12 @@ class GenericRoleDashboard extends ConsumerWidget {
 
           Row(
             children: [
-              const Text(
+              Text(
                 'Action Work Queue',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
-                  color: AppColors.forestCanopy,
+                  color: c.textPrimary,
                 ),
               ),
               const Spacer(),
@@ -135,24 +136,24 @@ class GenericRoleDashboard extends ConsumerWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(32),
               decoration: BoxDecoration(
-                color: Colors.grey.shade50,
+                color: c.sunkenBg,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.grey.shade200),
+                border: Border.all(color: c.border),
               ),
               child: Column(
                 children: [
                   Icon(Icons.task_alt_rounded,
-                      size: 48, color: Colors.grey.shade400),
+                      size: 48, color: c.textTertiary),
                   const SizedBox(height: 8),
-                  const Text(
+                  Text(
                     'Work Queue Clean!',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: c.textPrimary),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     'No claims are currently awaiting action for ${role.displayNameEn}.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                    style: TextStyle(color: c.textSecondary, fontSize: 12),
                   ),
                 ],
               ),
@@ -166,19 +167,21 @@ class GenericRoleDashboard extends ConsumerWidget {
               itemBuilder: (context, index) {
                 final claim = assignedClaims[index];
                 return Card(
+                  color: c.cardBg,
                   elevation: 2,
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(color: c.border)),
                   child: ListTile(
                     contentPadding: const EdgeInsets.all(12),
                     title: Row(
                       children: [
                         Text(
                           claim.id,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 14,
-                            color: AppColors.forestCanopy,
+                            color: c.isDark ? AppColors.forestLight : AppColors.forestCanopy,
                           ),
                         ),
                         const Spacer(),
@@ -207,19 +210,19 @@ class GenericRoleDashboard extends ConsumerWidget {
                         children: [
                           Text(
                             'Community: ${claim.claimantNameEn} (${claim.claimantName})',
-                            style: const TextStyle(
-                                fontSize: 12, fontWeight: FontWeight.w600),
+                            style: TextStyle(
+                                fontSize: 12, fontWeight: FontWeight.w600, color: c.textPrimary),
                           ),
                           Text(
                             '${claim.villageName} • Area: ${((claim.areaSqMeters ?? 0) / 10000).toStringAsFixed(1)} Ha',
                             style: TextStyle(
-                                fontSize: 11, color: Colors.grey.shade600),
+                                fontSize: 11, color: c.textSecondary),
                           ),
                         ],
                       ),
                     ),
-                    trailing: const Icon(Icons.arrow_forward_ios_rounded,
-                        size: 16, color: AppColors.forestCanopy),
+                    trailing: Icon(Icons.arrow_forward_ios_rounded,
+                        size: 16, color: c.isDark ? AppColors.forestLight : AppColors.forestCanopy),
                     onTap: () {
                       Navigator.push(
                         context,

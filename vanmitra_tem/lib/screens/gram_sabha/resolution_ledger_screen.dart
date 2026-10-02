@@ -82,10 +82,12 @@ class _ResolutionLedgerScreenState extends ConsumerState<ResolutionLedgerScreen>
   }
 
   void _showAddDialog(String meetingId) {
+    final c = context.colors;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('New Resolution'),
+        backgroundColor: c.dialogBg,
+        title: Text('New Resolution', style: TextStyle(color: c.textPrimary)),
         content: Form(
           key: _formKey,
           child: SingleChildScrollView(
@@ -93,11 +95,20 @@ class _ResolutionLedgerScreenState extends ConsumerState<ResolutionLedgerScreen>
               mainAxisSize: MainAxisSize.min,
               children: [
                 DropdownButtonFormField<ResolutionType>(
+                  dropdownColor: c.dialogBg,
+                  style: TextStyle(color: c.textPrimary),
                   value: _selectedType,
-                  decoration: const InputDecoration(border: OutlineInputBorder(), labelText: 'Type'),
+                  decoration: InputDecoration(
+                    border: OutlineInputBorder(borderSide: BorderSide(color: c.border)),
+                    enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: c.border)),
+                    labelText: 'Type',
+                    labelStyle: TextStyle(color: c.textSecondary),
+                    filled: c.isDark,
+                    fillColor: c.isDark ? c.sunkenBg : null,
+                  ),
                   items: ResolutionType.values.map((type) => DropdownMenuItem(
                     value: type,
-                    child: Text(type.displayNameMr),
+                    child: Text(type.displayNameMr, style: TextStyle(color: c.textPrimary)),
                   )).toList(),
                   onChanged: (val) {
                     if (val != null) setState(() => _selectedType = val);
@@ -106,13 +117,29 @@ class _ResolutionLedgerScreenState extends ConsumerState<ResolutionLedgerScreen>
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _titleController,
-                  decoration: const InputDecoration(border: OutlineInputBorder(), labelText: 'Title'),
+                  style: TextStyle(color: c.textPrimary),
+                  decoration: InputDecoration(
+                    border: OutlineInputBorder(borderSide: BorderSide(color: c.border)),
+                    enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: c.border)),
+                    labelText: 'Title',
+                    labelStyle: TextStyle(color: c.textSecondary),
+                    filled: c.isDark,
+                    fillColor: c.isDark ? c.sunkenBg : null,
+                  ),
                   validator: (val) => val == null || val.isEmpty ? 'Required' : null,
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _descController,
-                  decoration: const InputDecoration(border: OutlineInputBorder(), labelText: 'Description'),
+                  style: TextStyle(color: c.textPrimary),
+                  decoration: InputDecoration(
+                    border: OutlineInputBorder(borderSide: BorderSide(color: c.border)),
+                    enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: c.border)),
+                    labelText: 'Description',
+                    labelStyle: TextStyle(color: c.textSecondary),
+                    filled: c.isDark,
+                    fillColor: c.isDark ? c.sunkenBg : null,
+                  ),
                   maxLines: 3,
                   validator: (val) => val == null || val.isEmpty ? 'Required' : null,
                 ),
@@ -123,10 +150,15 @@ class _ResolutionLedgerScreenState extends ConsumerState<ResolutionLedgerScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
+            style: TextButton.styleFrom(foregroundColor: c.textSecondary),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
             onPressed: () => _addResolution(meetingId),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.secondary,
+              foregroundColor: Colors.white,
+            ),
             child: const Text('Record (Hash)'),
           ),
         ],
@@ -142,10 +174,15 @@ class _ResolutionLedgerScreenState extends ConsumerState<ResolutionLedgerScreen>
     final resolutions = ref.watch(resolutionProvider).where((r) => r.meetingId == meetingId).toList();
     final authState = ref.watch(authProvider);
     final isAdmin = authState.currentUser?.role == UserRole.admin;
+    final c = context.colors;
 
     return Scaffold(
+      backgroundColor: c.scaffoldBg,
       appBar: AppBar(
         title: const Text('ठराव नोंदवही | Ledger'),
+        backgroundColor: c.scaffoldBg,
+        foregroundColor: c.textPrimary,
+        elevation: 0,
         actions: [
           IconButton(
             icon: const Icon(Icons.verified_user),
@@ -188,13 +225,18 @@ class _ResolutionLedgerScreenState extends ConsumerState<ResolutionLedgerScreen>
           
           Expanded(
             child: resolutions.isEmpty
-                ? const Center(child: Text('No resolutions recorded yet.'))
+                ? Center(child: Text('No resolutions recorded yet.', style: TextStyle(color: c.textSecondary)))
                 : ListView.builder(
                     padding: const EdgeInsets.all(16),
                     itemCount: resolutions.length,
                     itemBuilder: (context, index) {
                       final r = resolutions[index];
                       return Card(
+                        color: c.cardBg,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: BorderSide(color: c.border),
+                        ),
                         margin: const EdgeInsets.only(bottom: 16),
                         child: Padding(
                           padding: const EdgeInsets.all(16),
@@ -206,30 +248,38 @@ class _ResolutionLedgerScreenState extends ConsumerState<ResolutionLedgerScreen>
                                 children: [
                                   Text(
                                     'Resolution #${index + 1}',
-                                    style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey),
+                                    style: TextStyle(fontWeight: FontWeight.bold, color: c.textTertiary),
                                   ),
                                   Text(
                                     DateFormat('hh:mm a').format(r.timestamp),
-                                    style: const TextStyle(color: Colors.grey, fontSize: 12),
+                                    style: TextStyle(color: c.textTertiary, fontSize: 12),
                                   ),
                                 ],
                               ),
                               const SizedBox(height: 8),
                               Text(
                                 r.summary ?? 'No Title',
-                                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: c.textPrimary),
                               ),
                               const SizedBox(height: 8),
-                              Text(r.text),
-                              const Divider(height: 24),
+                              Text(r.text, style: TextStyle(color: c.textSecondary)),
+                              Divider(height: 24, color: c.border),
                               Row(
                                 children: [
-                                  const Icon(Icons.link, size: 16, color: AppColors.secondary),
+                                  Icon(
+                                    Icons.link,
+                                    size: 16,
+                                    color: c.isDark ? AppColors.accentSaffron : AppColors.secondary,
+                                  ),
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
                                       'Hash: ${r.hash.substring(0, 16)}...',
-                                      style: const TextStyle(fontFamily: 'monospace', fontSize: 12, color: AppColors.secondary),
+                                      style: TextStyle(
+                                        fontFamily: 'monospace',
+                                        fontSize: 12,
+                                        color: c.isDark ? AppColors.accentSaffron : AppColors.secondary,
+                                      ),
                                     ),
                                   ),
                                 ],

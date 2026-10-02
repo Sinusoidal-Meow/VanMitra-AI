@@ -98,20 +98,20 @@ class _DocumentPaperCardState extends State<DocumentPaperCard> {
           width: double.infinity,
           margin: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: context.colors.cardBg,
             borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
-            boxShadow: const [
+            border: Border.all(color: context.colors.border),
+            boxShadow: [
               // Simulate paper stack / depth
               BoxShadow(
-                color: Color(0x22000000),
+                color: context.colors.isDark ? Colors.black.withOpacity(0.4) : const Color(0x22000000),
                 blurRadius: 8,
-                offset: Offset(2, 4),
+                offset: const Offset(2, 4),
               ),
               BoxShadow(
-                color: Color(0x11000000),
+                color: context.colors.isDark ? Colors.black.withOpacity(0.2) : const Color(0x11000000),
                 blurRadius: 16,
-                offset: Offset(4, 8),
+                offset: const Offset(4, 8),
               ),
             ],
           ),
@@ -159,11 +159,11 @@ class _DocumentPaperCardState extends State<DocumentPaperCard> {
                       TextFormField(
                         controller: widget.editController,
                         maxLines: null,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontFamily: 'NotoSansDevanagari',
                           fontSize: 13,
                           height: 1.7,
-                          color: Color(0xFF1F2937),
+                          color: context.colors.textPrimary,
                         ),
                         decoration: const InputDecoration(
                           border: OutlineInputBorder(),
@@ -173,11 +173,11 @@ class _DocumentPaperCardState extends State<DocumentPaperCard> {
                     else
                       SelectableText(
                         widget.draftText,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontFamily: 'NotoSansDevanagari',
                           fontSize: 13,
                           height: 1.8,
-                          color: Color(0xFF1F2937),
+                          color: context.colors.textPrimary,
                           letterSpacing: 0.1,
                         ),
                       ),

@@ -14,22 +14,23 @@ class LanguageSelectionScreen extends ConsumerWidget {
     final currentLocale = ref.watch(localeProvider);
 
     final localizations = AppLocalizations.of(context);
+    final c = context.colors;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: c.scaffoldBg,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: c.scaffoldBg,
         elevation: 0,
-        title: const Text(
+        title: Text(
           'वनमित्र | VanMitra',
-          style: TextStyle(fontSize: 16, color: AppColors.primary, fontWeight: FontWeight.bold),
+          style: TextStyle(fontSize: 16, color: c.textPrimary, fontWeight: FontWeight.bold),
         ),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(3),
           child: Row(
             children: [
               Expanded(child: Container(height: 3, color: AppColors.secondary)),
-              Expanded(child: Container(height: 3, color: Colors.white)),
+              Expanded(child: Container(height: 3, color: c.border)),
               Expanded(child: Container(height: 3, color: AppColors.success)),
             ],
           ),
@@ -43,19 +44,19 @@ class LanguageSelectionScreen extends ConsumerWidget {
               const SizedBox(height: 48),
               Text(
                 localizations.languageTitle,
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: 'NotoSansDevanagari',
                   fontSize: 28,
                   fontWeight: FontWeight.w700,
-                  color: AppColors.primary,
+                  color: c.textPrimary,
                 ),
               ),
               const SizedBox(height: 4),
               Text(
                 localizations.languageSubtitle,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 16,
-                  color: AppColors.textSecondary,
+                  color: c.textSecondary,
                 ),
               ),
                 const SizedBox(height: 40),
@@ -154,20 +155,25 @@ class _LanguageCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary.withValues(alpha: 0.05) : Colors.white,
+          color: isSelected
+              ? (c.isDark ? AppColors.forestDeep.withValues(alpha: 0.6) : AppColors.primary.withValues(alpha: 0.05))
+              : c.cardBg,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isSelected ? AppColors.secondary : AppColors.divider,
+            color: isSelected ? AppColors.accentSaffron : c.border,
             width: isSelected ? 2.5 : 1,
           ),
           boxShadow: isSelected
-              ? [BoxShadow(color: AppColors.secondary.withValues(alpha: 0.2), blurRadius: 12)]
-              : [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 6, offset: const Offset(0, 2))],
+              ? [BoxShadow(color: AppColors.accentSaffron.withValues(alpha: 0.2), blurRadius: 12)]
+              : (c.isDark
+                  ? [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 6, offset: const Offset(0, 2))]
+                  : [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 6, offset: const Offset(0, 2))]),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -180,7 +186,9 @@ class _LanguageCard extends StatelessWidget {
                 fontFamily: 'NotoSansDevanagari',
                 fontSize: 20,
                 fontWeight: FontWeight.w600,
-                color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                color: isSelected
+                    ? (c.isDark ? AppColors.accentSaffron : AppColors.primary)
+                    : c.textPrimary,
               ),
             ),
             const SizedBox(height: 2),
@@ -188,7 +196,7 @@ class _LanguageCard extends StatelessWidget {
               name,
               style: TextStyle(
                 fontSize: 12,
-                color: isSelected ? AppColors.textSecondary : AppColors.textTertiary,
+                color: c.textSecondary,
               ),
             ),
             if (isSelected) ...[
@@ -196,12 +204,12 @@ class _LanguageCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
                 decoration: BoxDecoration(
-                  color: AppColors.secondary.withOpacity(0.15),
+                  color: AppColors.accentSaffron.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Text(
                   '✓ Selected',
-                  style: TextStyle(fontSize: 10, color: AppColors.secondary, fontWeight: FontWeight.w600),
+                  style: TextStyle(fontSize: 10, color: AppColors.accentSaffron, fontWeight: FontWeight.w600),
                 ),
               ),
             ],

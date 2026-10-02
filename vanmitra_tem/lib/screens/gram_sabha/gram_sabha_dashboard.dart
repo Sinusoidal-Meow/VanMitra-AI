@@ -40,7 +40,7 @@ class _GramSabhaDashboardState extends ConsumerState<GramSabhaDashboard> with Si
     final isAdmin = authState.currentUser?.role == UserRole.admin;
 
     return Scaffold(
-      backgroundColor: AppColors.surfaceBase,
+      backgroundColor: context.colors.scaffoldBg,
       bottomNavigationBar: widget.bottomNavigationBar,
       appBar: AppBar(
         backgroundColor: AppColors.forestCanopy,
@@ -83,6 +83,7 @@ class _GramSabhaDashboardState extends ConsumerState<GramSabhaDashboard> with Si
   }
 
   Widget _buildMeetingList(List<GramSabhaMeeting> meetings, GramSabhaMeeting? todayMeeting, {required bool isAdmin, bool isPast = false}) {
+    final c = context.colors;
     final allMeetings = [...meetings];
     if (todayMeeting != null && !allMeetings.any((m) => m.id == todayMeeting.id)) {
       allMeetings.insert(0, todayMeeting);
@@ -112,7 +113,7 @@ class _GramSabhaDashboardState extends ConsumerState<GramSabhaDashboard> with Si
           padding: const EdgeInsets.only(bottom: AppSpacing.md),
           child: AppCard(
             elevation: isToday ? AppElevation.raised : AppElevation.floating,
-            borderColor: isToday ? AppColors.saffron : AppColors.divider,
+            borderColor: isToday ? AppColors.saffron : (c.isDark ? c.border : AppColors.divider),
             onTap: () => Navigator.pushNamed(context, AppRouter.meetingDetail, arguments: meeting.id),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -123,7 +124,7 @@ class _GramSabhaDashboardState extends ConsumerState<GramSabhaDashboard> with Si
                     Expanded(
                       child: Text(
                         meeting.type.displayNameMr,
-                        style: AppTypography.title.copyWith(fontSize: 16, color: AppColors.textPrimary),
+                        style: AppTypography.title.copyWith(fontSize: 16, color: c.textPrimary),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -138,11 +139,11 @@ class _GramSabhaDashboardState extends ConsumerState<GramSabhaDashboard> with Si
                 const SizedBox(height: AppSpacing.sm),
                 Row(
                   children: [
-                    const Icon(Icons.calendar_today_rounded, size: 15, color: AppColors.textSecondary),
+                    Icon(Icons.calendar_today_rounded, size: 15, color: c.textSecondary),
                     const SizedBox(width: AppSpacing.sm),
                     Text(
                       DateFormat('dd MMM yyyy, hh:mm a').format(meeting.scheduledDate),
-                      style: AppTypography.body.copyWith(fontSize: 13, color: AppColors.textSecondary),
+                      style: AppTypography.body.copyWith(fontSize: 13, color: c.textSecondary),
                     ),
                   ],
                 ),
@@ -154,7 +155,7 @@ class _GramSabhaDashboardState extends ConsumerState<GramSabhaDashboard> with Si
                     Expanded(
                       child: Text(
                         meeting.venue,
-                        style: AppTypography.body.copyWith(fontSize: 13, color: AppColors.textSecondary, fontWeight: FontWeight.w500),
+                        style: AppTypography.body.copyWith(fontSize: 13, color: c.textSecondary, fontWeight: FontWeight.w500),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -163,7 +164,7 @@ class _GramSabhaDashboardState extends ConsumerState<GramSabhaDashboard> with Si
                 ),
                 if (isToday) ...[
                   const SizedBox(height: AppSpacing.md),
-                  const Divider(color: AppColors.divider, height: 1),
+                  Divider(color: c.border, height: 1),
                   const SizedBox(height: AppSpacing.sm),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
