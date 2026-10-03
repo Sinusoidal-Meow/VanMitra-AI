@@ -10,3 +10,6 @@ env/
 ~/.cache/huggingface/
 .DS_Store
 Thumbs.db
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/

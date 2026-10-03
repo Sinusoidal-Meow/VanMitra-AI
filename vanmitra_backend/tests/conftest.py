@@ -1,0 +1,24 @@
+"""
+Test settings are set here, before any `app` import reads them.
+
+The default suite needs no database: the configured URL points at a closed port.
+Database tests (marked `db`) use VANMITRA_TEST_DATABASE_URL and are skipped without it.
+"""
+
+import os
+
+os.environ["VANMITRA_ENV"] = "test"
+os.environ["VANMITRA_ENABLE_LEGACY_API"] = "false"
+os.environ["VANMITRA_JWT_SECRET"] = "test-secret-not-for-real-use-0123456789"
+os.environ["VANMITRA_DATABASE_URL"] = "postgresql+psycopg://nobody:nobody@127.0.0.1:1/none"
+os.environ["VANMITRA_DB_CONNECT_TIMEOUT_S"] = "1"
+
+import pytest  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402
+
+from app.main import create_app  # noqa: E402
+
+
+@pytest.fixture
+def client() -> TestClient:
+    return TestClient(create_app())
