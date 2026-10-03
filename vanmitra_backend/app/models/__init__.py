@@ -57,6 +57,7 @@ from .procedure import (
     Media,
     Recusal,
     Resolution,
+    TitleFollowup,
     VerificationProceeding,
 )
 
@@ -109,6 +110,7 @@ __all__ = [
     "Recusal",
     "Resolution",
     "Role",
+    "TitleFollowup",
     "UseZone",
     "UseZoneType",
     "UserRole",

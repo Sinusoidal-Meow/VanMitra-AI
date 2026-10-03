@@ -304,3 +304,25 @@ class Resolution(IdMixin, Base):
     correction_reason: Mapped[str | None] = mapped_column(Text)
     created_by_user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("app_user.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class TitleFollowup(IdMixin, Base):
+    """
+    After the title is issued: the certified copy of the title [Rule 8(i)], the survey
+    request, and the entry in the record of rights [Rule 12A(9)]. A case cannot be
+    closed without the certified copy and the record entry (BR-13).
+    """
+
+    __tablename__ = "title_followup"
+
+    case_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("claim_case.id"), unique=True)
+    certified_copy_media_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("media.id"))
+    certified_copy_on: Mapped[date | None] = mapped_column(Date)
+    survey_letter_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("correspondence.id"))
+    survey_done_on: Mapped[date | None] = mapped_column(Date)
+    record_entry_on: Mapped[date | None] = mapped_column(Date)
+    record_entry_ref: Mapped[str | None] = mapped_column(String(200))
+    record_entry_media_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("media.id"))
+    closed_on: Mapped[date | None] = mapped_column(Date)
+    updated_by_user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("app_user.id"))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

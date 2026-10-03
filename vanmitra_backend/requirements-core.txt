@@ -11,3 +11,4 @@ geoalchemy2>=0.15
 pyjwt>=2.9
 argon2-cffi>=23.1
 uuid6>=2024.7.10
+jinja2>=3.1

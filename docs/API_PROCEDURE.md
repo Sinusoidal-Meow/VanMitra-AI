@@ -141,3 +141,33 @@ SDO) is refused with 409 `GS_PREREQUISITES_MISSING` (the missing items are in
 `GET /cases/{id}/approval-check` returns the same list as `{ready, items[]}` so the app
 can show it. Form A and Form B claims have no such prerequisites. Readiness R3, R4, R5,
 R7 and R10 now reflect the real boundary, verification, resolution and disputes.
+
+## 11. G-series documents (Stage 5)
+
+Printable HTML (autoescaped). Each page has a footer with the case id, the time it was
+generated, a SHA-256 of its body and the notice *"Community record prepared with
+VanMitra. Not a government document."* Headings are English, or Marathi + English with
+`?lang=mr`. The content is only what the Gram Sabha recorded.
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/cases/{id}/documents/g4` | Acknowledgement receipt (409 until filed) |
+| GET | `/cases/{id}/documents/g8` | Verification sheets, one block per visit, with the second-absence note |
+| GET | `/cases/{id}/documents/g9` | Boundary delineation record: walks, participants, segments, landmarks |
+| GET | `/cases/{id}/documents/g10` | CFR map sheet with an SVG of the boundary, numbered landmarks, bordering villages, use zones, resolution number. **409 `Rule 12(1)(g)` while any segment has no landmark (BR-08)** |
+| GET | `/cases/{id}/documents/g12?meeting_id=` | Attendance and the three quorum tests |
+| GET | `/cases/{id}/documents/g13` | The current resolution with its stored quorum arithmetic |
+| GET | `/cases/{id}/documents/g17?dispute_id=` | Joint-meeting record for an overlap |
+| GET | `/letters/{id}/document` | A tracked letter (G2, G5, G6, G7, G18) as a page |
+
+## 12. Legal clocks and the record after the title [Rule 8(i), 12A(9)] (BR-13)
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/cases/{id}/timeline` | Running periods: `claim_window` [11(1)(a)], `petition_against_resolution` (60 days from the resolution) [Sec 6(2), 14(1)], `mutual_solution` (30 days per overlap) [14(7)], `record_update` (3 months from the title) [12A(9)]. Each has `starts_on`, `due_on`, `status` (running / overdue / met), `days_remaining`, `next_alert_on` (days 30, 45, 55, 58 of the 60-day clock) |
+| GET / PUT | `/cases/{id}/post-title` | After `title_issued`, by gram_sabha, SDO or a district officer: `certified_copy_media_id`, `certified_copy_on`, `survey_letter_id` (G18), `survey_done_on`, `record_entry_on`, `record_entry_ref`, `record_entry_media_id`. Response has `survey_pending`, `record_update_due_on`, `missing`, `can_close` |
+| POST | `/cases/{id}/close` | Closes the file. 409 `CANNOT_CLOSE` (with `missing`) unless the certified copy and the record entry are on file (BR-13). A closed case takes no more changes |
+
+Orders from outside the app (BR-10, BR-11, BR-12, BR-14) are not built: in this module
+the officials approve, return and reject inside the app, and each action is already
+recorded in the case history.
