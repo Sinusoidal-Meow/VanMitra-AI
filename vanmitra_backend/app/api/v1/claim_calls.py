@@ -137,7 +137,6 @@ def extend_call(body: ClaimCallExtend, db: DbSession, scope: GramSabhaOnly) -> C
             "Rule 11(1)(a)",
             "claim_call.extension_not_later",
             {"closes_on": call.closes_on},
-            status_code=422,
         )
     call.extended_to = body.extended_to
     call.extension_reason = body.reason
