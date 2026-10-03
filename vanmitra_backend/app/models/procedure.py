@@ -12,17 +12,21 @@ from sqlalchemy import (
     Boolean,
     Date,
     DateTime,
+    Float,
     ForeignKey,
+    Integer,
     String,
     Text,
     UniqueConstraint,
     func,
+    text,
 )
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base, IdMixin, TimestampMixin
-from .people import GsMember
+from .enums import EvidenceKind, EvidenceRule, LetterTemplate
+from .people import GsMember, pg_enum
 
 
 class Frc(IdMixin, TimestampMixin, Base):
@@ -90,3 +94,132 @@ class Recusal(IdMixin, Base):
     recorded_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+
+
+class ClaimCall(IdMixin, TimestampMixin, Base):
+    """
+    The call for claims by the Gram Sabha [Rule 11(1)(a)]: a three-month window,
+    extendable only with written reasons and a resolution; and the date fixed for
+    initiating the determination of the community forest resource [Rule 11(1)(b)].
+    """
+
+    __tablename__ = "claim_call"
+
+    gram_sabha_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("gram_sabha.id"), index=True)
+    called_on: Mapped[date] = mapped_column(Date)
+    window_ends_on: Mapped[date] = mapped_column(Date)
+    place_of_filing: Mapped[str] = mapped_column(String(300))
+    notice_displayed_on: Mapped[date | None] = mapped_column(Date)
+    cfr_determination_on: Mapped[date | None] = mapped_column(Date)
+    extended_to: Mapped[date | None] = mapped_column(Date)
+    extension_reason: Mapped[str | None] = mapped_column(Text)
+    extension_resolution_ref: Mapped[str | None] = mapped_column(String(200))
+    is_current: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_by_user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("app_user.id"))
+
+    @property
+    def closes_on(self) -> date:
+        return self.extended_to or self.window_ends_on
+
+
+class Media(IdMixin, Base):
+    """An uploaded file (scan, photo, audio). The bytes live in storage, keyed by sha256."""
+
+    __tablename__ = "media"
+
+    sha256: Mapped[str] = mapped_column(String(64), index=True)
+    mime: Mapped[str] = mapped_column(String(100))
+    size_bytes: Mapped[int] = mapped_column(Integer)
+    original_name: Mapped[str | None] = mapped_column(String(300))
+    storage_key: Mapped[str] = mapped_column(String(300))
+    uploaded_by_user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("app_user.id"))
+    captured_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    gps_lat: Mapped[float | None] = mapped_column(Float)
+    gps_lon: Mapped[float | None] = mapped_column(Float)
+    gps_accuracy_m: Mapped[float | None] = mapped_column(Float)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Evidence(IdMixin, Base):
+    """
+    The evidence ledger (append-only, hash-chained). Every item is tagged with its
+    Rule 13 sub-clause. A correction is a new row that supersedes the old one.
+    """
+
+    __tablename__ = "evidence"
+
+    case_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("claim_case.id"), index=True)
+    rule_ref: Mapped[EvidenceRule] = mapped_column(pg_enum(EvidenceRule, "evidence_rule"))
+    kind: Mapped[EvidenceKind] = mapped_column(pg_enum(EvidenceKind, "evidence_kind"))
+    description: Mapped[str] = mapped_column(Text)
+    media_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("media.id"))
+    source_office: Mapped[str | None] = mapped_column(String(200))
+    ref_no: Mapped[str | None] = mapped_column(String(100))
+    doc_date: Mapped[date | None] = mapped_column(Date)
+    gps_lat: Mapped[float | None] = mapped_column(Float)
+    gps_lon: Mapped[float | None] = mapped_column(Float)
+    gps_accuracy_m: Mapped[float | None] = mapped_column(Float)
+    is_substitutable: Mapped[bool] = mapped_column(Boolean)
+    # Rule 13(1)(i): the elder (not a claimant), the transcript, the signed sheet.
+    elder_member_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("gs_member.id"))
+    transcript: Mapped[str | None] = mapped_column(Text)
+    signed_scan_media_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("media.id"))
+    supersedes_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("evidence.id"))
+    correction_reason: Mapped[str | None] = mapped_column(Text)
+    added_by_user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("app_user.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class EvidenceVerification(IdMixin, Base):
+    """The FRC / Gram Sabha attesting an evidence item (append-only, hash-chained)."""
+
+    __tablename__ = "evidence_verification"
+
+    evidence_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("evidence.id"), index=True)
+    verified_by_user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("app_user.id"))
+    verified_by_name: Mapped[str] = mapped_column(String(200))
+    remarks: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class LedgerEntry(IdMixin, Base):
+    """
+    One link of the hash chain of a Gram Sabha (Spec 6.8):
+        record_hash(n) = SHA256( canonical_json(payload(n)) || record_hash(n-1) )
+    """
+
+    __tablename__ = "ledger_entry"
+    __table_args__ = (UniqueConstraint("gram_sabha_id", "seq", name="uq_ledger_entry_seq"),)
+
+    gram_sabha_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("gram_sabha.id"), index=True)
+    seq: Mapped[int] = mapped_column(Integer)
+    entity: Mapped[str] = mapped_column(String(50))
+    entity_id: Mapped[uuid.UUID] = mapped_column()
+    prev_hash: Mapped[str] = mapped_column(String(64))
+    record_hash: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Correspondence(IdMixin, TimestampMixin, Base):
+    """
+    A tracked outgoing letter (G2 intimations, G5/G6 requests, G7 site-visit notice,
+    G18 survey request): addressee, dispatch, reminder, response.
+    """
+
+    __tablename__ = "correspondence"
+
+    gram_sabha_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("gram_sabha.id"), index=True)
+    case_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("claim_case.id"), index=True)
+    template: Mapped[LetterTemplate] = mapped_column(pg_enum(LetterTemplate, "letter_template"))
+    addressee: Mapped[str] = mapped_column(String(300))
+    subject: Mapped[str] = mapped_column(String(300))
+    body: Mapped[str | None] = mapped_column(Text)
+    neighbour_village: Mapped[str | None] = mapped_column(String(200))  # G2 adjoining GS
+    records_requested: Mapped[list[str]] = mapped_column(
+        ARRAY(String(300)), server_default=text("'{}'")
+    )
+    dispatched_on: Mapped[date | None] = mapped_column(Date)
+    reminder_on: Mapped[date | None] = mapped_column(Date)
+    response_received_on: Mapped[date | None] = mapped_column(Date)
+    outcome: Mapped[str | None] = mapped_column(Text)
+    created_by_user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("app_user.id"))

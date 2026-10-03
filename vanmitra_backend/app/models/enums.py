@@ -161,3 +161,32 @@ class FormAClaim(StrEnum):
     DISPLACED_WITHOUT_COMPENSATION = "displaced_without_compensation"  # item 5 [Sec 4(8)]
     FOREST_VILLAGE = "forest_village"  # item 6 [Sec 3(1)(h)]
     OTHER_TRADITIONAL = "other_traditional"  # item 7 [Sec 3(1)(l)]
+
+
+class EvidenceKind(StrEnum):
+    """How an evidence item was captured (Spec 4.2, 4.3)."""
+
+    DOCUMENT_SCAN = "document_scan"  # 7/12, nistar patrak, orders, maps, certificates
+    PHOTO = "photo"  # geotagged photograph of a structure, site or landmark
+    GPS_POINT = "gps_point"  # waypoint; supplementary only (rule C3)
+    SATELLITE = "satellite"  # imagery; supplementary only [Rule 12A(11) Expl. 2]
+    AUDIO = "audio"
+    ELDER_STATEMENT = "elder_statement"  # Rule 13(1)(i): signed written statement
+    TEXT_NOTE = "text_note"  # field observation, research extract, genealogy note
+
+    @property
+    def is_substitutable(self) -> bool:
+        """GPS and satellite output can never alone satisfy the two-evidence test (BR-06)."""
+        return self not in (EvidenceKind.GPS_POINT, EvidenceKind.SATELLITE)
+
+
+class LetterTemplate(StrEnum):
+    """Tracked outgoing letters (G-series), each with its rule."""
+
+    G2_INTIMATION_ADJOINING = "g2_intimation_adjoining"  # Rule 11(1)(b)
+    G2_INTIMATION_SDLC = "g2_intimation_sdlc"  # Rule 11(1)(b)
+    G5_MAPS_REQUEST = "g5_maps_request"  # Rule 6(b)
+    G6_RECORDS_REQUEST = "g6_records_request"  # Rule 12(4)
+    G7_SITE_VISIT = "g7_site_visit"  # Rule 12(1)
+    G18_SURVEY_REQUEST = "g18_survey_request"  # supports Rule 12A(9)
+    OTHER = "other"

@@ -1,11 +1,12 @@
 """Claim cases and the Form B draft (community rights)."""
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
 from sqlalchemy import (
     Boolean,
+    Date,
     DateTime,
     ForeignKey,
     Integer,
@@ -43,6 +44,10 @@ class ClaimCase(IdMixin, TimestampMixin, Base):
     """
 
     __tablename__ = "claim_case"
+    # The acknowledgement serial is a number in the Gram Sabha's own register.
+    __table_args__ = (
+        UniqueConstraint("gram_sabha_id", "ack_serial", name="uq_claim_case_ack_serial"),
+    )
 
     gram_sabha_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("gram_sabha.id"), index=True)
     claim_type: Mapped[ClaimType] = mapped_column(pg_enum(ClaimType, "claim_type"))
@@ -53,6 +58,12 @@ class ClaimCase(IdMixin, TimestampMixin, Base):
     # Furthest level the case has reached (0 draft, 1 Gram Sabha, 2 SDO, 3 district,
     # 4 title). Officials see a case once it has reached their level, even if returned.
     reached_stage: Mapped[int] = mapped_column(SmallInteger, server_default=text("0"))
+    # Acknowledgement in writing of every claim received [Rule 11(3)], issued on filing.
+    ack_serial: Mapped[str | None] = mapped_column(String(60))
+    acknowledged_on: Mapped[date | None] = mapped_column(Date)
+    # The call for claims it was filed under, and whether it came within the window.
+    claim_call_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("claim_call.id"))
+    filed_within_window: Mapped[bool | None] = mapped_column(Boolean)
 
     gram_sabha: Mapped[GramSabha] = relationship()
     form_a: Mapped["FormA | None"] = relationship(

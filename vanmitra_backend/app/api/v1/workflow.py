@@ -13,6 +13,7 @@ from ...domain.workflow import STAGE, WorkflowError, decide
 from ...errors import ApiError, RuleViolation
 from ...models import CaseState, ClaimCase, GramSabha, Village, WorkflowAction, WorkflowEvent
 from ...schemas.cases import ActionIn, CaseOut, EventOut, TitleDraftOut
+from ...services import acknowledgement, ledger
 from ...services.cases import CaseContext, district_approvals, load_case
 from ...services.title import build_title_draft
 from ._shared import case_out
@@ -46,18 +47,21 @@ def _act(
             raise RuleViolation(e.error, e.rule, e.message_key, status_code=e.status) from e
         raise ApiError(e.status, e.error, e.message_key, {"state": case.state}) from e
 
-    db.add(
-        WorkflowEvent(
-            case_id=case.id,
-            action=action,
-            from_state=case.state,
-            to_state=decision.to_state,
-            actor_user_id=principal.user_id,
-            actor_role=decision.acting_role,
-            actor_name=principal.name,
-            remarks=remarks,
-        )
+    if action is WorkflowAction.SUBMIT:
+        # Written acknowledgement of the claim when first filed [Rule 11(3)].
+        acknowledgement.issue(db, case, ctx.village)
+    event = WorkflowEvent(
+        case_id=case.id,
+        action=action,
+        from_state=case.state,
+        to_state=decision.to_state,
+        actor_user_id=principal.user_id,
+        actor_role=decision.acting_role,
+        actor_name=principal.name,
+        remarks=remarks,
     )
+    db.add(event)
+    ledger.append(db, case.gram_sabha_id, event)
     case.state = decision.to_state
     case.reached_stage = max(case.reached_stage, STAGE.get(decision.to_state, 0))
     db.commit()
