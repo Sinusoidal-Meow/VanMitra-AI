@@ -8,6 +8,8 @@ from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
 
+from ..models import BoundaryStatus, ClaimType
+from . import boundary
 from .cases import CaseContext
 
 
@@ -21,4 +23,17 @@ class ProcedureFacts:
 
 
 def collect(db: Session, ctx: CaseContext) -> ProcedureFacts:
-    return ProcedureFacts()
+    approved = False
+    unmarked: int | None = None
+    disputes = 0
+    if ctx.case.claim_type is ClaimType.CFR:
+        current = boundary.current_boundary(db, ctx.case.id)
+        if current is not None:
+            approved = current.status in (BoundaryStatus.GS_APPROVED, BoundaryStatus.TITLED)
+            unmarked = boundary.segments_without_landmark(current)
+        disputes = boundary.open_disputes(db, ctx.case.id)
+    return ProcedureFacts(
+        boundary_gs_approved=approved,
+        segments_without_landmark=unmarked,
+        open_disputes=disputes,
+    )

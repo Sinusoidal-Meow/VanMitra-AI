@@ -190,3 +190,33 @@ class LetterTemplate(StrEnum):
     G7_SITE_VISIT = "g7_site_visit"  # Rule 12(1)
     G18_SURVEY_REQUEST = "g18_survey_request"  # supports Rule 12A(9)
     OTHER = "other"
+
+
+class BoundaryStatus(StrEnum):
+    """A boundary version: a draft until the Gram Sabha approves it [Rule 12(1)(g)]."""
+
+    DRAFT = "draft"
+    GS_APPROVED = "gs_approved"  # frozen; sealed_hash set
+    TITLED = "titled"
+
+
+class UseZoneType(StrEnum):
+    """Customary uses inside the community forest resource [Rule 13(2)(b)]."""
+
+    GRAZING = "grazing"
+    MFP = "mfp"  # minor forest produce collection
+    WATER = "water"  # water sources, ponds
+    FISHING = "fishing"
+    FUELWOOD = "fuelwood"
+    SACRED = "sacred"  # sacred groves, burial grounds
+    SHIFTING_CULTIVATION = "shifting_cultivation"
+    HABITAT = "habitat"  # habitat of PTGs / pre-agricultural communities
+    OTHER = "other"
+
+
+class DisputeOutcome(StrEnum):
+    """Result of the joint meeting of the Gram Sabhas / FRCs concerned [Rule 12(3)]."""
+
+    AGREED_SHARED = "agreed_shared"  # the area is used and claimed jointly
+    AGREED_ADJUSTED = "agreed_adjusted"  # the boundaries are redrawn by agreement
+    NOT_RESOLVED = "not_resolved"  # goes to the SDLC

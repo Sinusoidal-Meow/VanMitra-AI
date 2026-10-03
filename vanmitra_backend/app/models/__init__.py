@@ -1,6 +1,14 @@
 """SQLAlchemy models. Import every model module here so Alembic sees all tables."""
 
 from .base import Base
+from .boundary import (
+    BoundaryLandmark,
+    BoundarySegment,
+    BoundaryWalk,
+    CfrBoundary,
+    Dispute,
+    UseZone,
+)
 from .claims import (
     ClaimCase,
     ClaimEvidenceEntry,
@@ -17,9 +25,11 @@ from .claims import (
 from .enums import (
     DISTRICT_ROLES,
     BoundarySide,
+    BoundaryStatus,
     CaseState,
     ClaimType,
     ConsolidationStatus,
+    DisputeOutcome,
     EvidenceKind,
     EvidenceRule,
     FormAClaim,
@@ -29,6 +39,7 @@ from .enums import (
     LetterTemplate,
     MemberCategory,
     Role,
+    UseZoneType,
     WorkflowAction,
 )
 from .people import AppUser, GramSabha, GsMember, UserRole, Village
@@ -49,15 +60,22 @@ __all__ = [
     "DISTRICT_ROLES",
     "AppUser",
     "Base",
+    "BoundaryLandmark",
+    "BoundarySegment",
     "BoundarySide",
+    "BoundaryStatus",
+    "BoundaryWalk",
     "CaseClaimant",
     "CaseState",
+    "CfrBoundary",
     "ClaimCall",
     "ClaimCase",
     "ClaimEvidenceEntry",
     "ClaimType",
     "ConsolidationStatus",
     "Correspondence",
+    "Dispute",
+    "DisputeOutcome",
     "Evidence",
     "EvidenceKind",
     "EvidenceRule",
@@ -84,6 +102,8 @@ __all__ = [
     "MemberCategory",
     "Recusal",
     "Role",
+    "UseZone",
+    "UseZoneType",
     "UserRole",
     "Village",
     "WorkflowAction",

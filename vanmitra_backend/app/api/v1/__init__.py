@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from . import (
     admin,
     auth,
+    boundary,
     cases,
     claim_calls,
     evidence,
@@ -30,3 +31,4 @@ router.include_router(workflow.router)
 router.include_router(claim_calls.router)
 router.include_router(media.router)
 router.include_router(evidence.router)
+router.include_router(boundary.router)

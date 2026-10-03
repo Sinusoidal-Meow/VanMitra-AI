@@ -72,3 +72,41 @@ hash chain: `record_hash = SHA256(canonical_json(row) ‖ previous hash)`.
 | Method | Path | Who | Notes |
 |---|---|---|---|
 | GET | `/villages/{id}/ledger/verify` | role in village | `ok`, `length`, `head`. If the chain is broken: `broken_at_seq`, `broken_entity`, `reason` (`record altered`, `record missing`, `chain link broken`) |
+
+## 6. Boundary, landmarks, use zones, walks (Stage 3) [Rule 12(1)(f)(g)]
+
+CFR cases only. The Gram Sabha maps while the case is a draft, and while the case is in
+`gs_review`. Geometry is GeoJSON in `[lon, lat]` (EPSG:4326). Areas are in hectares,
+computed in UTM 43N. The polygon is **never clipped** to forest or legal layers.
+
+| Method | Path | Notes |
+|---|---|---|
+| POST | `/cases/{id}/boundary` | `polygon` (GeoJSON Polygon; rings are closed for you), `source` (`gps_walk` / `sketch_digitised` / `imported`), `segment_breaks` (vertex indices of the outer ring where segments start; `[0]` = one segment), `vertex_accuracy_m[]?` (points over 15 m are counted in `accuracy_stats.over_limit`). Each save makes a **new version**. Landmarks and use zones of the previous draft carry over where their segment still exists. Invalid shapes (self-crossing, fewer than 3 points) return 422 `INVALID_GEOMETRY` with the PostGIS reason. Overlaps with neighbours are checked at once (see §7) |
+| GET | `/cases/{id}/boundary` | Current version: geometry, `area_ha`, segments (with `length_m`, `landmark_count`), landmarks, use zones, `segments_without_landmark`, `open_disputes` |
+| GET | `/cases/{id}/boundary/versions` | All versions, oldest first |
+| POST / DELETE | `/cases/{id}/boundary/landmarks[/{lid}]` | `segment_seq`, `name`, `kind` (as on Form C), `lat`, `lon`, `photo_media_id?`, `evidence_id?`. Response has `distance_to_segment_m`. Each segment needs at least one landmark (BR-08, readiness R4) |
+| POST / DELETE | `/cases/{id}/boundary/use-zones[/{zid}]` | `use_type` (grazing, mfp, water, fishing, fuelwood, sacred, shifting_cultivation, habitat, other), `polygon`, `name?`, `season?`, `user_hamlets[]` [Rule 13(2)(b)]. `within_boundary` tells you if the zone lies inside the claim |
+| POST / GET | `/cases/{id}/boundary/walks` | The walk of the customary boundary (source of G9): `walked_on`, `participants[]` (`name`, `gs_member_id?`, `role` elder/frc/member/other), `trace?` (LineString), `notes?` |
+
+The approved version is frozen (`status` becomes `gs_approved`, and `sealed_hash` is set)
+when the Gram Sabha resolution approves it (Stage 4). Changes after that return 409
+`BOUNDARY_FROZEN`.
+
+## 7. Overlaps and disputes [Rule 12(3)] (BR-09)
+
+Saving a boundary compares it with the current CFR boundaries of **other Gram Sabhas**.
+Every overlap larger than 1 m² opens a dispute, which both villages see through their
+own case. A dispute stays **open** (readiness R10 fails) until one of these is true:
+
+- a joint meeting is recorded with outcome `agreed_shared` or `agreed_adjusted`, or
+- the dispute has been referred to the SDLC.
+
+If the overlap disappears because a boundary is redrawn, the open dispute is emptied
+(`overlap_ha` = 0) and stops blocking.
+
+| Method | Path | Who | Notes |
+|---|---|---|---|
+| GET | `/cases/{id}/disputes` | case viewers | `neighbour_village`, `overlap` (GeoJSON), `overlap_ha`, `is_open` |
+| POST | `/cases/{id}/boundary/conflicts/check` | gram_sabha | Re-runs the overlap test |
+| POST | `/cases/{id}/disputes/{did}/joint-meeting` | gram_sabha of either village | G17: `held_on`, `findings`, `outcome` (`agreed_shared` / `agreed_adjusted` / `not_resolved`), `record_media_id?`. Can be recorded again while `not_resolved` |
+| POST | `/cases/{id}/disputes/{did}/sdlc-referral` | gram_sabha of either village | `referred_on`, `ref`. Allowed after a `not_resolved` joint meeting, or 30 days after detection [Rule 14(7)]. Otherwise 409 `Rule 12(3)` |
