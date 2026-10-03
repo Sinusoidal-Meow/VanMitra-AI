@@ -30,12 +30,14 @@ from .enums import (
     WorkflowAction,
 )
 from .people import AppUser, GramSabha, GsMember, UserRole, Village
+from .procedure import CaseClaimant, Frc, FrcMember, Recusal
 
 __all__ = [
     "DISTRICT_ROLES",
     "AppUser",
     "Base",
     "BoundarySide",
+    "CaseClaimant",
     "CaseState",
     "ClaimCase",
     "ClaimEvidenceEntry",
@@ -52,11 +54,14 @@ __all__ = [
     "FormC",
     "FormCBorderingVillage",
     "FormCLandmark",
+    "Frc",
+    "FrcMember",
     "Gender",
     "GramSabha",
     "GsMember",
     "LandmarkKind",
     "MemberCategory",
+    "Recusal",
     "Role",
     "UserRole",
     "Village",
