@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from sqlalchemy.orm import Session
 
 from ..models import BoundaryStatus, ClaimType
-from . import boundary
+from . import boundary, gramsabha
 from .cases import CaseContext
 
 
@@ -26,6 +26,8 @@ def collect(db: Session, ctx: CaseContext) -> ProcedureFacts:
     approved = False
     unmarked: int | None = None
     disputes = 0
+    resolution = gramsabha.current_resolution(db, ctx.case.id)
+    verified = gramsabha.verification_complete(gramsabha.latest_verification(db, ctx.case.id))
     if ctx.case.claim_type is ClaimType.CFR:
         current = boundary.current_boundary(db, ctx.case.id)
         if current is not None:
@@ -35,5 +37,7 @@ def collect(db: Session, ctx: CaseContext) -> ProcedureFacts:
     return ProcedureFacts(
         boundary_gs_approved=approved,
         segments_without_landmark=unmarked,
+        verification_complete=verified,
+        quorum_passed=bool(resolution and resolution.quorum_proof.get("passed")),
         open_disputes=disputes,
     )

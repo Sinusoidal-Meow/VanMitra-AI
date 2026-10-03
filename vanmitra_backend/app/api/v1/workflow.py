@@ -14,6 +14,7 @@ from ...errors import ApiError, RuleViolation
 from ...models import CaseState, ClaimCase, GramSabha, Village, WorkflowAction, WorkflowEvent
 from ...schemas.cases import ActionIn, CaseOut, EventOut, TitleDraftOut
 from ...services import acknowledgement, ledger
+from ...services import gramsabha as gs_facts
 from ...services.cases import CaseContext, district_approvals, load_case
 from ...services.title import build_title_draft
 from ._shared import case_out
@@ -47,6 +48,16 @@ def _act(
             raise RuleViolation(e.error, e.rule, e.message_key, status_code=e.status) from e
         raise ApiError(e.status, e.error, e.message_key, {"state": case.state}) from e
 
+    if action is WorkflowAction.APPROVE and case.state is CaseState.GS_REVIEW:
+        check = gs_facts.approval_check(db, ctx)
+        missing = [i for i in check.items if not i.ok]
+        if missing:
+            raise RuleViolation(
+                "GS_PREREQUISITES_MISSING",
+                missing[0].rule,
+                "approval.prerequisites_missing",
+                {"missing": [i.model_dump() for i in missing]},
+            )
     if action is WorkflowAction.SUBMIT:
         # Written acknowledgement of the claim when first filed [Rule 11(3)].
         acknowledgement.issue(db, case, ctx.village)

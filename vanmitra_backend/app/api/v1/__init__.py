@@ -10,6 +10,7 @@ from . import (
     form_a,
     form_b,
     form_c,
+    gramsabha,
     health,
     media,
     members,
@@ -32,3 +33,4 @@ router.include_router(claim_calls.router)
 router.include_router(media.router)
 router.include_router(evidence.router)
 router.include_router(boundary.router)
+router.include_router(gramsabha.router)

@@ -44,6 +44,7 @@ from .enums import (
 )
 from .people import AppUser, GramSabha, GsMember, UserRole, Village
 from .procedure import (
+    Attendance,
     CaseClaimant,
     ClaimCall,
     Correspondence,
@@ -51,14 +52,18 @@ from .procedure import (
     EvidenceVerification,
     Frc,
     FrcMember,
+    GsMeeting,
     LedgerEntry,
     Media,
     Recusal,
+    Resolution,
+    VerificationProceeding,
 )
 
 __all__ = [
     "DISTRICT_ROLES",
     "AppUser",
+    "Attendance",
     "Base",
     "BoundaryLandmark",
     "BoundarySegment",
@@ -94,6 +99,7 @@ __all__ = [
     "FrcMember",
     "Gender",
     "GramSabha",
+    "GsMeeting",
     "GsMember",
     "LandmarkKind",
     "LedgerEntry",
@@ -101,10 +107,12 @@ __all__ = [
     "Media",
     "MemberCategory",
     "Recusal",
+    "Resolution",
     "Role",
     "UseZone",
     "UseZoneType",
     "UserRole",
+    "VerificationProceeding",
     "Village",
     "WorkflowAction",
     "WorkflowEvent",

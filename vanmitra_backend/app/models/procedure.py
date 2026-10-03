@@ -223,3 +223,84 @@ class Correspondence(IdMixin, TimestampMixin, Base):
     response_received_on: Mapped[date | None] = mapped_column(Date)
     outcome: Mapped[str | None] = mapped_column(Text)
     created_by_user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("app_user.id"))
+
+
+class VerificationProceeding(IdMixin, Base):
+    """
+    The site visit with the Forest and Revenue officials [Rule 12(1), 12A(1)(2)] (BR-07).
+    Append-only and hash-chained; a repeat visit is a new row with the next attempt_no.
+    Each department either signed or its absence is recorded against an intimation.
+    """
+
+    __tablename__ = "verification_proceeding"
+    __table_args__ = (UniqueConstraint("case_id", "attempt_no", name="uq_verification_attempt"),)
+
+    case_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("claim_case.id"), index=True)
+    attempt_no: Mapped[int] = mapped_column(Integer)
+    visit_on: Mapped[date] = mapped_column(Date)
+    intimation_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("correspondence.id"))
+    observations: Mapped[str] = mapped_column(Text)
+    # [{"name", "designation", "department": "forest" | "revenue" | "frc" | "other"}]
+    presence: Mapped[list[dict[str, Any]]] = mapped_column(JSONB)
+    forest_signed: Mapped[bool] = mapped_column(Boolean)
+    forest_absence_recorded: Mapped[bool] = mapped_column(Boolean)
+    revenue_signed: Mapped[bool] = mapped_column(Boolean)
+    revenue_absence_recorded: Mapped[bool] = mapped_column(Boolean)
+    signed_scan_media_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("media.id"))
+    recorded_by_user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("app_user.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class GsMeeting(IdMixin, Base):
+    """A Gram Sabha meeting: notice, place, agenda and the roll of members present."""
+
+    __tablename__ = "gs_meeting"
+
+    gram_sabha_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("gram_sabha.id"), index=True)
+    held_on: Mapped[date] = mapped_column(Date)
+    place: Mapped[str] = mapped_column(String(300))
+    notice_on: Mapped[date | None] = mapped_column(Date)
+    agenda: Mapped[str] = mapped_column(Text)
+    registered_count: Mapped[int] = mapped_column(Integer)  # active roster on the day
+    created_by_user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("app_user.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    attendance: Mapped[list["Attendance"]] = relationship(cascade="all, delete-orphan")
+
+
+class Attendance(IdMixin, Base):
+    """The manual attendance register is the legal record (face match is only a helper)."""
+
+    __tablename__ = "attendance"
+    __table_args__ = (UniqueConstraint("meeting_id", "gs_member_id", name="uq_attendance_member"),)
+
+    meeting_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("gs_meeting.id"), index=True)
+    gs_member_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("gs_member.id"))
+    present: Mapped[bool] = mapped_column(Boolean)
+    method: Mapped[str] = mapped_column(String(20), default="manual")
+
+
+class Resolution(IdMixin, Base):
+    """
+    A Gram Sabha resolution on a claim [Sec 6(1), Rule 12(1)(g)] (BR-03). Append-only and
+    hash-chained. It stores the quorum arithmetic of the day. For a CFR claim it also
+    approves the current boundary, which freezes it.
+    """
+
+    __tablename__ = "resolution"
+    __table_args__ = (UniqueConstraint("gram_sabha_id", "number", name="uq_resolution_number"),)
+
+    gram_sabha_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("gram_sabha.id"), index=True)
+    meeting_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("gs_meeting.id"), index=True)
+    case_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("claim_case.id"), index=True)
+    number: Mapped[str] = mapped_column(String(40))
+    decision_text: Mapped[str] = mapped_column(Text)
+    votes_for: Mapped[int] = mapped_column(Integer)
+    votes_against: Mapped[int] = mapped_column(Integer)
+    boundary_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("cfr_boundary.id"))
+    quorum_proof: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    signed_scan_media_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("media.id"))
+    supersedes_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("resolution.id"))
+    correction_reason: Mapped[str | None] = mapped_column(Text)
+    created_by_user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("app_user.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

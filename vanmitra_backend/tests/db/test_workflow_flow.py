@@ -12,7 +12,13 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.models import Role
 
-from .conftest import auth_headers, make_user, make_village, new_case
+from .conftest import (
+    auth_headers,
+    complete_cfr_prerequisites,
+    make_user,
+    make_village,
+    new_case,
+)
 
 VILLAGER, GS, SDO, SDO_OTHER = "9400000001", "9400000002", "9400000003", "9400000004"
 COLLECTOR, DFO, DTWO, COLLECTOR_OTHER = "9400000005", "9400000006", "9400000007", "9400000008"
@@ -191,6 +197,10 @@ def test_form_c_by_gram_sabha_reaches_annexure_iv(
         headers=gs,
     )
     assert _act(db_client, case_id, GS, "submit").json()["state"] == "gs_review"
+    # BR-04: it cannot forward its own claim without resolution, boundary and verification
+    blocked = _act(db_client, case_id, GS, "approve")
+    assert blocked.status_code == 409 and blocked.json()["error"] == "GS_PREREQUISITES_MISSING"
+    complete_cfr_prerequisites(db_client, ids["village"], GS, case_id)
     # the Gram Sabha (as reviewer) forwards its own claim to the SDO
     assert _act(db_client, case_id, GS, "approve").json()["state"] == "sdo_review"
     _act(db_client, case_id, SDO, "approve")

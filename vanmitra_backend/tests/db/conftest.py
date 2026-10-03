@@ -123,3 +123,84 @@ def new_case(client: TestClient, village_id: uuid.UUID, phone: str, claim_type: 
     )
     assert res.status_code == 201, res.text
     return str(res.json()["id"])
+
+
+_site = {"n": 0}
+
+
+def complete_cfr_prerequisites(
+    client: TestClient, village_id: uuid.UUID, phone: str, case_id: str
+) -> None:
+    """
+    Do what the Gram Sabha must do before it may forward a CFR claim in `gs_review`: map
+    and approve the boundary, close the field verification and pass the resolution.
+    Only the public API is used. Each call places its boundary on fresh ground.
+    """
+    gs = auth_headers(client, phone)
+    base = f"/api/v1/villages/{village_id}"
+    for name, gender in (("Asha", "female"), ("Bhiwa", "male"), ("Chandra", "female")):
+        client.post(
+            f"{base}/members",
+            json={"name": name, "gender": gender, "category": "st"},
+            headers=gs,
+        )
+    roster = [m["id"] for m in client.get(f"{base}/members", headers=gs).json() if m["active"]]
+
+    _site["n"] += 1
+    x = 70.0 + _site["n"] * 0.05
+    square = {
+        "type": "Polygon",
+        "coordinates": [[[x, 19.0], [x + 0.01, 19.0], [x + 0.01, 19.01], [x, 19.01]]],
+    }
+    res = client.post(f"/api/v1/cases/{case_id}/boundary", json={"polygon": square}, headers=gs)
+    assert res.status_code == 201, res.text
+    mark = {"segment_seq": 0, "kind": "stream", "name": "Nala", "lon": x, "lat": 19.0}
+    assert (
+        client.post(
+            f"/api/v1/cases/{case_id}/boundary/landmarks", json=mark, headers=gs
+        ).status_code
+        == 201
+    )
+
+    media = client.post(
+        "/api/v1/media",
+        files={"file": ("sheet.pdf", b"%PDF-1.4 signed sheet", "application/pdf")},
+        headers=gs,
+    )
+    assert media.status_code == 201, media.text
+    ver = {
+        "visit_on": "2026-09-01",
+        "observations": "Boundary walked with the elders",
+        "presence": [
+            {"name": "RFO", "department": "forest"},
+            {"name": "Talathi", "department": "revenue"},
+        ],
+        "forest_signed": True,
+        "revenue_signed": True,
+        "signed_scan_media_id": media.json()["id"],
+    }
+    res = client.post(f"/api/v1/cases/{case_id}/verification", json=ver, headers=gs)
+    assert res.status_code == 201, res.text
+
+    res = client.post(
+        f"{base}/meetings",
+        json={"held_on": "2026-09-10", "place": "Gram Panchayat", "agenda": "CFR claim"},
+        headers=gs,
+    )
+    assert res.status_code == 201, res.text
+    meeting = res.json()["id"]
+    res = client.put(
+        f"/api/v1/meetings/{meeting}/attendance", json={"present_member_ids": roster}, headers=gs
+    )
+    assert res.status_code == 200, res.text
+    res = client.post(
+        f"/api/v1/meetings/{meeting}/resolutions",
+        json={
+            "case_id": case_id,
+            "decision_text": "Approved",
+            "votes_for": len(roster),
+            "votes_against": 0,
+        },
+        headers=gs,
+    )
+    assert res.status_code == 201, res.text

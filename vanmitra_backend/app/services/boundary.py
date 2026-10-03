@@ -17,6 +17,7 @@ from ..geo import GeoError
 from ..models import (
     BoundaryLandmark,
     BoundarySegment,
+    BoundaryStatus,
     CaseState,
     CfrBoundary,
     ClaimCase,
@@ -322,3 +323,23 @@ def disputes_out(db: Session, case_id: uuid.UUID) -> list[DisputeOut]:
             )
         )
     return out
+
+
+def seal(db: Session, b: CfrBoundary, today: date | None = None) -> None:
+    """Freeze the version the Gram Sabha approved: a hash of its geometry and landmarks."""
+    import hashlib
+
+    ewkt = db.scalar(select(func.ST_AsEWKT(CfrBoundary.geom)).where(CfrBoundary.id == b.id))
+    marks = db.execute(
+        select(
+            BoundaryLandmark.segment_seq,
+            BoundaryLandmark.name,
+            func.ST_AsText(BoundaryLandmark.point),
+        )
+        .where(BoundaryLandmark.boundary_id == b.id)
+        .order_by(BoundaryLandmark.segment_seq, BoundaryLandmark.name)
+    ).all()
+    payload = json.dumps([ewkt, [list(m) for m in marks]], separators=(",", ":"))
+    b.sealed_hash = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+    b.status = BoundaryStatus.GS_APPROVED
+    b.approved_on = today or date.today()

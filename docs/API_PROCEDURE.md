@@ -110,3 +110,34 @@ If the overlap disappears because a boundary is redrawn, the open dispute is emp
 | POST | `/cases/{id}/boundary/conflicts/check` | gram_sabha | Re-runs the overlap test |
 | POST | `/cases/{id}/disputes/{did}/joint-meeting` | gram_sabha of either village | G17: `held_on`, `findings`, `outcome` (`agreed_shared` / `agreed_adjusted` / `not_resolved`), `record_media_id?`. Can be recorded again while `not_resolved` |
 | POST | `/cases/{id}/disputes/{did}/sdlc-referral` | gram_sabha of either village | `referred_on`, `ref`. Allowed after a `not_resolved` joint meeting, or 30 days after detection [Rule 14(7)]. Otherwise 409 `Rule 12(3)` |
+
+## 8. Field verification (Stage 4) [Rule 12(1), 12A(1)(2)] (BR-07)
+
+| Method | Path | Notes |
+|---|---|---|
+| POST | `/cases/{id}/verification` | gram_sabha, case in `gs_review`. `visit_on`, `observations`, `presence[]` (`name`, `designation?`, `department` forest/revenue/frc/other), `forest_signed` / `forest_absence_recorded`, `revenue_signed` / `revenue_absence_recorded`, `signed_scan_media_id` (required when anyone signed), `intimation_id` (the G7 letter). Each department must have **signed or be recorded absent**. An absence needs a **dispatched G7 letter sent before the visit** (409 `Rule 12A(1)(2)`). A claimant in the case is refused (409 `Rule 3(3)`). Each visit is a new row with the next `attempt_no`; nothing is edited |
+| GET | `/cases/{id}/verification` | All visits. `complete` is true when both departments are covered. `finality_note` is true on a second visit with an absence: the Gram Sabha decision is final [Rule 12A(2)] |
+
+## 9. Meetings, quorum and resolutions (Stage 4) [Rule 4(2); Sec 6(1)] (BR-03)
+
+| Method | Path | Notes |
+|---|---|---|
+| POST / GET | `/villages/{id}/meetings` | `held_on`, `place`, `notice_on?` (not after the meeting), `agenda`. `registered_count` is the active roster that day |
+| GET | `/meetings/{id}` | Counts: `present_count`, `women_present`, `resolutions` |
+| PUT | `/meetings/{id}/attendance` | `present_member_ids[]`. Marks every active member present or absent (manual register). Locked once a resolution exists (409 `ATTENDANCE_LOCKED`) |
+| GET | `/meetings/{id}/quorum[?case_id=]` | The three tests. `t1` present ≥ ⌈registered/2⌉, `t2` women ≥ ⌈present/3⌉, `t3` claimants present ≥ ⌈claimants/2⌉ (needs `case_id`) |
+| POST | `/meetings/{id}/resolutions` | `case_id` (in `gs_review`), `decision_text`, `votes_for`, `votes_against`, `signed_scan_media_id?`. All three tests must pass (409 `QUORUM_FAILED`, with the failing tests). Simple majority of those voting (409 `MOTION_NOT_CARRIED`). The quorum arithmetic of the day is stored on the resolution and never recomputed. For a **CFR** claim it also approves the current boundary: each segment needs a landmark (409 `Rule 12(1)(g)`), no overlap may be open (409 `Rule 12(3)`); the boundary is then **frozen** and sealed. The number is `n/year`, per Gram Sabha |
+| GET | `/cases/{id}/resolutions` | |
+
+## 10. The Gram Sabha approval guard (BR-04)
+
+For a **CFR** claim, `POST /cases/{id}/approve` by the Gram Sabha (forwarding it to the
+SDO) is refused with 409 `GS_PREREQUISITES_MISSING` (the missing items are in
+`details.missing`, each with its rule) until all of these hold:
+
+1. a resolution that passed quorum, 2. the boundary approved by that resolution,
+3. a closed field verification, 4. no open overlap dispute.
+
+`GET /cases/{id}/approval-check` returns the same list as `{ready, items[]}` so the app
+can show it. Form A and Form B claims have no such prerequisites. Readiness R3, R4, R5,
+R7 and R10 now reflect the real boundary, verification, resolution and disputes.
