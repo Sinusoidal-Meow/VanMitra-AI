@@ -1,0 +1,36 @@
+[project]
+name = "vanmitra-backend"
+version = "0.1.0"
+description = "VanMitra CFR claim module API"
+requires-python = ">=3.12"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+# Old Model A code is frozen until it is removed (BACKEND_PLAN B-04).
+extend-exclude = ["app/legacy", "venv"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S", "SIM"]
+ignore = ["S101"]  # assert is fine (tests, type narrowing)
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S105", "S106"]  # fake PINs and secrets in tests
+"migrations/versions/**" = ["E501"]  # long column definitions read better unwrapped
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+exclude = ["app/legacy/", "venv/", "migrations/"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["app.legacy.*"]
+ignore_errors = true
+follow_imports = "skip"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+  "db: needs a PostgreSQL + PostGIS test database (set VANMITRA_TEST_DATABASE_URL)",
+]

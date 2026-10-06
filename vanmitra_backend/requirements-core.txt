@@ -1,0 +1,13 @@
+# CFR claim module API: everything needed to run and test the new backend.
+fastapi>=0.115
+uvicorn[standard]>=0.30
+python-multipart>=0.0.9
+pydantic>=2.7
+pydantic-settings>=2.4
+sqlalchemy>=2.0.30
+alembic>=1.13
+psycopg[binary]>=3.2
+geoalchemy2>=0.15
+pyjwt>=2.9
+argon2-cffi>=23.1
+uuid6>=2024.7.10

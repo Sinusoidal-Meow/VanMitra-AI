@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VanMitra — CFR Claim Module · Project & Technical Overview</title>
+<style>
+  :root{
+    --ink:#1b2a22; --muted:#5b6b62; --line:#dfe6e1; --bg:#f7f9f7; --card:#fff;
+    --green:#1f5c3a; --green-2:#2e7d4f; --green-soft:#e6f2ea;
+    --saffron:#e8740c; --saffron-soft:#fdf0e3;
+    --blue:#2f5d8a; --blue-soft:#e8f0f8;
+    --amber:#a86b00; --amber-soft:#fff5dc;
+    --red:#a3312a; --red-soft:#fbe9e7;
+    --grey-soft:#f0f2f1;
+    --radius:10px;
+    --mono: ui-monospace, "Cascadia Code", Consolas, monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;font-family:"Segoe UI","Noto Sans","Noto Sans Devanagari",system-ui,sans-serif;color:var(--ink);background:var(--bg);line-height:1.55;font-size:15.5px}
+  a{color:var(--green-2)}
+  code{font-family:var(--mono);font-size:.88em;background:var(--grey-soft);padding:1px 5px;border-radius:4px}
+  pre{font-family:var(--mono);font-size:13px;background:#14231b;color:#dff0e5;padding:16px 18px;border-radius:var(--radius);overflow:auto;line-height:1.5}
+
+  /* layout */
+  .layout{display:grid;grid-template-columns:260px 1fr;min-height:100vh}
+  nav{position:sticky;top:0;height:100vh;overflow:auto;background:#fff;border-right:1px solid var(--line);padding:22px 18px}
+  nav .brand{font-weight:700;color:var(--green);font-size:18px;margin-bottom:2px}
+  nav .brand span{color:var(--ink);font-weight:600}
+  nav .tri{height:4px;border-radius:2px;background:linear-gradient(90deg,var(--saffron) 0 33%,#fff 33% 66%,var(--green-2) 66%);border:1px solid var(--line);margin:10px 0 18px}
+  nav ol{list-style:none;padding:0;margin:0;counter-reset:n}
+  nav li{counter-increment:n;margin:2px 0}
+  nav li a{display:block;padding:6px 10px;border-radius:6px;color:var(--ink);text-decoration:none;font-size:14px}
+  nav li a::before{content:counter(n) ". ";color:var(--muted)}
+  nav li a:hover{background:var(--green-soft)}
+  nav .group{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:16px 10px 4px}
+  main{padding:0 48px 80px;max-width:1180px}
+  section{padding-top:44px}
+  h1{font-size:34px;margin:0 0 6px;color:var(--green)}
+  h2{font-size:24px;margin:0 0 6px;color:var(--green);border-bottom:2px solid var(--line);padding-bottom:8px}
+  h3{font-size:17px;margin:26px 0 8px}
+  .lead{font-size:17px;color:var(--muted);max-width:820px}
+  .sub{color:var(--muted);margin-top:0}
+
+  /* hero */
+  .hero{margin-top:30px;background:linear-gradient(135deg,#1f5c3a,#2e7d4f);color:#fff;border-radius:16px;padding:34px 36px;position:relative;overflow:hidden}
+  .hero h1{color:#fff;font-size:34px}
+  .hero .dev{font-size:20px;opacity:.95;margin-bottom:12px}
+  .hero p{max-width:760px;opacity:.95;margin:6px 0}
+  .hero .pill{display:inline-block;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.3);padding:4px 12px;border-radius:99px;font-size:13px;margin:10px 6px 0 0}
+  .banner{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:18px;font-size:12.5px;letter-spacing:.06em;font-weight:600}
+  .banner span{background:rgba(255,255,255,.14);padding:5px 10px;border-radius:6px}
+  .banner i{opacity:.7;font-style:normal}
+
+  /* cards & grids */
+  .grid{display:grid;gap:14px}
+  .g2{grid-template-columns:repeat(2,1fr)} .g3{grid-template-columns:repeat(3,1fr)} .g4{grid-template-columns:repeat(4,1fr)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px}
+  .card h4{margin:0 0 6px;font-size:15.5px}
+  .card p{margin:4px 0;color:var(--muted);font-size:14.5px}
+  .card ul{margin:6px 0 0;padding-left:18px;font-size:14.5px}
+  .card.accent{border-top:4px solid var(--green-2)}
+  .card.saffron{border-top:4px solid var(--saffron)}
+  .card.blue{border-top:4px solid var(--blue)}
+  .card.grey{border-top:4px solid #9aa7a0}
+  .tag{display:inline-block;font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:99px;margin:2px 4px 2px 0;vertical-align:middle}
+  .t-green{background:var(--green-soft);color:var(--green)} .t-saffron{background:var(--saffron-soft);color:#9a4c05}
+  .t-blue{background:var(--blue-soft);color:var(--blue)} .t-amber{background:var(--amber-soft);color:var(--amber)}
+  .t-red{background:var(--red-soft);color:var(--red)} .t-grey{background:var(--grey-soft);color:var(--muted)}
+  .note{background:var(--amber-soft);border-left:4px solid var(--amber);padding:12px 16px;border-radius:6px;margin:14px 0;font-size:14.5px}
+  .note.green{background:var(--green-soft);border-color:var(--green-2)}
+  .note.red{background:var(--red-soft);border-color:var(--red)}
+
+  /* tables */
+  table{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;font-size:14px;margin:10px 0}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{background:var(--green-soft);color:var(--green);font-weight:600;font-size:13px}
+  tr:last-child td{border-bottom:none}
+  td code{white-space:nowrap}
+  .c{text-align:center}
+
+  /* six steps */
+  .steps{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;counter-reset:s}
+  .step{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:14px;position:relative}
+  .step::before{counter-increment:s;content:counter(s);display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:var(--green);color:#fff;font-weight:700;margin-bottom:8px}
+  .step h4{margin:0 0 4px;font-size:14.5px}
+  .step p{margin:0;font-size:13px;color:var(--muted)}
+  .step .who{margin-top:8px}
+  .step:not(:last-child)::after{content:"›";position:absolute;right:-10px;top:18px;font-size:22px;color:#9aa7a0}
+
+  /* state machine */
+  .sm{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:18px}
+  .lane{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:6px 0}
+  .lane .lbl{width:150px;font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+  .st{font-family:var(--mono);font-size:12px;padding:6px 9px;border-radius:6px;border:1px solid;white-space:nowrap}
+  .st.p{background:var(--green-soft);border-color:#b7d8c3;color:var(--green)}
+  .st.d{background:var(--amber-soft);border-color:#ecd49a;color:var(--amber)}
+  .st.r{background:var(--red-soft);border-color:#eab7b1;color:var(--red)}
+  .st.o{background:var(--blue-soft);border-color:#b9cde2;color:var(--blue)}
+  .arr{color:#9aa7a0;font-size:14px}
+
+  /* architecture */
+  .arch{display:grid;gap:10px}
+  .layer{display:grid;grid-template-columns:190px 1fr;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;background:#fff}
+  .layer .ln{padding:14px;font-weight:700;font-size:14px;color:#fff;display:flex;flex-direction:column;justify-content:center}
+  .layer .ln small{font-weight:400;opacity:.9;font-size:12px}
+  .layer .lc{padding:12px 14px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .box{border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:7px 11px;font-size:13px}
+  .box b{display:block;font-size:13px}
+  .box span{color:var(--muted);font-size:12px}
+  .L1 .ln{background:#2f5d8a} .L2 .ln{background:#1f5c3a} .L3 .ln{background:#8a6b1f} .L4 .ln{background:#3d4b44} .L5 .ln{background:#9a4c05}
+  .L3{border-style:dashed}
+
+  .deploy{display:grid;grid-template-columns:1fr 60px 1fr 60px 1fr;align-items:center;gap:0}
+  .deploy .col{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:14px}
+  .deploy .col h4{margin:0 0 8px;font-size:14px}
+  .deploy .link{text-align:center;color:var(--muted);font-size:12px}
+  .deploy .link div{font-size:22px;color:#9aa7a0}
+
+  .seq{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:14px 18px}
+  .seq ol{margin:0;padding-left:20px} .seq li{margin:5px 0;font-size:14.5px}
+
+  .roadmap{display:grid;gap:8px}
+  .rm{display:grid;grid-template-columns:120px 1fr 1fr 1fr;gap:0;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;background:#fff;font-size:13.5px}
+  .rm > div{padding:10px 12px;border-right:1px solid var(--line)}
+  .rm > div:last-child{border-right:none}
+  .rm .sn{background:var(--green);color:#fff;font-weight:700}
+  .rm .sn small{display:block;font-weight:400;opacity:.9}
+  .rm.head > div{background:var(--green-soft);color:var(--green);font-weight:600;font-size:12.5px}
+  .rm.head .sn{background:var(--green-soft);color:var(--green)}
+  .rm.later .sn{background:#9aa7a0}
+
+  footer{margin-top:60px;color:var(--muted);font-size:13px;border-top:1px solid var(--line);padding-top:16px}
+  @media (max-width:1000px){
+    .layout{grid-template-columns:1fr} nav{position:static;height:auto}
+    main{padding:0 18px 60px} .g3,.g4,.steps{grid-template-columns:1fr 1fr} .g2{grid-template-columns:1fr}
+    .deploy{grid-template-columns:1fr} .deploy .link{transform:rotate(90deg);padding:6px}
+    .rm{grid-template-columns:1fr} .layer{grid-template-columns:1fr}
+  }
+  @media print{ nav{display:none} .layout{display:block} main{max-width:none;padding:0} section{break-inside:avoid-page} }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<nav>
+  <div class="brand">वनमित्र <span>| VanMitra</span></div>
+  <div style="font-size:12.5px;color:var(--muted)">CFR Claim Module · Overview</div>
+  <div class="tri"></div>
+  <div class="group">Product</div>
+  <ol>
+    <li><a href="#what">What we are building</a></li>
+    <li><a href="#audience">Who this document is for</a></li>
+    <li><a href="#users">Who we are building for</a></li>
+    <li><a href="#modules">Modules in the app</a></li>
+    <li><a href="#workflow">The claim workflow</a></li>
+    <li><a href="#features">Features &amp; documents</a></li>
+    <li><a href="#rules">Rules we never break</a></li>
+  </ol>
+  <div class="group">Technical</div>
+  <ol start="8" style="counter-reset:n 7">
+    <li><a href="#approach">Technical approach</a></li>
+    <li><a href="#stack">Technology stack</a></li>
+    <li><a href="#architecture">System architecture</a></li>
+    <li><a href="#statemachine">State machine</a></li>
+    <li><a href="#data">Data model</a></li>
+    <li><a href="#api">API surface</a></li>
+    <li><a href="#engines">Rule engines</a></li>
+    <li><a href="#sync">Offline sync</a></li>
+    <li><a href="#security">Security &amp; privacy</a></li>
+    <li><a href="#deploy">Deployment</a></li>
+    <li><a href="#testing">Testing &amp; quality</a></li>
+  </ol>
+  <div class="group">Delivery</div>
+  <ol start="19" style="counter-reset:n 18">
+    <li><a href="#roadmap">Build stages</a></li>
+    <li><a href="#team">Team &amp; process</a></li>
+    <li><a href="#decisions">Open decisions</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<!-- ============ HERO ============ -->
+<div class="hero">
+  <div class="dev">वनमित्र — जंगलाचा मित्र, हक्काचा साथी</div>
+  <h1>VanMitra: Community Forest Resource (CFR) Claim Module</h1>
+  <p>An offline-first mobile app that helps a village <b>prepare, file and track</b> its Community Forest Resource claim under <b>Section 3(1)(i) of the Forest Rights Act, 2006</b>, correctly, completely and with every legal deadline visible.</p>
+  <p>Built in cooperation with a <b>partner NGO</b> and for use alongside <b>government committees</b>. Pilot village: <b>ओझर (Ozhar), Jawhar Taluka, Palghar District, Maharashtra</b>.</p>
+  <span class="pill">Flutter · FastAPI · PostgreSQL + PostGIS</span>
+  <span class="pill">Marathi · Hindi · English</span>
+  <span class="pill">Works offline for weeks</span>
+  <div class="banner">
+    <span>AWARENESS</span><i>→</i><span>CLAIM</span><i>→</i><span>VERIFICATION</span><i>→</i><span>RESOLUTION</span><i>→</i><span>RECOGNITION</span><i>→</i><span>RECORD</span><i>→</i><span>GOVERNANCE</span>
+  </div>
+</div>
+
+<!-- ============ 1 WHAT ============ -->
+<section id="what">
+  <h2>1. What we are building</h2>
+  <p class="lead">A CFR claim is a village asking the government to <b>recognise its right to protect, regenerate, conserve and manage</b> its customary forest. It is <u>not</u> a land-ownership claim, and the title is held by the Gram Sabha. If the claim is rejected, the <b>whole village</b> loses, not one family.</p>
+  <div class="grid g2" style="margin-top:14px">
+    <div class="card accent">
+      <h4>VanMitra IS…</h4>
+      <ul>
+        <li>A <b>community-side record</b> and preparation tool</li>
+        <li>A <b>checklist</b> that tells the village what is still missing, with the rule cited</li>
+        <li>A <b>generator of the paper documents</b> the law requires (20 G-series documents + Form C)</li>
+        <li>A <b>tracker of legal deadlines</b> (60-day petition windows, 3-month claim window…)</li>
+        <li>A <b>tamper-evident archive</b> of the Gram Sabha's own records</li>
+      </ul>
+    </div>
+    <div class="card" style="border-top:4px solid var(--red)">
+      <h4>VanMitra is NOT…</h4>
+      <ul>
+        <li>A government system of record, or an official portal</li>
+        <li>A judge of <b>eligibility</b>, and it never shows a <b>score</b></li>
+        <li>An approver or rejecter of claims at any level</li>
+        <li>A replacement for <b>signed paper</b>. Paper is the legal record; the app stores its scan</li>
+        <li>A way for anyone to bypass the Gram Sabha</li>
+      </ul>
+    </div>
+  </div>
+  <div class="note green"><b>Why this matters:</b> a missing evidence tag, an unrecorded quorum, an unsigned verification sheet or a lost 60-day limitation period can each be enough for a claim to be rejected. The app exists to stop those procedural failures.</div>
+  <h3>Scope of this build</h3>
+  <table>
+    <tr><th>In scope now</th><th>Designed for, built later</th><th>Out of scope for now</th></tr>
+    <tr>
+      <td>CFR claim (Form C), from village setup to the right being entered in government records</td>
+      <td>Individual claims (Form A) and community-rights claims (Form B). The data model already has <code>claim_type</code></td>
+      <td>Post-title forest management (CFRMC), satellite monitoring, SLMC quarterly returns, Section 8 notice, AI legal Q&amp;A</td>
+    </tr>
+  </table>
+</section>
+
+<!-- ============ 2 AUDIENCE ============ -->
+<section id="audience">
+  <h2>2. Who this document is for</h2>
+  <p class="sub">This page explains the project in detail. Different readers need different parts of it.</p>
+  <div class="grid g4">
+    <div class="card accent"><h4>👩‍💻 Developers (our team)</h4><p>Soham (backend), Kaushal (frontend), Ishan (both). Everything here, especially sections 8–18.</p></div>
+    <div class="card saffron"><h4>🤝 Partner NGO</h4><p>Field workflow, roles, documents, languages and the pilot plan. Sections 1–7 and 19.</p></div>
+    <div class="card blue"><h4>🏛️ Government stakeholders</h4><p>SDLC / DLC / Tribal Development officers reviewing the pilot. What the app does and <b>does not</b> do (sections 1, 5, 7).</p></div>
+    <div class="card grey"><h4>🎓 Reviewers &amp; mentors</h4><p>College faculty, hackathon judges and advisors. The full picture: problem, approach, architecture and roadmap.</p></div>
+  </div>
+</section>
+
+<!-- ============ 3 USERS ============ -->
+<section id="users">
+  <h2>3. Who we are building for</h2>
+  <h3>Beneficiary: the Gram Sabha of a forest village</h3>
+  <p>The Scheduled Tribe and other traditional forest-dwelling community of the village (Warli and other communities in Ozhar), acting through its <b>Gram Sabha</b>, the legal owner of the claim and the holder of the title.</p>
+
+  <h3>App users: 3 roles (reduced from 12)</h3>
+  <table>
+    <tr><th style="width:18%">Role</th><th style="width:20%">Who</th><th>Can do</th><th>Cannot do</th></tr>
+    <tr><td><span class="tag t-saffron">Facilitator</span></td><td>Trained NGO field worker</td><td>Set up the village; create draft cases; capture evidence, photos, GPS and elders' audio; prepare documents; run the completeness check</td><td>Sign; record a resolution; submit a claim; alter a signed record</td></tr>
+    <tr><td><span class="tag t-green">FRC Member</span><br><small>(chair / secretary flags)</small></td><td>Elected Forest Rights Committee member</td><td>Acknowledge claims; attest evidence; lead the boundary walk; record field verification; author Form C; submit; record orders received</td><td>Verify a claim they are a claimant in [Rule 3(3)]; pass a resolution</td></tr>
+    <tr><td><span class="tag t-blue">Gram Sabha Secretary</span></td><td>Secretary of the Gram Panchayat [Rule 11(6)]</td><td>Member roster; record the FRC constitution; meetings; attendance and quorum; record and publish resolutions</td><td>Alter evidence or verification records</td></tr>
+  </table>
+
+  <h3>People who do <u>not</u> log in (in this build)</h3>
+  <div class="grid g3">
+    <div class="card"><h4>Government committees</h4><p>SDLC, DLC, DFO, Collector, Tribal Welfare, Revenue and Forest officials. They receive the <b>printed packet</b>. Their orders are <b>uploaded</b> into the app by the FRC, never decided in it.</p></div>
+    <div class="card"><h4>Villagers / claimants</h4><p>They take part through the Gram Sabha and sign on paper. A public, read-only village status page is planned for later.</p></div>
+    <div class="card"><h4>Admin</h4><p>Back-office implementation team: districts, master data, officer addresses. It <b>cannot</b> edit case content or records.</p></div>
+  </div>
+</section>
+
+<!-- ============ 4 MODULES ============ -->
+<section id="modules">
+  <h2>4. Modules we are integrating</h2>
+  <p class="sub">The VanMitra platform architecture has 17 modules. This build is <b>Module 3 (FRA/CFR Digital Case Management)</b> plus the modules it depends on.</p>
+  <table>
+    <tr><th>Module</th><th>What it does</th><th>Built for (who uses it)</th><th>Status</th></tr>
+    <tr><td><b>M3: CFR Case Management</b> <span class="tag t-green">core</span></td><td>Case, Form C, state machine, submission, order capture, legal clocks, petitions, title and record tracking</td><td>FRC Member (main), Facilitator (drafts)</td><td><span class="tag t-green">This build</span></td></tr>
+    <tr><td><b>M4: Evidence</b></td><td>Rule 13 tagged evidence ledger: scans, photos, GPS, elder statements; OCR and speech-to-text as helpers; completeness check</td><td>Facilitator (capture), FRC (verify)</td><td><span class="tag t-green">This build</span></td></tr>
+    <tr><td><b>M6: Workflow Tracker</b></td><td>6-step progress, timeline of events, deadline banners and alerts, outgoing letter tracking</td><td>All three roles</td><td><span class="tag t-green">This build</span></td></tr>
+    <tr><td><b>M8/9: GIS &amp; Participatory Mapping</b></td><td>Boundary walk, landmarks per segment, use zones, overlap detection → dispute, CFR map sheet, offline tiles</td><td>FRC + elders, Facilitator</td><td><span class="tag t-green">This build</span></td></tr>
+    <tr><td><b>M12/13: Gram Sabha Governance</b></td><td>Member roster, FRC constitution, meetings, attendance, 3-test quorum, resolutions, hash-chained ledger</td><td>Gram Sabha Secretary</td><td><span class="tag t-green">This build</span> <small>(reuses existing Module C ledger)</small></td></tr>
+    <tr><td>Existing <b>Module A: AI Assistant</b></td><td>OCR, transcription, drafting help. <b>Eligibility check and evidence score are removed</b></td><td>Facilitator (Helper tag)</td><td><span class="tag t-amber">Reworked</span></td></tr>
+    <tr><td>Existing <b>Module B: Satellite</b></td><td>Change detection after the title, worded as "field verification recommended"</td><td>Gram Sabha / CFRMC</td><td><span class="tag t-grey">Later</span></td></tr>
+    <tr><td>CFRMC, Annexure V reports, coverage dashboard, legal Q&amp;A</td><td>Post-title management and monitoring</td><td>Gram Sabha, district, NGO federation</td><td><span class="tag t-grey">Later</span></td></tr>
+  </table>
+</section>
+
+<!-- ============ 5 WORKFLOW ============ -->
+<section id="workflow">
+  <h2>5. The claim workflow</h2>
+  <p class="sub">The law has 14 stages (Spec §5.1). The app groups them into <b>6 simple steps</b>, so the people using it always know where they are.</p>
+  <div class="steps">
+    <div class="step"><h4>Set up the village</h4><p>Village profile, member roster, FRC elected and checked (10–15, ⅔ ST, ⅓ women)</p><div class="who"><span class="tag t-blue">GS Sec.</span><span class="tag t-saffron">Facil.</span></div></div>
+    <div class="step"><h4>Call for claims</h4><p>Notice displayed, 3-month window, neighbours and SDLC told, claim acknowledged</p><div class="who"><span class="tag t-green">FRC</span><span class="tag t-blue">GS Sec.</span></div></div>
+    <div class="step"><h4>Evidence &amp; map</h4><p>Rule 13 evidence, elders' statements, boundary walk, landmarks, use zones, overlap check</p><div class="who"><span class="tag t-saffron">Facil.</span><span class="tag t-green">FRC</span></div></div>
+    <div class="step"><h4>Field verification</h4><p>Site visit with Forest and Revenue officials: signatures, or absence formally recorded</p><div class="who"><span class="tag t-green">FRC</span></div></div>
+    <div class="step"><h4>Gram Sabha approval</h4><p>Findings presented, quorum checked (3 tests), resolution approves Form C + map</p><div class="who"><span class="tag t-blue">GS Sec.</span></div></div>
+    <div class="step"><h4>Submit &amp; track</h4><p>Packet to SDLC; orders uploaded; deadlines, petitions; title; record entry</p><div class="who"><span class="tag t-green">FRC</span></div></div>
+  </div>
+
+  <h3>Full legal stage table</h3>
+  <table>
+    <tr><th>#</th><th>Stage</th><th>Legal content</th><th>What the app does</th><th>Done when</th></tr>
+    <tr><td>0</td><td>Preparation</td><td>Awareness; hamlets identified [Rule 2A]</td><td>Village registry, hamlet hierarchy, awareness sessions logged</td><td>Village profile complete</td></tr>
+    <tr><td>1</td><td>FRC constitution</td><td>10–15 members, ⅔ ST, ⅓ women; SDLC informed [Rule 3]</td><td>Composition check (hard block), G3 certificate, conflict-of-interest flags</td><td>Valid FRC + intimation sent</td></tr>
+    <tr><td>2</td><td>Calling of claims</td><td>3-month window; CFR date fixed; neighbours + SDLC informed [11(1)]</td><td>G1 notice, G2 intimations, G5 maps request, window timer, neighbour suggestions from the map</td><td>Notice displayed, window open</td></tr>
+    <tr><td>3</td><td>Claim registration</td><td>Claims acknowledged in writing [11(3)]</td><td>Case created (CFR), G4 acknowledgement with serial number</td><td>Acknowledgement number exists</td></tr>
+    <tr><td>4</td><td>Evidence</td><td>≥2 Rule 13(1) items; CFR 13(2) evidence; elders' statements [11(1)(a), 13]</td><td>Tagged capture, OCR/speech helpers, G6 record requests, completeness gaps</td><td>C-1, C-2 met (or conscious GS decision)</td></tr>
+    <tr><td>5</td><td>Boundary</td><td>Customary boundary walked with elders [12(1)(f)]</td><td>GPS trace, waypoints, named elders (G9), landmarks, use zones</td><td>Valid closed polygon</td></tr>
+    <tr><td>6</td><td>Overlap</td><td>Joint FRC meeting; else SDLC [12(3)]</td><td>PostGIS overlap → dispute state, G17 joint meeting record</td><td>No unresolved overlap</td></tr>
+    <tr><td>7</td><td>Field verification</td><td>Site visit; Forest + Revenue sign [12(1), 12A(1)]</td><td>G7 intimation, G8 sheet with signature blocks or recorded absence</td><td>Signed sheet or recorded absence</td></tr>
+    <tr><td>8</td><td>Findings &amp; map</td><td>FRC findings to GS; CFR map with landmarks [12(1)(g), 12(2)]</td><td>G14 findings, G10 map sheet, completeness summary as agenda annexure</td><td>Findings placed before GS</td></tr>
+    <tr><td>9</td><td>Resolution</td><td>Quorum ½ members, ⅓ women, 50% claimants; simple majority [4(2)]</td><td>G11 notice, G12 live quorum sheet, G13 resolution, <b>blocked if quorum fails</b></td><td>Resolution with quorum proof</td></tr>
+    <tr><td>10</td><td>Submission</td><td>Resolution + claim + map to SDLC [Sec 6(1), 11(5)]</td><td>G15 covering letter + index, packet export, SDLC acknowledgement scanned</td><td>Acknowledgement captured</td></tr>
+    <tr><td>11</td><td>SDLC</td><td>Examine, hear, draft record, forward via SDO [Rule 6]</td><td>Status tracking, hearing notices (≥15 days), remand as its own state</td><td>Forwarded, or petition path</td></tr>
+    <tr><td>12</td><td>DLC</td><td>Final approval; reasons if not accepted [6(5)(6), 12A(7)]</td><td>Order capture; if adverse → 60-day clock from communication + G16 petition</td><td>Title issued or appeal active</td></tr>
+    <tr><td>13</td><td>Title &amp; record</td><td>Annexure IV; record updated within 3 months [8(i), 12A(9)]</td><td>Title hash-sealed, boundary frozen, record clock, G18 survey request</td><td><code>RECORD_UPDATED</code></td></tr>
+  </table>
+</section>
+
+<!-- ============ 6 FEATURES ============ -->
+<section id="features">
+  <h2>6. What we are building: features &amp; documents</h2>
+  <div class="grid g3">
+    <div class="card accent"><h4>Village &amp; FRC</h4><ul><li>Village + hamlet registry (LGD code)</li><li>Member roster with gender and ST/OTFD</li><li>FRC constitution with a live composition check</li><li>Conflict-of-interest / recusal</li></ul></div>
+    <div class="card accent"><h4>Case &amp; evidence</h4><ul><li>CFR case with claim window timer</li><li>Acknowledgement receipt</li><li>Rule 13 tagged evidence ledger (offline)</li><li>Elder statement: audio → transcript → signed sheet</li><li>Documentation completeness (10 checks)</li></ul></div>
+    <div class="card accent"><h4>Mapping</h4><ul><li>Boundary walk with GPS accuracy per point</li><li>Landmarks per segment, use zones</li><li>Overlap detection → dispute</li><li>Printable CFR map sheet</li><li>Offline map tiles</li></ul></div>
+    <div class="card accent"><h4>Verification</h4><ul><li>Site-visit intimation</li><li>Presence register</li><li>Forest / Revenue signature blocks or recorded absence</li><li>Second-absence finality note [12A(2)]</li></ul></div>
+    <div class="card accent"><h4>Gram Sabha</h4><ul><li>Meetings with notice and agenda</li><li>Attendance (manual; face as a Helper)</li><li>Live 3-test quorum</li><li>Resolution (trilingual), hash-chained</li></ul></div>
+    <div class="card accent"><h4>Submit &amp; track</h4><ul><li>Submission packet with page index</li><li>Record an order (order date + communication date)</li><li>Legal clocks with alerts at day 30/45/55/58</li><li>Petition draft; remand checklist</li><li>Title, survey, record entry, close</li></ul></div>
+  </div>
+
+  <h3>Documents the app generates (print → sign → scan back)</h3>
+  <table>
+    <tr><th>Code</th><th>Document</th><th>Rule</th><th>Code</th><th>Document</th><th>Rule</th></tr>
+    <tr><td>G1</td><td>Notice calling for claims</td><td>11(1)(a)(b)</td><td>G11</td><td>Gram Sabha notice &amp; agenda</td><td>4, 11(5)</td></tr>
+    <tr><td>G2</td><td>Intimation to neighbours &amp; SDLC</td><td>11(1)(b)</td><td>G12</td><td>Attendance &amp; quorum sheet</td><td>4(2)</td></tr>
+    <tr><td>G3</td><td>FRC constitution certificate</td><td>3(1)(2)</td><td>G13</td><td>Gram Sabha resolution</td><td>6(1); 12(1)(g)</td></tr>
+    <tr><td>G4</td><td>Claim acknowledgement</td><td>11(3)</td><td>G14</td><td>FRC findings report</td><td>12(2)</td></tr>
+    <tr><td>G5</td><td>Request for maps &amp; electoral rolls</td><td>6(b)</td><td>G15</td><td>Covering letter &amp; index</td><td>11(5)</td></tr>
+    <tr><td>G6</td><td>Request for authenticated records</td><td>12(4)</td><td>G16</td><td>Petition to SDLC / DLC</td><td>14, 15; 12A(3)</td></tr>
+    <tr><td>G7</td><td>Site-visit intimation</td><td>12(1)</td><td>G17</td><td>Joint meeting record</td><td>12(3); 14(7)</td></tr>
+    <tr><td>G8</td><td>Field verification sheet</td><td>12(1)(a)–(e), 12A(1)</td><td>G18</td><td>Survey &amp; measurement request</td><td>supports 12A(9)</td></tr>
+    <tr><td>G9</td><td>Boundary delineation record</td><td>12(1)(f)</td><td>G19</td><td>Section 8 notice <span class="tag t-grey">later</span></td><td>Sec 8</td></tr>
+    <tr><td>G10</td><td>CFR map sheet</td><td>12(1)(g)</td><td>G20</td><td>Complete case file (one PDF)</td><td>facilitation</td></tr>
+  </table>
+  <p style="font-size:13.5px;color:var(--muted)">Plus <b>Form C</b> with the Gram Sabha member sheet (ST/OTFD status) and the numbered schedule of evidence.</p>
+</section>
+
+<!-- ============ 7 RULES ============ -->
+<section id="rules">
+  <h2>7. Rules we never break</h2>
+  <div class="grid g2">
+    <table>
+      <tr><th>#</th><th>Constraint</th></tr>
+      <tr><td>R1</td><td>The app <b>never decides</b> a claim; outcomes come only from uploaded orders</td></tr>
+      <tr><td>R2</td><td><b>No scores, no "eligible".</b> Only "Documentation completeness: 8 of 10"</td></tr>
+      <tr><td>R3</td><td>Satellite/GPS evidence is <b>supplementary</b> only</td></tr>
+      <tr><td>R4</td><td><b>Signed paper</b> is the record; the app keeps its scan</td></tr>
+      <tr><td>R5</td><td>The NGO <b>cannot bypass</b> the Gram Sabha</td></tr>
+      <tr><td>R6</td><td>No committee below the Gram Sabha decides</td></tr>
+      <tr><td>R7</td><td>Legal deadlines are <b>never lost silently</b></td></tr>
+      <tr><td>R8</td><td>Records are <b>append-only and hash-chained</b></td></tr>
+      <tr><td>R9</td><td>Community data is <b>private and consent-scoped</b></td></tr>
+      <tr><td>R10</td><td>Works <b>offline for weeks</b></td></tr>
+    </table>
+    <table>
+      <tr><th>Hard blocks (the only things that stop the workflow)</th><th>Rule</th></tr>
+      <tr><td>FRC not 10–15 / not ⅔ ST / not ⅓ women</td><td>3(1)</td></tr>
+      <tr><td>Claimant FRC member signing their own verification</td><td>3(3)</td></tr>
+      <tr><td>Resolution without all 3 quorum tests passing</td><td>4(2)</td></tr>
+      <tr><td>Submission without resolution + GS-approved boundary</td><td>6(1), 12(1)(g)</td></tr>
+      <tr><td>Verification closed without signatures or recorded absence</td><td>12A(1)(2)</td></tr>
+      <tr><td>Map sheet with a segment that has no landmark</td><td>12(1)(g)</td></tr>
+      <tr><td>Overlap without a joint meeting or SDLC referral</td><td>12(3)</td></tr>
+      <tr><td>Case closed without title copy + record entry</td><td>8(i), 12A(9)</td></tr>
+      <tr><td>Adverse order saved without the communication date</td><td>12A(3)</td></tr>
+    </table>
+  </div>
+  <div class="note">Completeness gaps (e.g. fewer than 2 evidence items) are <b>advisory</b>. The Gram Sabha may still decide to forward the claim. The engine advises; it does not gate.</div>
+</section>
+
+<!-- ============ 8 APPROACH ============ -->
+<section id="approach">
+  <h2>8. Technical approach</h2>
+  <div class="grid g3">
+    <div class="card blue"><h4>1 · The law lives in pure functions</h4><p>FRC composition, quorum, completeness, clocks and the state machine are plain, side-effect-free functions in <code>domain/</code>, 100% unit-tested and citing their rule.</p></div>
+    <div class="card blue"><h4>2 · The server is the referee</h4><p>Every hard block is enforced by the backend. The app mirrors the checks for instant feedback, but if the app is wrong, the server still refuses.</p></div>
+    <div class="card blue"><h4>3 · Explicit state machine</h4><p>No boolean flags. Every transition has a guard, writes a <code>workflow_event</code>, and may start a legal clock. Outcome states change only from uploaded orders.</p></div>
+    <div class="card blue"><h4>4 · Offline-first, device as temporary record</h4><p>UUIDv7 IDs minted on the device, a Hive outbox, idempotent batch sync, chunked resumable uploads. Signed records never merge silently.</p></div>
+    <div class="card blue"><h4>5 · Append-only + hash chain</h4><p>Evidence, meetings, resolutions, orders and events are never updated or deleted. Corrections supersede. One SHA-256 chain per Gram Sabha.</p></div>
+    <div class="card blue"><h4>6 · AI is optional and removable</h4><p>OCR and speech-to-text only <i>add metadata</i>. Switching off the <code>assist/</code> layer changes nothing in the legal workflow.</p></div>
+    <div class="card blue"><h4>7 · Paper out, scan back</h4><p>Every legal artefact is an HTML template → PDF in Marathi, Hindi and English with a signature block, then the signed scan is hash-sealed.</p></div>
+    <div class="card blue"><h4>8 · Contract-first API</h4><p>The backend publishes OpenAPI with examples before building each stage; the frontend works against a mock and never waits.</p></div>
+    <div class="card blue"><h4>9 · Configuration, not code</h4><p>Officer designations, districts and addresses live in the <code>authority_actor</code> table with validity dates, so transfers don't break history.</p></div>
+  </div>
+</section>
+
+<!-- ============ 9 STACK ============ -->
+<section id="stack">
+  <h2>9. Technology stack</h2>
+  <table>
+    <tr><th style="width:17%">Layer</th><th style="width:25%">Technology</th><th>Why</th><th style="width:20%">Fallback / later</th></tr>
+    <tr><td><b>Mobile app</b></td><td>Flutter 3.x (Dart), Riverpod</td><td>One codebase, strong offline, camera and GPS plugins, good Devanagari rendering. Existing app in <code>vanmitra_tem/</code></td><td>Kotlin native for special GNSS needs</td></tr>
+    <tr><td>Local storage</td><td>Hive (encrypted, AES), key in Android Keystore</td><td>Fast for blob-adjacent records and the sync outbox</td><td>Drift (SQLite) if relational queries grow</td></tr>
+    <tr><td>Maps</td><td>flutter_map + offline tile pack</td><td>Already in the app; works with no network</td><td>MapLibre GL + PMTiles vector packs</td></tr>
+    <tr><td>Languages</td><td>Flutter l10n (ARB): mr, hi, en · Noto Sans Devanagari</td><td>The Guidelines require local-language material</td><td>Audio-first UI for unscripted languages</td></tr>
+    <tr><td><b>Backend API</b></td><td>FastAPI · Python 3.12 · Pydantic v2 · Uvicorn</td><td>Existing backend; strict schema validation suits statutory forms; rich geo + document libraries</td><td>—</td></tr>
+    <tr><td>ORM / migrations</td><td>SQLAlchemy 2 · Alembic · GeoAlchemy2</td><td>Typed models, versioned schema, PostGIS types</td><td>—</td></tr>
+    <tr><td><b>Database</b></td><td>PostgreSQL 16 + PostGIS 3.4</td><td>Transactions for ledgers; overlap/adjacency/area are legal requirements; row-level security</td><td>—</td></tr>
+    <tr><td>Background jobs</td><td>FastAPI BackgroundTasks + APScheduler (daily clock job)</td><td>OCR, PDFs and speech-to-text must not block a field request</td><td>Celery + Redis at multi-district scale</td></tr>
+    <tr><td>Documents</td><td>Jinja2 HTML → WeasyPrint PDF</td><td>Marathi typesetting, signature blocks, templates editable by non-developers</td><td>ReportLab for map sheets</td></tr>
+    <tr><td>File storage</td><td>Local disk (dev) → MinIO (S3 API), versioned + encrypted</td><td>Self-hostable in a State data centre</td><td>Any S3 service under data-residency terms</td></tr>
+    <tr><td>Auth</td><td>JWT (access + refresh), phone + PIN (Argon2)</td><td>Simple for the pilot; roles carry village scope</td><td>Keycloak (OIDC) + OTP</td></tr>
+    <tr><td>OCR / Speech</td><td>Tesseract 5 (eng+mar+hin) · Whisper</td><td>Extract reference numbers and dates; transcribe elder statements</td><td>PaddleOCR for degraded scans</td></tr>
+    <tr><td>Notifications</td><td>Firebase Cloud Messaging</td><td>Deadline alerts at day 30/45/55/58</td><td>SMS gateway</td></tr>
+    <tr><td>DevOps</td><td>Docker Compose · GitHub Actions · Nginx (TLS 1.3)</td><td>Whole pilot fits on 1–2 small VMs</td><td>K3s when &gt;1 district</td></tr>
+    <tr><td>Observability</td><td>Structured logs · Sentry (crashes) · a sync-failure + deadline dashboard</td><td>Deadlines and sync failures must be visible</td><td>Prometheus + Grafana + Loki</td></tr>
+  </table>
+</section>
+
+<!-- ============ 10 ARCHITECTURE ============ -->
+<section id="architecture">
+  <h2>10. System architecture</h2>
+  <p class="sub">Five layers. <b>Layer 3 is advisory and removable.</b> <b>Layer 5 contains every point where the system touches a statutory process</b>, so those interactions are explicit and auditable.</p>
+  <div class="arch">
+    <div class="layer L1"><div class="ln">1 · Client<small>Flutter app (offline-first)</small></div><div class="lc">
+      <div class="box"><b>Step screens</b><span>6 steps · case home</span></div>
+      <div class="box"><b>Capture</b><span>camera · scan · GPS · audio</span></div>
+      <div class="box"><b>Map</b><span>walk · landmarks · zones</span></div>
+      <div class="box"><b>Hive vault</b><span>encrypted cache</span></div>
+      <div class="box"><b>Outbox</b><span>UUIDv7 · idempotent</span></div>
+      <div class="box"><b>Sync worker</b><span>chunked media</span></div>
+      <div class="box"><b>l10n</b><span>mr · hi · en</span></div>
+    </div></div>
+    <div class="layer L2"><div class="ln">2 · Application<small>FastAPI · the legal core</small></div><div class="lc">
+      <div class="box"><b>Auth &amp; scoping</b><span>JWT · role · village</span></div>
+      <div class="box"><b>State machine</b><span>guards · workflow_event</span></div>
+      <div class="box"><b>FRC rules</b><span>BR-01/02</span></div>
+      <div class="box"><b>Quorum engine</b><span>3 tests · BR-03</span></div>
+      <div class="box"><b>Completeness</b><span>C-1…C-10</span></div>
+      <div class="box"><b>Legal clocks</b><span>daily job · alerts</span></div>
+      <div class="box"><b>Ledger</b><span>SHA-256 chain</span></div>
+      <div class="box"><b>Sync API</b><span>/sync/batch</span></div>
+    </div></div>
+    <div class="layer L3"><div class="ln">3 · Assist <small>optional · can be switched off</small></div><div class="lc">
+      <div class="box"><b>OCR</b><span>Tesseract · fields as suggestions</span></div>
+      <div class="box"><b>Speech-to-text</b><span>Whisper · elder statements</span></div>
+      <div class="box"><b>Duplicate detection</b><span>media hash</span></div>
+      <div class="box"><b>Legal Q&amp;A (later)</b><span>RAG · cites rules · no opinions</span></div>
+    </div></div>
+    <div class="layer L4"><div class="ln">4 · Data &amp; Geo<small>system of record</small></div><div class="lc">
+      <div class="box"><b>PostgreSQL 16</b><span>cases · ledgers · RLS</span></div>
+      <div class="box"><b>PostGIS 3.4</b><span>overlap · adjacency · UTM area</span></div>
+      <div class="box"><b>MinIO / disk</b><span>scans · photos · audio</span></div>
+      <div class="box"><b>Backups</b><span>WAL + nightly off-site</span></div>
+    </div></div>
+    <div class="layer L5"><div class="ln">5 · Statutory interface<small>every touchpoint with the law</small></div><div class="lc">
+      <div class="box"><b>Document generator</b><span>G1–G20 · Form C · PDF</span></div>
+      <div class="box"><b>Correspondence</b><span>letters · dispatch · reminders</span></div>
+      <div class="box"><b>Order capture</b><span>SDLC/DLC orders · comm. date</span></div>
+      <div class="box"><b>Signed-scan intake</b><span>hash-sealed originals</span></div>
+      <div class="box"><b>Authority register</b><span>authority_actor config</span></div>
+    </div></div>
+  </div>
+
+  <h3>Request flow: recording a Gram Sabha resolution</h3>
+  <div class="seq"><ol>
+    <li>GS Secretary marks attendance in the app → stored in Hive → queued in the outbox (works offline).</li>
+    <li>On sync, <code>POST /meetings/{id}/attendance</code> → the server computes the <b>3 quorum tests</b> and stores the numbers on the meeting.</li>
+    <li>Secretary records the resolution → <code>POST /meetings/{id}/resolutions</code>.</li>
+    <li>Server guard: quorum passed? If not → <code>409 {rule: "Rule 4(2)"}</code>, and the app explains which test failed.</li>
+    <li>If yes: resolution row appended with <code>record_hash = SHA256(payload ‖ prev_hash)</code>; boundary frozen as <code>GS_APPROVED</code>; <code>workflow_event</code> GS_READY → GS_RESOLVED; 60-day petition clock started.</li>
+    <li>G12 + G13 PDFs rendered in the background → printed → signed → scan uploaded and sealed.</li>
+  </ol></div>
+</section>
+
+<!-- ============ 11 STATE MACHINE ============ -->
+<section id="statemachine">
+  <h2>11. Claim state machine</h2>
+  <p class="sub"><span class="tag t-green">green</span> progress · <span class="tag t-amber">amber</span> legal detours · <span class="tag t-red">red</span> adverse order · <span class="tag t-blue">blue</span> set <b>only</b> by an uploaded authority order</p>
+  <div class="sm">
+    <div class="lane"><div class="lbl">Village</div>
+      <span class="st p">DRAFT</span><span class="arr">→</span><span class="st p">EVIDENCE_COLLECTION</span><span class="arr">→</span><span class="st p">MAPPING_IN_PROGRESS</span><span class="arr">⇄</span><span class="st d">DISPUTE_JOINT_HEARING</span>
+    </div>
+    <div class="lane"><div class="lbl"></div>
+      <span class="arr">→</span><span class="st p">FRC_VERIFICATION</span><span class="arr">→</span><span class="st p">GS_READY</span><span class="arr">→</span><span class="st p">GS_RESOLVED</span><span class="arr">→</span><span class="st p">SUBMITTED_SDLC</span>
+    </div>
+    <div class="lane"><div class="lbl">Authorities</div>
+      <span class="arr">→</span><span class="st o">SDLC_UNDER_EXAM</span><span class="arr">→</span><span class="st o">SDLC_FORWARDED</span><span class="arr">→</span><span class="st o">DLC_UNDER_CONSIDERATION</span>
+    </div>
+    <div class="lane"><div class="lbl">Detours</div>
+      <span class="st o">SDLC / DLC</span><span class="arr">→</span><span class="st d">REMANDED_TO_GS</span><span class="arr">→</span><span class="st p">FRC_VERIFICATION</span>
+      <span style="width:22px"></span>
+      <span class="st o">SDLC / DLC</span><span class="arr">→</span><span class="st r">MODIFIED_REJECTED</span><span class="arr">→</span><span class="st d">PETITION_FILED</span><span class="arr">→</span><span class="st o">back to SDLC / DLC</span>
+    </div>
+    <div class="lane"><div class="lbl">Recognition</div>
+      <span class="st o">TITLE_APPROVED</span><span class="arr">→</span><span class="st d">(SURVEY_PENDING)</span><span class="arr">→</span><span class="st o">RECORD_UPDATED</span><span class="arr">→</span><span class="st p">CFR_ACTIVE</span>
+    </div>
+  </div>
+  <div class="note red"><b>Remand ≠ rejection.</b> <code>REMANDED_TO_GS</code> is its own state [Rule 12A(6)] with a re-verification checklist listing only what the committee questioned. Original evidence stays unchanged.</div>
+  <h3>Legal clocks started by transitions</h3>
+  <table>
+    <tr><th>Clock</th><th>Length</th><th>Starts from</th><th>Alerts</th></tr>
+    <tr><td>Claim window [11(1)(a)]</td><td>3 months (extendable with reasons)</td><td>Date claims were called</td><td>Dashboard countdown</td></tr>
+    <tr><td>Petition vs GS resolution [6(2), 14(1)]</td><td>60 days</td><td>Resolution date</td><td>Visible to the Gram Sabha</td></tr>
+    <tr><td>Petition vs SDLC decision [6(4), 15(1)]</td><td>60 days</td><td>SDLC decision date</td><td>Day 30 · 45 · 55 · 58</td></tr>
+    <tr><td>Petition after modification/rejection [12A(3)]</td><td>60 (+30) days</td><td><b>Communication in person</b></td><td>Day 30 · 45 · 55 · 58</td></tr>
+    <tr><td>Hearing notice [14(2), 15(2)]</td><td>≥ 15 days before</td><td>Hearing date</td><td>Short notice flagged</td></tr>
+    <tr><td>Dispute resolution [14(7)]</td><td>30 days</td><td>Joint meeting called</td><td>Then SDLC decides</td></tr>
+    <tr><td>Record updation [12A(9)]</td><td>3 months or the state cycle, whichever is earlier</td><td>Title issue</td><td>Open item until the entry is uploaded</td></tr>
+  </table>
+</section>
+
+<!-- ============ 12 DATA ============ -->
+<section id="data">
+  <h2>12. Data model</h2>
+  <p class="sub">🔗 = append-only and hash-chained. <code>UPDATE</code>/<code>DELETE</code> are blocked at the database; corrections are new rows with <code>supersedes_id</code>.</p>
+  <div class="grid g3">
+    <div class="card"><h4>Village &amp; people</h4><ul>
+      <li><code>village</code>: LGD, GP, taluka, district, <code>parent_village_id</code>, consolidation status</li>
+      <li><code>gram_sabha</code>: chain head hash</li>
+      <li><code>gs_member</code>: gender, ST/OTFD category, is_claimant</li>
+      <li><code>frc</code>, <code>frc_member</code>: composition proof, chair/secretary</li>
+      <li><code>app_user</code>, <code>user_role</code>: role × village, validity</li>
+    </ul></div>
+    <div class="card"><h4>Case &amp; evidence</h4><ul>
+      <li><code>case</code>: <code>claim_type</code> (CFR / IFR / CR), state, ack serial, window dates</li>
+      <li><code>case_claimant</code></li>
+      <li><code>evidence</code> 🔗: <code>rule_ref</code>, kind, media, source, <code>is_substitutable</code>, verified_by</li>
+      <li><code>elder_statement</code>: audio, transcript, signed scan</li>
+      <li><code>media</code>: sha256, gps, accuracy</li>
+    </ul></div>
+    <div class="card"><h4>Geography</h4><ul>
+      <li><code>cfr_boundary</code>: versioned Polygon (4326), source, status, area (UTM), sealed hash</li>
+      <li><code>boundary_segment</code>, <code>landmark</code>, <code>use_zone</code></li>
+      <li><code>boundary_walk</code>: named elders, trace</li>
+      <li><code>adjacency</code>, <code>dispute</code>: overlap geometry, joint meeting, referral</li>
+    </ul></div>
+    <div class="card"><h4>Verification &amp; Gram Sabha</h4><ul>
+      <li><code>verification_proceeding</code> 🔗: forest/revenue signed or absence, attempt no.</li>
+      <li><code>recusal</code></li>
+      <li><code>gs_meeting</code> 🔗: counts + <b>stored</b> quorum result</li>
+      <li><code>attendance</code>: manual / face</li>
+      <li><code>resolution</code> 🔗: number, trilingual text, votes, boundary link</li>
+    </ul></div>
+    <div class="card"><h4>Authorities &amp; workflow</h4><ul>
+      <li><code>authority_actor</code>: office, designation, jurisdiction, validity</li>
+      <li><code>authority_order</code> 🔗: kind, order date, <b>communicated_on</b>, reasons_given, grounds</li>
+      <li><code>workflow_event</code> 🔗: from → to, actor, order, reason, due date</li>
+      <li><code>legal_clock</code>: kind, due, extension, alerts sent</li>
+    </ul></div>
+    <div class="card"><h4>Output &amp; governance</h4><ul>
+      <li><code>correspondence</code>: letter, addressee, dispatch, reminder</li>
+      <li><code>generated_document</code>: template, language, signed scan</li>
+      <li><code>consent</code>: purpose, given/withdrawn, oral/written</li>
+      <li><code>audit_log</code>: actor, action, object, purpose</li>
+    </ul></div>
+  </div>
+  <pre>record_hash(n) = SHA256( canonical_json(payload(n)) || record_hash(n-1) )
+Chained tables : evidence · verification_proceeding · gs_meeting · resolution · authority_order · workflow_event
+Chain scope    : one chain per Gram Sabha (a village can verify its own history)
+Anchoring      : chain head printed weekly in the Gram Sabha register (offline anchor)
+Correction     : never an update. A new row supersedes the old one and records why</pre>
+</section>
+
+<!-- ============ 13 API ============ -->
+<section id="api">
+  <h2>13. API surface (<code>/api/v1</code>)</h2>
+  <table>
+    <tr><th>Stage</th><th>Endpoint</th><th>Purpose</th><th>Guard</th></tr>
+    <tr><td>0</td><td><code>POST /auth/login</code> · <code>GET /me</code></td><td>Phone + PIN → JWT with roles and villages</td><td></td></tr>
+    <tr><td>1</td><td><code>POST /villages</code> · <code>/gram-sabhas/{id}/members</code></td><td>Registry and roster</td><td>role</td></tr>
+    <tr><td>1</td><td><code>POST /gram-sabhas/{id}/frc</code> · <code>GET …/frc/check</code></td><td>Constitute FRC; live check</td><td>BR-01</td></tr>
+    <tr><td>2</td><td><code>POST /cases</code> · <code>/cases/{id}/acknowledge</code> · <code>/window/extend</code></td><td>Case, acknowledgement, window</td><td></td></tr>
+    <tr><td>2</td><td><code>POST /media</code> (chunked) · <code>/cases/{id}/evidence</code> · <code>…/verify</code></td><td>Upload, tag, attest</td><td>BR-02</td></tr>
+    <tr><td>2</td><td><code>GET /cases/{id}/completeness</code></td><td>10 checks with rule citations</td><td>advisory</td></tr>
+    <tr><td>2</td><td><code>POST /sync/batch</code></td><td>Offline outbox drain (idempotent, causal)</td><td></td></tr>
+    <tr><td>3</td><td><code>POST /cases/{id}/boundary</code> · <code>/landmarks</code> · <code>/use-zones</code> · <code>/walks</code></td><td>Mapping (GeoJSON)</td><td></td></tr>
+    <tr><td>3</td><td><code>GET /cases/{id}/boundary/conflicts</code> · <code>POST …/disputes/{d}/joint-meeting</code></td><td>Overlap → dispute</td><td>BR-09</td></tr>
+    <tr><td>4</td><td><code>POST /cases/{id}/verification</code></td><td>Proceeding + signatures/absence</td><td>BR-07</td></tr>
+    <tr><td>4</td><td><code>POST /meetings</code> · <code>/attendance</code> · <code>/resolutions</code></td><td>Meeting, live quorum, resolution</td><td>BR-03</td></tr>
+    <tr><td>2–5</td><td><code>POST /cases/{id}/transitions</code></td><td>Village-side state changes only</td><td>BR-14</td></tr>
+    <tr><td>2–5</td><td><code>POST /cases/{id}/documents/{tpl}?lang=mr</code></td><td>Render a G-document (async)</td><td>BR-08 (G10)</td></tr>
+    <tr><td>5</td><td><code>POST /cases/{id}/submit</code> · <code>/orders</code> · <code>/close</code></td><td>Submit; record orders; close</td><td>BR-04 · BR-10/12 · BR-13</td></tr>
+    <tr><td>5</td><td><code>GET /cases/{id}/timeline</code> · <code>/gram-sabhas/{id}/ledger/verify</code></td><td>Events + clocks; integrity check</td><td></td></tr>
+  </table>
+  <pre>// Every blocked action explains itself, with its rule:
+HTTP 409
+{ "error": "FRC_COMPOSITION_INVALID", "rule": "Rule 3(1)",
+  "message_key": "frc.too_few_women",
+  "details": { "women": 3, "required": 4, "members": 12 } }</pre>
+</section>
+
+<!-- ============ 14 ENGINES ============ -->
+<section id="engines">
+  <h2>14. Rule engines</h2>
+  <div class="grid g3">
+    <div class="card"><h4>FRC composition [Rule 3(1)]</h4><pre>10 &lt;= n &lt;= 15
+if any ST: st &gt;= ceil(2n/3)
+women &gt;= ceil(n/3)</pre><p>Returns which test failed and by how much.</p></div>
+    <div class="card"><h4>Quorum [Rule 4(2)]</h4><pre>t1 = present   &gt;= ceil(members/2)
+t2 = women     &gt;= ceil(present/3)
+t3 = claimants &gt;= ceil(total/2)
+pass = t1 and t2 and t3</pre><p>Inputs + result stored on the meeting, never recomputed.</p></div>
+    <div class="card"><h4>Documentation completeness</h4><pre>C-1 ≥2 verified 13(1)
+C-2 ≥1 verified 13(2)
+C-3 boundary GS-approved
+C-4 landmark per segment
+C-5 forest &amp; revenue signed/absent
+C-6 elder statement OR ≥3 13(1)
+C-7 quorum passed
+C-8 neighbours intimated
+C-9 acknowledgement issued
+C-10 no unresolved overlap</pre><p>Output: "8 of 10" + named gaps. <b>Never a score.</b> Geo items never count alone.</p></div>
+  </div>
+</section>
+
+<!-- ============ 15 SYNC ============ -->
+<section id="sync">
+  <h2>15. Offline-first synchronisation</h2>
+  <table>
+    <tr><th>Rule</th><th>Why</th></tr>
+    <tr><td>UUIDv7 IDs minted on the device</td><td>Records created in the field are referenceable before reaching the server; time-ordered IDs keep the outbox in causal order</td></tr>
+    <tr><td>Append-only ledgers never merge</td><td>Two devices adding evidence to the same case both succeed; nothing to reconcile</td></tr>
+    <tr><td>Last-writer-wins on descriptive fields only</td><td>E.g. village population or contact numbers, where a conflict is harmless</td></tr>
+    <tr><td>Signed records are immutable</td><td>An edit after signature becomes a <b>conflict item</b> for a person, never an automatic overwrite</td></tr>
+    <tr><td>Chunked, resumable media uploads with checksums</td><td>A dropped 2G connection must not lose an hour of scanning</td></tr>
+    <tr><td>Encrypted device vault; purge IDs after sync</td><td>Field devices are lost and shared; they hold identity documents and elder testimony</td></tr>
+  </table>
+</section>
+
+<!-- ============ 16 SECURITY ============ -->
+<section id="security">
+  <h2>16. Security, privacy &amp; non-functional requirements</h2>
+  <div class="grid g2">
+    <table>
+      <tr><th>Area</th><th>Requirement</th></tr>
+      <tr><td>Ownership</td><td>The record belongs to the Gram Sabha; we are custodians. Full export and deletion on request</td></tr>
+      <tr><td>Consent</td><td>Purpose-limited, revocable, per person and per sharing event (DPDP Act 2023); oral consent recorded for non-literate members</td></tr>
+      <tr><td>Access</td><td>Role + village scoping in the API <b>and</b> database row-level security. No role can delete a ledger row</td></tr>
+      <tr><td>Sensitive geometry</td><td>Exact boundaries and sacred sites never public; research exports generalised</td></tr>
+      <tr><td>Encryption</td><td>TLS 1.3 in transit; AES-256 at rest (DB, storage, device)</td></tr>
+      <tr><td>Audit</td><td>Every state change and personal-data read logged (actor, time, purpose); kept for the life of the claim + 10 years</td></tr>
+    </table>
+    <table>
+      <tr><th>Area</th><th>Target</th></tr>
+      <tr><td>Device</td><td>2 GB RAM Android, 720p, 2G / patchy 4G, battery-aware GPS</td></tr>
+      <tr><td>Performance</td><td>Case list + completeness &lt; 300 ms on device; overlap &lt; 2 s; PDFs &lt; 10 s (async)</td></tr>
+      <tr><td>Availability</td><td>Fully offline in the field; server 99% in working hours; <b>zero data loss</b></td></tr>
+      <tr><td>Accessibility</td><td>Large text, high contrast, icon + text navigation, 48–56 dp tap targets, audio guidance</td></tr>
+      <tr><td>Language</td><td>Marathi default, Hindi, English; no hard-coded strings</td></tr>
+      <tr><td>Retention</td><td>Claim records permanent; identity images purged from device after sync</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- ============ 17 DEPLOY ============ -->
+<section id="deploy">
+  <h2>17. Deployment</h2>
+  <div class="deploy">
+    <div class="col"><h4>📱 Field devices</h4><div class="box"><b>Flutter app</b><span>Android 8+</span></div><br><div class="box"><b>Encrypted Hive</b><span>+ outbox</span></div><br><div class="box"><b>Offline tiles</b><span>district pack</span></div></div>
+    <div class="link"><div>⇄</div>HTTPS<br>sync when online</div>
+    <div class="col"><h4>🖥️ App server (VM 1)</h4><div class="box"><b>Nginx</b><span>TLS 1.3 · rate limits</span></div><br><div class="box"><b>FastAPI</b><span>API + workers</span></div><br><div class="box"><b>Scheduler</b><span>daily clocks · alerts</span></div></div>
+    <div class="link"><div>⇄</div>private<br>network</div>
+    <div class="col"><h4>🗄️ Data server (VM 2)</h4><div class="box"><b>PostgreSQL + PostGIS</b><span>RLS</span></div><br><div class="box"><b>MinIO</b><span>scans · audio</span></div><br><div class="box"><b>Backups</b><span>WAL + off-site</span></div></div>
+  </div>
+  <p style="font-size:13.5px;color:var(--muted);margin-top:10px"><b>Local development:</b> <code>docker compose up</code> runs the API + PostGIS on a laptop. The phone reaches it over USB with <code>adb reverse tcp:8000 tcp:8000</code>. <b>Pilot hosting:</b> a State/institutional data centre or an Indian-region cloud under a data-sharing agreement. Railway is for development only. <b>FCM</b> is used only for push alerts.</p>
+</section>
+
+<!-- ============ 18 TESTING ============ -->
+<section id="testing">
+  <h2>18. Testing &amp; quality</h2>
+  <table>
+    <tr><th>Layer</th><th>Kind</th><th>Tooling</th><th>Must cover</th></tr>
+    <tr><td>Backend</td><td>Unit + property</td><td>pytest, hypothesis</td><td>FRC, quorum, completeness, clocks, state machine, hash chain (100% branch coverage)</td></tr>
+    <tr><td>Backend</td><td>API / integration</td><td>pytest, httpx, PostGIS test container</td><td>Every endpoint and every hard block</td></tr>
+    <tr><td>Backend</td><td>Golden files</td><td>pytest</td><td>Every G-document in mr / hi / en</td></tr>
+    <tr><td>Backend</td><td>Contract</td><td>schemathesis</td><td>API matches the published OpenAPI</td></tr>
+    <tr><td>App</td><td>Unit + widget</td><td>flutter_test</td><td>Providers, outbox, error messages, each step screen in 3 languages</td></tr>
+    <tr><td>App</td><td>Integration</td><td>integration_test</td><td>Airplane mode → capture a full evidence set → reconnect → all synced</td></tr>
+    <tr><td>Field</td><td>Device test</td><td>Real 2 GB phone + emulator</td><td>Demo at the end of every stage</td></tr>
+  </table>
+</section>
+
+<!-- ============ 19 ROADMAP ============ -->
+<section id="roadmap">
+  <h2>19. Build stages</h2>
+  <p class="sub">Backend and frontend run <b>in parallel</b> in every stage. The API for a stage is published first, so the app can build against a mock.</p>
+  <div class="roadmap">
+    <div class="rm head"><div class="sn">Stage</div><div>Backend (Soham · Ishan)</div><div>Frontend (Kaushal · Ishan)</div><div>Done when…</div></div>
+    <div class="rm"><div class="sn">0<small>Foundations</small></div><div>Docker + PostGIS, migrations, JWT, 3 roles, OpenAPI, CI; remove eligibility/scoring</div><div>12 → 3 roles; remove decision buttons &amp; score gauges; API client + mock; l10n + theme</div><div>App logs in to the new backend with each of the 3 roles</div></div>
+    <div class="rm"><div class="sn">1<small>Village &amp; FRC</small></div><div>Village/hamlet, roster, FRC with BR-01/02, G3</div><div>Village setup, roster, FRC screen with live check, print G3</div><div>A valid FRC is saved; an invalid one is refused with the reason</div></div>
+    <div class="rm"><div class="sn">2<small>Case &amp; evidence</small></div><div>Case, window, ack, evidence ledger, hash chain, completeness, G1/2/4/5/6, sync</div><div>Case creation, offline capture (camera/scan/GPS/audio), checklist, outbox</div><div>A full evidence bundle is captured offline and synced without loss</div></div>
+    <div class="rm"><div class="sn">3<small>Mapping</small></div><div>Boundary versions, landmarks, zones, PostGIS overlap → dispute, G9/10/17</div><div>Boundary walk, landmarks, zones, dispute screen, offline tiles</div><div>A boundary is walked, mapped and printed readably</div></div>
+    <div class="rm"><div class="sn">4<small>Verification &amp; GS</small></div><div>Verification (BR-07), meetings, quorum (BR-03), resolution, all 10 checks, G7/8/11–14</div><div>Verification sheet, meeting, attendance, live quorum panel, resolution</div><div>A real Gram Sabha meeting recorded end to end with correct quorum</div></div>
+    <div class="rm"><div class="sn">5<small>Submit &amp; track</small></div><div>Submit (BR-04), orders, clocks + alerts, remand, petition G16, title, survey, record, G15/20</div><div>Packet, "record an order", deadline timeline, petition preview, title upload</div><div>A simulated rejection yields a correct petition within the limitation period</div></div>
+    <div class="rm"><div class="sn">6<small>Hardening &amp; pilot</small></div><div>Consent, audit, RLS, backups, security review, golden tests</div><div>Marathi review with NGO, accessibility pass, low-end device, crash reporting</div><div>SDLC office accepts the packet without procedural objection</div></div>
+    <div class="rm later"><div class="sn">7<small>Later</small></div><div>CFRMC, Annexure V, coverage dashboard, G19, authority viewer, legal Q&amp;A, satellite</div><div>Matching screens</div><div>Separate plan</div></div>
+  </div>
+</section>
+
+<!-- ============ 20 TEAM ============ -->
+<section id="team">
+  <h2>20. Team &amp; process</h2>
+  <div class="grid g3">
+    <div class="card accent"><h4>Soham: Backend lead</h4><p>API, database, state machine, rule engines, documents, sync endpoint. Owns the API contract.</p></div>
+    <div class="card saffron"><h4>Kaushal: Frontend lead</h4><p>Flutter screens, UX, offline outbox, capture, maps, translations. Approves API changes.</p></div>
+    <div class="card blue"><h4>Ishan: Full-stack</h4><p>Supports both sides; reviewer for backend and frontend PRs; owns integration tests.</p></div>
+  </div>
+  <h3>Ground rules</h3>
+  <div class="grid g2">
+    <div class="card"><ul>
+      <li><code>main</code> is protected. No direct pushes; one review per PR</li>
+      <li>Branches: <code>be/…</code>, <code>fe/…</code>, <code>docs/…</code></li>
+      <li>Commits: <code>feat:</code> <code>fix:</code> <code>docs:</code> <code>test:</code> <code>refactor:</code> <code>chore:</code></li>
+      <li>API changes go to OpenAPI <b>first</b>, in an <code>api-change</code> PR</li>
+      <li>Never commit secrets, <code>google-services.json</code>, <code>.env</code> or machine paths</li>
+    </ul></div>
+    <div class="card"><h4>Definition of done</h4><ul>
+      <li>Traces to a stage and a rule (or labelled <i>facilitation</i>)</li>
+      <li>Breaks none of the 10 rules (no scores, no decisions)</li>
+      <li>Tests added; CI green</li>
+      <li>All text in mr / hi / en</li>
+      <li>Works offline, if it is a field action</li>
+    </ul></div>
+  </div>
+  <p style="font-size:13.5px;color:var(--muted)">Full detail: <code>docs/PROJECT_PLAN.md</code>, <code>docs/BACKEND_PLAN.md</code>, <code>docs/FRONTEND_PLAN.md</code>.</p>
+</section>
+
+<!-- ============ 21 DECISIONS ============ -->
+<section id="decisions">
+  <h2>21. Open decisions</h2>
+  <table>
+    <tr><th>#</th><th>Decision</th><th>Recommendation</th></tr>
+    <tr><td>D1</td><td>The three app roles</td><td>Facilitator · FRC Member · Gram Sabha Secretary</td></tr>
+    <tr><td>D2</td><td>System of record</td><td><span class="tag t-green">Decided 2026-09-28</span> PostgreSQL 16 + PostGIS 3.4 via FastAPI; Hive on the device; Firebase only for push notifications</td></tr>
+    <tr><td>D3</td><td>Pilot login</td><td>Phone + PIN (OTP needs a paid SMS provider)</td></tr>
+    <tr><td>D4</td><td>Pilot hosting</td><td>One small Indian-region VM with Docker Compose</td></tr>
+    <tr><td>D5</td><td>Face-recognition attendance</td><td>Keep as an optional Helper; manual attendance is the legal record</td></tr>
+    <tr><td>D6</td><td>Existing eligibility check / evidence score</td><td>Remove; keep OCR, transcription and drafting as removable helpers</td></tr>
+  </table>
+</section>
+
+<footer>
+  VanMitra · CFR Claim Module · Project &amp; Technical Overview v0.1. Derived from <i>VanMitra CFR Claim Module: Workflow and Architecture Specification v1.0</i> and the CFR reference sheet (FRA 2006; FR Rules 2007 as amended 2012).<br>
+  This is a system design document, not legal advice. Officer designations and templates must be verified against the instruments in force before the pilot.
+</footer>
+
+</main>
+</div>
+</body>
+</html>

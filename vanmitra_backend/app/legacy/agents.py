@@ -27,7 +27,8 @@ from typing import Dict, List, Optional
 import numpy as np
 
 # ── Evidence weights — loaded from bundled JSON (same as Flutter assets) ──────────
-_WEIGHTS_PATH = Path(__file__).parent.parent / "assets" / "ai_config" / "evidence_weights.json"
+_ASSETS_DIR = Path(__file__).resolve().parents[2] / "assets"
+_WEIGHTS_PATH = _ASSETS_DIR / "ai_config" / "evidence_weights.json"
 if _WEIGHTS_PATH.exists():
     with open(_WEIGHTS_PATH, encoding="utf-8") as _f:
         EVIDENCE_WEIGHTS: Dict[str, float] = json.load(_f)
@@ -454,7 +455,7 @@ except ImportError:
 
 # ── 9. SatelliteAgent ─────────────────────────────────────────────────────────
 
-_AI_CONFIG_DIR = Path(__file__).resolve().parent.parent / "assets" / "ai_config"
+_AI_CONFIG_DIR = _ASSETS_DIR / "ai_config"
 
 
 class SatelliteAgent:
@@ -605,7 +606,7 @@ class SatelliteAgent:
         import csv
         alerts = []
         csv_path = seed_csv_path or str(
-            Path(__file__).resolve().parent.parent / "assets" / "seed_data" / "ozar_alerts.csv"
+            _ASSETS_DIR / "seed_data" / "ozar_alerts.csv"
         )
         try:
             with open(csv_path, newline="", encoding="utf-8") as f:
