@@ -79,7 +79,6 @@ class _PortalFrameScaffoldState extends ConsumerState<PortalFrameScaffold> {
         : widget.breadcrumbs;
 
     return Scaffold(
-      extendBody: true,
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       floatingActionButton: widget.floatingActionButton,
       bottomNavigationBar: widget.bottomNavigationBar,

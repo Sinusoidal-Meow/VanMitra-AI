@@ -62,7 +62,7 @@ class AnimatedBottomNavBar extends StatelessWidget {
     return SafeArea(
       bottom: true,
       child: Padding(
-        padding: const EdgeInsets.only(left: 16, right: 16, bottom: 16, top: 32),
+        padding: const EdgeInsets.only(left: 16, right: 16, bottom: 16, top: 0),
         child: Stack(
           clipBehavior: Clip.none,
           alignment: Alignment.bottomCenter,
