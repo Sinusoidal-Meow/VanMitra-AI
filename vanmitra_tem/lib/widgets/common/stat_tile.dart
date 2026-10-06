@@ -32,6 +32,10 @@ class StatTile extends StatelessWidget {
   /// Whether to animate the counter from 0 on first build.
   final bool animateValue;
 
+  /// Whether to show the forward chevron icon when [onTap] is provided.
+  /// Defaults to false to maintain clean, clutter-free KPI card layouts.
+  final bool showChevron;
+
   const StatTile({
     super.key,
     this.type = StatTileType.custom,
@@ -44,6 +48,7 @@ class StatTile extends StatelessWidget {
     this.isLoading = false,
     this.onTap,
     this.animateValue = true,
+    this.showChevron = false,
   });
 
   @override
@@ -91,7 +96,7 @@ class StatTile extends StatelessWidget {
         boxShadow: [
           // Primary subtle shadow
           BoxShadow(
-            color: c.isDark ? Colors.black.withOpacity(0.3) : const Color(0x0F0F172A),
+            color: c.isDark ? Colors.black.withValues(alpha: 0.3) : const Color(0x0F0F172A),
             offset: const Offset(0, 2),
             blurRadius: 8,
           ),
@@ -128,7 +133,7 @@ class StatTile extends StatelessWidget {
                 ),
                 child: Icon(icon, color: activeIconColor, size: 20),
               ),
-              if (onTap != null)
+              if (showChevron && onTap != null)
                 Icon(
                   Icons.arrow_forward_ios_rounded,
                   size: 12,

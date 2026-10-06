@@ -76,10 +76,9 @@ class _AdminDashboardState extends ConsumerState<_AdminDashboard>
   late final Animation<Offset> _headerSlide;
   late final Animation<double> _headerFade;
 
-  // ── Stats grid animations (4 staggered) ───────────────────────────────────
-  late final List<Animation<double>> _statScales;
-  late final List<Animation<Offset>> _statSlides;
-  late final List<Animation<double>> _statFades;
+  // ── Stats stack entrance animations ───────────────────────────────────────
+  late final Animation<double> _statFade;
+  late final Animation<Offset> _statSlide;
 
   // ── Action list animations (6 staggered) ──────────────────────────────────
   static const int _actionCount = 6;
@@ -109,42 +108,17 @@ class _AdminDashboardState extends ConsumerState<_AdminDashboard>
       ),
     );
 
-    // ── 2. Stats Grid: Staggered scale + slide-up (60ms delay per card) ─────
+    // ── 2. Stats Stack: Smooth interpolated entrance ────────────────────────
     _statsController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
     );
-    _statScales = List.generate(4, (i) {
-      final start = (i * 0.1).clamp(0.0, 0.6);
-      final end = (start + 0.6).clamp(0.0, 1.0);
-      return Tween<double>(begin: 0.6, end: 1.0).animate(
-        CurvedAnimation(
-          parent: _statsController,
-          curve: Interval(start, end, curve: Curves.easeOutBack),
-        ),
-      );
-    });
-    _statSlides = List.generate(4, (i) {
-      final start = (i * 0.1).clamp(0.0, 0.6);
-      final end = (start + 0.6).clamp(0.0, 1.0);
-      return Tween<Offset>(
-        begin: const Offset(0, 0.15),
-        end: Offset.zero,
-      ).animate(CurvedAnimation(
-        parent: _statsController,
-        curve: Interval(start, end, curve: Curves.easeOutCubic),
-      ));
-    });
-    _statFades = List.generate(4, (i) {
-      final start = (i * 0.1).clamp(0.0, 0.5);
-      final end = (start + 0.5).clamp(0.0, 1.0);
-      return Tween<double>(begin: 0, end: 1).animate(
-        CurvedAnimation(
-          parent: _statsController,
-          curve: Interval(start, end, curve: Curves.easeOut),
-        ),
-      );
-    });
+    _statFade = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _statsController, curve: Curves.easeOut),
+    );
+    _statSlide = Tween<Offset>(begin: const Offset(0, 0.08), end: Offset.zero).animate(
+      CurvedAnimation(parent: _statsController, curve: Curves.easeOutCubic),
+    );
 
     // ── 3. Action List: Staggered fade + slide-in from bottom ───────────────
     _actionsController = AnimationController(
@@ -259,48 +233,57 @@ class _AdminDashboardState extends ConsumerState<_AdminDashboard>
                 const SizedBox(height: AppSpacing.lg),
 
                 // ═══════════════════════════════════════════════════════════════
-                // 2. HIGH-DENSITY DIAGNOSTIC STAT TILES — Staggered scale+slide
+                // 2. FOCUSED CARD STACK — Interactive Swipeable KPI Deck
                 // ═══════════════════════════════════════════════════════════════
                 AnimatedBuilder(
                   animation: _statsController,
-                  builder: (context, _) {
-                    return GridView.count(
-                      crossAxisCount: 2,
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      crossAxisSpacing: AppSpacing.md,
-                      mainAxisSpacing: AppSpacing.md,
-                      childAspectRatio: 1.15,
-                      children: [
-                        _buildAnimatedStat(0, StatTile(
-                          value: totalClaims,
-                          label: context.tr('total_claims'),
-                          icon: Icons.description_rounded,
-                          iconColor: AppColors.saffron,
-                        )),
-                        _buildAnimatedStat(1, StatTile(
-                          value: totalMeetings,
-                          label: context.tr('meetings'),
-                          icon: Icons.groups_rounded,
-                          iconColor: AppColors.successGreen,
-                        )),
-                        _buildAnimatedStat(2, StatTile(
-                          value: '${resolutions.length}',
-                          label: context.tr('resolutions'),
-                          icon: Icons.gavel_rounded,
-                          iconColor: AppColors.govtBlue,
-                        )),
-                        _buildAnimatedStat(3, StatTile(
-                          value: '${village?.registeredAdultMembers ?? 500}',
-                          label: context.tr('members'),
-                          icon: Icons.people_alt_rounded,
-                          iconColor: AppColors.forestSage,
-                        )),
-                      ],
+                  builder: (context, child) {
+                    return FadeTransition(
+                      opacity: _statFade,
+                      child: SlideTransition(
+                        position: _statSlide,
+                        child: child,
+                      ),
                     );
                   },
+                  child: StatisticCardStack(
+                    items: [
+                      StatisticCardItem(
+                        value: totalClaims,
+                        label: context.tr('total_claims'),
+                        icon: Icons.description_rounded,
+                        iconColor: AppColors.saffron,
+                        subtitle: 'Adjudicate & monitor FRA claims',
+                        onTap: () => widget.onSwitchTab?.call(AppTab.claims.index),
+                      ),
+                      StatisticCardItem(
+                        value: totalMeetings,
+                        label: context.tr('meetings'),
+                        icon: Icons.groups_rounded,
+                        iconColor: AppColors.successGreen,
+                        subtitle: 'Scheduled & held Gram Sabhas',
+                        onTap: () => widget.onSwitchTab?.call(AppTab.sabha.index),
+                      ),
+                      StatisticCardItem(
+                        value: '${resolutions.length}',
+                        label: context.tr('resolutions'),
+                        icon: Icons.gavel_rounded,
+                        iconColor: AppColors.govtBlue,
+                        subtitle: 'Official CFR resolution ledger',
+                        onTap: () => Navigator.pushNamed(context, AppRouter.resolutionLedger),
+                      ),
+                      StatisticCardItem(
+                        value: '${village?.registeredAdultMembers ?? 500}',
+                        label: context.tr('members'),
+                        icon: Icons.people_alt_rounded,
+                        iconColor: AppColors.forestSage,
+                        subtitle: 'Adult Gram Sabha voters & quorum',
+                        onTap: () => Navigator.pushNamed(context, AppRouter.attendanceManagement),
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: AppSpacing.xl),
+                const SizedBox(height: AppSpacing.lg),
 
                 // ═══════════════════════════════════════════════════════════════
                 // 3. ADMIN GOVERNANCE OPERATIONS — Staggered cascade from bottom
@@ -384,19 +367,7 @@ class _AdminDashboardState extends ConsumerState<_AdminDashboard>
     );
   }
 
-  // ── Build staggered stat tile with scale + slide + fade ──────────────────
-  Widget _buildAnimatedStat(int index, Widget child) {
-    return FadeTransition(
-      opacity: _statFades[index],
-      child: SlideTransition(
-        position: _statSlides[index],
-        child: ScaleTransition(
-          scale: _statScales[index],
-          child: child,
-        ),
-      ),
-    );
-  }
+
 
   // ── Build action items list ─────────────────────────────────────────────
   List<Widget> _buildActions(BuildContext context, WidgetRef ref, String totalClaims) {
