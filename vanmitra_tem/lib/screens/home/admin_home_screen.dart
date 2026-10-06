@@ -45,9 +45,9 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen> {
       children: [
         _AdminDashboard(bottomNavigationBar: navBar, onSwitchTab: (index) => setState(() => _currentTab = index)),
         MyClaimsScreen(bottomNavigationBar: navBar),
+        _AdminProfileTab(bottomNavigationBar: navBar),
         _AdminGramSabhaTab(bottomNavigationBar: navBar),
         _AdminMapTab(bottomNavigationBar: navBar),
-        _AdminProfileTab(bottomNavigationBar: navBar),
       ],
     );
   }

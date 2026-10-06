@@ -10,6 +10,7 @@ import '../../providers/village_provider.dart';
 import '../../services/localization_service.dart';
 import '../../services/module_b_service.dart';
 import '../../widgets/common/app_components.dart';
+import '../../widgets/common/animated_bottom_nav_bar.dart';
 import '../../widgets/portal_frame_scaffold.dart';
 import '../claims/my_claims_screen.dart';
 import '../gram_sabha/gram_sabha_dashboard.dart';
@@ -31,7 +32,7 @@ class _VillagerHomeScreenState extends ConsumerState<VillagerHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final navBar = BottomNavBar(
+    final navBar = AnimatedBottomNavBar(
       currentTab: AppTab.values[_currentTab],
       onTabSelected: (tab) => setState(() => _currentTab = tab.index),
     );
@@ -41,9 +42,9 @@ class _VillagerHomeScreenState extends ConsumerState<VillagerHomeScreen> {
       children: [
         _HomeTab(bottomNavigationBar: navBar, onSwitchTab: (index) => setState(() => _currentTab = index)),
         MyClaimsScreen(bottomNavigationBar: navBar),
+        _ProfileTab(bottomNavigationBar: navBar),
         _GramSabhaTab(bottomNavigationBar: navBar),
         _MapTab(bottomNavigationBar: navBar),
-        _ProfileTab(bottomNavigationBar: navBar),
       ],
     );
   }

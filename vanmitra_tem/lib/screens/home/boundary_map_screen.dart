@@ -207,6 +207,7 @@ class _BoundaryMapScreenState extends State<BoundaryMapScreen>
     final primary = _primaryAlert;
 
     return Scaffold(
+      extendBody: true,
       backgroundColor: Colors.black,
       appBar: const VanMitraTopBar(),
       body: Stack(
@@ -326,7 +327,9 @@ class _BoundaryMapScreenState extends State<BoundaryMapScreen>
           Positioned(
             left: 0,
             right: 0,
-            bottom: (!_alertDismissed && primary != null) ? 220 : 8,
+            bottom: (!_alertDismissed && primary != null) 
+                ? (116.0 + MediaQuery.of(context).padding.bottom + 220.0) 
+                : (116.0 + MediaQuery.of(context).padding.bottom + 8.0),
             child: _ProvenanceStrip(basemapMode: _basemapMode),
           ),
 
@@ -335,7 +338,7 @@ class _BoundaryMapScreenState extends State<BoundaryMapScreen>
             Positioned(
               left: 16,
               right: 16,
-              bottom: 16,
+              bottom: 116.0 + MediaQuery.of(context).padding.bottom + 16.0,
               child: _AlertPanel(
                 alert: primary,
                 onDismiss: () => setState(() => _alertDismissed = true),

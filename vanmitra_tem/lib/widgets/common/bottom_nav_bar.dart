@@ -3,7 +3,7 @@ import '../../core/routes/app_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 
-enum AppTab { dashboard, claims, sabha, map, profile }
+enum AppTab { dashboard, claims, profile, sabha, map }
 
 /// Universal BottomNavBar featuring Saffron fill active icons for sunlight legibility
 /// and consistent 5-tab architectural navigation.
