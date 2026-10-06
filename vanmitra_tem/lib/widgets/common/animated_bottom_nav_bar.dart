@@ -11,7 +11,7 @@ import 'bottom_nav_bar.dart' show AppTab;
 /// - Smooth color transitions on label and icon
 ///
 /// Drop-in replacement for the original BottomNavBar — same API surface.
-class AnimatedBottomNavBar extends StatelessWidget {
+class AnimatedBottomNavBar extends StatefulWidget {
   final AppTab currentTab;
   final ValueChanged<AppTab>? onTabSelected;
 
@@ -20,6 +20,14 @@ class AnimatedBottomNavBar extends StatelessWidget {
     required this.currentTab,
     this.onTabSelected,
   });
+
+  @override
+  State<AnimatedBottomNavBar> createState() => _AnimatedBottomNavBarState();
+}
+
+class _AnimatedBottomNavBarState extends State<AnimatedBottomNavBar> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _anim;
 
   static const List<_NavItemData> _items = [
     _NavItemData(
@@ -55,69 +63,39 @@ class AnimatedBottomNavBar extends StatelessWidget {
   ];
 
   @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    final isDark = c.isDark;
-
-    return SafeArea(
-      bottom: true,
-      child: Padding(
-        padding: const EdgeInsets.only(left: 16, right: 16, bottom: 16, top: 0),
-        child: Stack(
-          clipBehavior: Clip.none,
-          alignment: Alignment.bottomCenter,
-          children: [
-            // Background Notched Pill
-            CustomPaint(
-              painter: _NavCurvePainter(
-                bgColor: c.navBg,
-                borderColor: c.navBorder.withValues(alpha: 0.5),
-                borderWidth: isDark ? 1.0 : 0.5,
-                isDark: isDark,
-              ),
-              child: SizedBox(
-                height: 68,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: _items.map((item) {
-                    final isSelected = currentTab == item.tab;
-                    if (item.tab == AppTab.profile) {
-                      return const SizedBox(width: 76); // Spacer for center notch
-                    }
-                    return Expanded(
-                      child: _AnimatedNavItem(
-                        data: item,
-                        isSelected: isSelected,
-                        onTap: () => _handleNav(context, item.tab),
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ),
-            ),
-            
-            // Center Floating Profile Button
-            Positioned(
-              top: -24,
-              child: _CenterProfileButton(
-                data: _items.firstWhere((i) => i.tab == AppTab.profile),
-                isSelected: currentTab == AppTab.profile,
-                onTap: () => _handleNav(context, AppTab.profile),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 350));
+    _anim = Tween<double>(
+      begin: widget.currentTab.index.toDouble(),
+      end: widget.currentTab.index.toDouble(),
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutBack));
   }
 
-  void _handleNav(BuildContext context, AppTab tab) {
-    if (onTabSelected != null) {
-      onTabSelected!(tab);
+  @override
+  void didUpdateWidget(AnimatedBottomNavBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.currentTab != widget.currentTab) {
+      _anim = Tween<double>(
+        begin: _anim.value,
+        end: widget.currentTab.index.toDouble(),
+      ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutBack));
+      _controller.forward(from: 0.0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _handleNav(AppTab tab) {
+    if (widget.onTabSelected != null) {
+      widget.onTabSelected!(tab);
       return;
     }
-
-    if (tab == currentTab) return;
+    if (tab == widget.currentTab) return;
 
     switch (tab) {
       case AppTab.dashboard:
@@ -137,6 +115,96 @@ class AnimatedBottomNavBar extends StatelessWidget {
         break;
     }
   }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final isDark = c.isDark;
+
+    return SafeArea(
+      bottom: true,
+      child: Padding(
+        padding: const EdgeInsets.only(left: 16, right: 16, bottom: 16, top: 0),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final width = constraints.maxWidth;
+            final tabWidth = width / 5;
+
+            return Stack(
+              clipBehavior: Clip.none,
+              alignment: Alignment.bottomCenter,
+              children: [
+                // Background Notched Pill
+                AnimatedBuilder(
+                  animation: _anim,
+                  builder: (context, child) {
+                    return CustomPaint(
+                      painter: _NavCurvePainter(
+                        animValue: _anim.value,
+                        bgColor: c.navBg,
+                        borderColor: c.navBorder.withValues(alpha: 0.5),
+                        borderWidth: isDark ? 1.0 : 0.5,
+                        isDark: isDark,
+                      ),
+                      size: Size(width, 68),
+                    );
+                  },
+                ),
+
+                // Floating Circular Bubble
+                AnimatedBuilder(
+                  animation: _anim,
+                  builder: (context, child) {
+                    return Positioned(
+                      top: -24,
+                      left: tabWidth * (_anim.value + 0.5) - 28,
+                      child: Container(
+                        width: 56,
+                        height: 56,
+                        decoration: BoxDecoration(
+                          color: AppColors.saffron,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.saffron.withValues(alpha: 0.4),
+                              blurRadius: 12,
+                              offset: const Offset(0, 6),
+                            ),
+                          ],
+                          border: Border.all(
+                            color: isDark ? Colors.white10 : Colors.white24,
+                            width: 1,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+
+                // Navigation Items
+                SizedBox(
+                  height: 68,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: _items.map((item) {
+                      final isSelected = widget.currentTab == item.tab;
+                      return Expanded(
+                        child: _AnimatedNavItem(
+                          data: item,
+                          isSelected: isSelected,
+                          onTap: () => _handleNav(item.tab),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
 }
 
 class _NavItemData {
@@ -154,12 +222,14 @@ class _NavItemData {
 }
 
 class _NavCurvePainter extends CustomPainter {
+  final double animValue;
   final Color bgColor;
   final Color borderColor;
   final double borderWidth;
   final bool isDark;
 
   _NavCurvePainter({
+    required this.animValue,
     required this.bgColor,
     required this.borderColor,
     required this.borderWidth,
@@ -169,7 +239,8 @@ class _NavCurvePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final host = Offset.zero & size;
-    final guest = Rect.fromCircle(center: Offset(size.width / 2, 4), radius: 34);
+    final notchCenterX = size.width * (animValue + 0.5) / 5;
+    final guest = Rect.fromCircle(center: Offset(notchCenterX, 4), radius: 34);
     
     final shape = AutomaticNotchedShape(
       RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
@@ -194,91 +265,15 @@ class _NavCurvePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _NavCurvePainter old) {
-    return old.bgColor != bgColor ||
+    return old.animValue != animValue ||
+           old.bgColor != bgColor ||
            old.borderColor != borderColor ||
            old.borderWidth != borderWidth ||
            old.isDark != isDark;
   }
 }
 
-class _CenterProfileButton extends StatelessWidget {
-  final _NavItemData data;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  const _CenterProfileButton({
-    required this.data,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    final isDark = c.isDark;
-    
-    final bgColor = isSelected 
-        ? AppColors.saffron 
-        : (isDark ? const Color(0xFF2A3A32) : AppColors.forestCanopy);
-        
-    final iconColor = Colors.white;
-
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOutCubic,
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              color: bgColor,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: bgColor.withValues(alpha: 0.4),
-                  blurRadius: 12,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-              border: Border.all(
-                color: isDark ? Colors.white10 : Colors.white24,
-                width: 1,
-              ),
-            ),
-            child: Center(
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 200),
-                transitionBuilder: (child, animation) => ScaleTransition(scale: animation, child: child),
-                child: Icon(
-                  isSelected ? data.activeIcon : data.icon,
-                  key: ValueKey(isSelected),
-                  color: iconColor,
-                  size: 28,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-          AnimatedDefaultTextStyle(
-            duration: const Duration(milliseconds: 250),
-            style: AppTypography.caption.copyWith(
-              color: isSelected ? AppColors.saffron : c.navUnselected,
-              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-              fontSize: isSelected ? 10.5 : 10,
-            ),
-            child: Text(data.label, maxLines: 1, overflow: TextOverflow.visible),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AnimatedNavItem extends StatefulWidget {
+class _AnimatedNavItem extends StatelessWidget {
   final _NavItemData data;
   final bool isSelected;
   final VoidCallback onTap;
@@ -290,96 +285,57 @@ class _AnimatedNavItem extends StatefulWidget {
   });
 
   @override
-  State<_AnimatedNavItem> createState() => _AnimatedNavItemState();
-}
-
-class _AnimatedNavItemState extends State<_AnimatedNavItem>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _bounceController;
-  late final Animation<double> _scaleAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _bounceController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 500),
-    );
-
-    _scaleAnimation = TweenSequence<double>([
-      TweenSequenceItem(
-        tween: Tween<double>(begin: 1.0, end: 1.2)
-            .chain(CurveTween(curve: Curves.easeOut)),
-        weight: 40,
-      ),
-      TweenSequenceItem(
-        tween: Tween<double>(begin: 1.2, end: 0.95)
-            .chain(CurveTween(curve: Curves.easeInOut)),
-        weight: 30,
-      ),
-      TweenSequenceItem(
-        tween: Tween<double>(begin: 0.95, end: 1.0)
-            .chain(CurveTween(curve: Curves.elasticOut)),
-        weight: 30,
-      ),
-    ]).animate(_bounceController);
-  }
-
-  @override
-  void didUpdateWidget(_AnimatedNavItem oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.isSelected && !oldWidget.isSelected) {
-      _bounceController.forward(from: 0);
-      HapticFeedback.selectionClick();
-    }
-  }
-
-  @override
-  void dispose() {
-    _bounceController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final isActive = widget.isSelected;
-    final unselectedColor = c.navUnselected;
-    final selectedColor = AppColors.saffron;
+    final isActive = isSelected;
+    final iconColor = isActive ? Colors.white : c.navUnselected;
 
     return GestureDetector(
-      onTap: widget.onTap,
+      onTap: () {
+        HapticFeedback.selectionClick();
+        onTap();
+      },
       behavior: HitTestBehavior.opaque,
-      child: SizedBox(
-        height: double.infinity,
-        child: AnimatedBuilder(
-          animation: _bounceController,
-          builder: (context, child) {
-            return Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Transform.scale(
-                  scale: _bounceController.isAnimating ? _scaleAnimation.value : 1.0,
-                  child: Icon(
-                    isActive ? widget.data.activeIcon : widget.data.icon,
-                    color: isActive ? selectedColor : unselectedColor,
-                    size: 24,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                AnimatedDefaultTextStyle(
-                  duration: const Duration(milliseconds: 250),
-                  style: AppTypography.caption.copyWith(
-                    color: isActive ? selectedColor : unselectedColor,
-                    fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                    fontSize: isActive ? 10.5 : 10,
-                  ),
-                  child: Text(widget.data.label, maxLines: 1, overflow: TextOverflow.visible),
-                ),
-              ],
-            );
-          },
-        ),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          AnimatedPositioned(
+            duration: const Duration(milliseconds: 350),
+            curve: Curves.easeOutBack,
+            top: isActive ? -10 : 14,
+            left: 0,
+            right: 0,
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 200),
+              transitionBuilder: (child, animation) => ScaleTransition(scale: animation, child: child),
+              child: Icon(
+                isActive ? data.activeIcon : data.icon,
+                key: ValueKey(isActive),
+                color: iconColor,
+                size: 28,
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: 10,
+            left: 0,
+            right: 0,
+            child: AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 250),
+              style: AppTypography.caption.copyWith(
+                color: isActive ? AppColors.saffron : c.navUnselected,
+                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                fontSize: isActive ? 10.5 : 10,
+              ),
+              child: Text(
+                data.label,
+                maxLines: 1,
+                overflow: TextOverflow.visible,
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
