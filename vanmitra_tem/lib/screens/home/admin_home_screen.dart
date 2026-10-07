@@ -206,6 +206,7 @@ class _AdminDashboardState extends ConsumerState<_AdminDashboard>
       bottomNavigationBar: widget.bottomNavigationBar,
       body: Stack(
         children: [
+          const DashboardCurveBackground(),
           const Positioned.fill(
             child: VanMitraBackgroundWatermark(),
           ),

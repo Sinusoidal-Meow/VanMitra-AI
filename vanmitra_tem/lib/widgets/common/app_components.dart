@@ -29,3 +29,4 @@ export 'animated_counter.dart';
 export 'bouncing_card.dart';
 export 'settings_panel.dart';
 export 'statistic_card_stack.dart';
+export 'dashboard_curve_background.dart';
