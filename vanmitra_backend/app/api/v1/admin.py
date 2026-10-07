@@ -14,7 +14,7 @@ from ...auth.deps import DbSession, require_admin
 from ...auth.principal import Principal
 from ...auth.security import hash_pin
 from ...errors import ApiError
-from ...models import DISTRICT_ROLES, AppUser, Role, UserRole, Village
+from ...models import AppUser, Role, UserRole, Village
 from ...schemas.auth import OfficialCreate, UserOut
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -33,10 +33,7 @@ def _scope(body: OfficialCreate, db: DbSession) -> tuple[Village | None, str | N
         if not (body.taluka and body.district):
             raise ApiError(422, "TALUKA_AND_DISTRICT_REQUIRED", "admin.taluka_district_required")
         return None, body.taluka.strip(), body.district.strip()
-    if body.role in DISTRICT_ROLES:
-        if not body.district:
-            raise ApiError(422, "DISTRICT_REQUIRED", "admin.district_required")
-        return None, None, body.district.strip()
+    # District-level logins belong to the district website, not to this backend.
     raise ApiError(422, "UNKNOWN_ROLE", "admin.unknown_role")
 
 

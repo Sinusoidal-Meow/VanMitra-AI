@@ -1,8 +1,10 @@
 """
 G-series documents, legal clocks and the record after the title (BR-13), against the
-test database. The tests run in order and share one CFR case taken to title_issued.
+test database. The tests run in order and share one CFR case. The district website
+signs the title outside this backend, so that step is simulated in the database.
 """
 
+import uuid
 from datetime import date
 from typing import Any
 
@@ -10,7 +12,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.models import Role
+from app.models import CaseState, ClaimCase, Role, WorkflowAction, WorkflowEvent
 
 from .conftest import (
     auth_headers,
@@ -20,14 +22,7 @@ from .conftest import (
     new_case,
 )
 
-GS, SDO, COLLECTOR, DFO, DTWO, VILLAGER = (
-    "9900000001",
-    "9900000002",
-    "9900000003",
-    "9900000004",
-    "9900000005",
-    "9900000006",
-)
+GS, SDO, VILLAGER = "9900000001", "9900000002", "9900000006"
 TODAY = date.today()
 
 
@@ -38,11 +33,32 @@ def ctx(session_factory: sessionmaker[Session]) -> dict[str, Any]:
         make_user(db, GS, Role.GRAM_SABHA, village=village)
         make_user(db, VILLAGER, Role.VILLAGER, village=village)
         make_user(db, SDO, Role.SDO, taluka="Jawhar", district="Palghar")
-        make_user(db, COLLECTOR, Role.COLLECTOR, district="Palghar")
-        make_user(db, DFO, Role.DFO, district="Palghar")
-        make_user(db, DTWO, Role.TRIBAL_WELFARE_OFFICER, district="Palghar")
         db.commit()
         return {"village": village.id}
+
+
+def _district_issues_title(session_factory: sessionmaker[Session], case_id: str) -> None:
+    """
+    Stand-in for the district website, which signs the title outside this backend: the
+    case is marked title_issued with the event that records it.
+    """
+    with session_factory() as db:
+        case = db.get(ClaimCase, uuid.UUID(case_id))
+        assert case is not None
+        db.add(
+            WorkflowEvent(
+                case_id=case.id,
+                action=WorkflowAction.APPROVE,
+                from_state=CaseState.DISTRICT_REVIEW,
+                to_state=CaseState.TITLE_ISSUED,
+                actor_user_id=case.created_by_user_id,
+                actor_role=Role.COLLECTOR,
+                actor_name="District committee (simulated)",
+            )
+        )
+        case.state = CaseState.TITLE_ISSUED
+        case.reached_stage = 4
+        db.commit()
 
 
 def _h(client: TestClient, phone: str = GS) -> dict[str, str]:
@@ -126,7 +142,9 @@ def test_clocks_after_the_resolution(db_client: TestClient, ctx: dict[str, Any])
     assert "record_update" not in clocks
 
 
-def test_title_then_record_entry_then_close(db_client: TestClient, ctx: dict[str, Any]) -> None:
+def test_title_then_record_entry_then_close(
+    db_client: TestClient, ctx: dict[str, Any], session_factory: sessionmaker[Session]
+) -> None:
     case = ctx["case"]
     url = f"/api/v1/cases/{case}/post-title"
     assert _get(db_client, url).json()["can_close"] is False
@@ -134,11 +152,9 @@ def test_title_then_record_entry_then_close(db_client: TestClient, ctx: dict[str
     assert early.json()["error"] == "TITLE_NOT_ISSUED"
 
     assert _post(db_client, f"/api/v1/cases/{case}/approve").json()["state"] == "sdo_review"
-    _post(db_client, f"/api/v1/cases/{case}/approve", who=SDO)
-    for officer in (COLLECTOR, DFO, DTWO):
-        res = _post(db_client, f"/api/v1/cases/{case}/approve", who=officer)
-        assert res.status_code == 200, res.text
-    assert res.json()["state"] == "title_issued"
+    res = _post(db_client, f"/api/v1/cases/{case}/approve", who=SDO)
+    assert res.json()["state"] == "district_review"  # handed over to the district website
+    _district_issues_title(session_factory, case)
 
     state = _get(db_client, url).json()
     assert state["survey_pending"] is True

@@ -23,7 +23,7 @@ from ...domain.clocks import (
 )
 from ...domain.dates import add_months
 from ...errors import ApiError, RuleViolation
-from ...models import DISTRICT_ROLES, CaseState, ClaimCase, Dispute, Role
+from ...models import CaseState, ClaimCase, Dispute, Role
 from ...models.procedure import ClaimCall, Correspondence, Media, TitleFollowup
 from ...services import gramsabha as gs_facts
 from ...services.cases import CaseContext, load_case
@@ -31,7 +31,7 @@ from ...services.cases import CaseContext, load_case
 router = APIRouter(tags=["follow-up"])
 
 Ref = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
-OFFICIALS = {Role.GRAM_SABHA, Role.SDO, *DISTRICT_ROLES}
+OFFICIALS = {Role.GRAM_SABHA, Role.SDO}
 
 
 class ClockOut(BaseModel):

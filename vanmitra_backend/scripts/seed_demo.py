@@ -33,16 +33,13 @@ DEMO_PIN = "123456"
 TALUKA, DISTRICT = "Jawhar", "Palghar"
 
 # (phone, name, role or None for admin). Village roles get Ozhar; the SDO gets
-# Jawhar/Palghar; district officers get Palghar.
+# Jawhar/Palghar. District-level logins live on the district website, not here.
 DEMO_USERS: list[tuple[str, str, Role | None]] = [
     ("9000000001", "Demo Village User", Role.VILLAGER),
     ("9000000002", "Demo Village User 2", Role.VILLAGER),
     ("9000000003", "Demo Gram Sabha (Ozhar)", Role.GRAM_SABHA),
     ("9000000004", "Demo Admin (back-office)", None),
     ("9000000005", "Demo SDO (Jawhar)", Role.SDO),
-    ("9000000006", "Demo Collector (Palghar)", Role.COLLECTOR),
-    ("9000000007", "Demo DFO (Palghar)", Role.DFO),
-    ("9000000008", "Demo District Tribal Welfare Officer (Palghar)", Role.TRIBAL_WELFARE_OFFICER),
 ]
 
 # Fictional demo members for the Form C member sheet (item 5).

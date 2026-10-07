@@ -15,13 +15,13 @@ from ...models import CaseState, ClaimCase, GramSabha, Village, WorkflowAction, 
 from ...schemas.cases import ActionIn, CaseOut, EventOut, TitleDraftOut
 from ...services import acknowledgement, ledger
 from ...services import gramsabha as gs_facts
-from ...services.cases import CaseContext, district_approvals, load_case
+from ...services.cases import CaseContext, load_case, returned_info
 from ...services.title import build_title_draft
 from ._shared import case_out
 
 router = APIRouter(tags=["workflow"])
 
-REVIEW_STATES = (CaseState.GS_REVIEW, CaseState.SDO_REVIEW, CaseState.DISTRICT_REVIEW)
+REVIEW_STATES = (CaseState.GS_REVIEW, CaseState.SDO_REVIEW)
 
 
 def _act(
@@ -34,14 +34,15 @@ def _act(
     ctx = load_case(db, principal, case_id)
     case = ctx.case
     remarks = body.remarks if body else None
+    back = returned_info(case)
     try:
         decision = decide(
             state=case.state,
             action=action,
             actor_roles=ctx.roles,
             is_creator=ctx.is_creator,
-            district_approvals=district_approvals(case),
             remarks=remarks,
+            resubmit_by=back.resubmit_by if back else None,
         )
     except WorkflowError as e:
         if e.rule:
@@ -102,7 +103,10 @@ def approve(
 def return_case(
     case_id: uuid.UUID, body: ActionIn, db: DbSession, principal: CurrentPrincipal
 ) -> CaseOut:
-    """Send back one level with remarks: GS → claimant, SDO → GS, district → SDO."""
+    """
+    The Gram Sabha or the SDO sends the claim back to the villager, with a remark saying
+    what is wrong. The villager has RESUBMIT_DAYS days from now to correct and resubmit.
+    """
     return _act(db, principal, case_id, WorkflowAction.RETURN, body)
 
 

@@ -1,13 +1,17 @@
 """
-The whole Module 3 path against the test database:
-village user → Gram Sabha → SDO → Collector + DFO + Tribal Welfare Officer → title draft.
+The claim path against the test database:
+villager → Gram Sabha → SDO → handed over to the district website (title draft ready).
+Either reviewer can send the claim back to the villager with remarks; the villager has
+60 days to resubmit.
 """
 
 import uuid
+from datetime import date, timedelta
 from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.models import Role
@@ -21,7 +25,6 @@ from .conftest import (
 )
 
 VILLAGER, GS, SDO, SDO_OTHER = "9400000001", "9400000002", "9400000003", "9400000004"
-COLLECTOR, DFO, DTWO, COLLECTOR_OTHER = "9400000005", "9400000006", "9400000007", "9400000008"
 
 FORM_A: dict[str, Any] = {
     "claimant_names": ["Ramu Bhoye"],
@@ -50,10 +53,6 @@ def ids(session_factory: sessionmaker[Session]) -> dict[str, uuid.UUID]:
         make_user(db, GS, Role.GRAM_SABHA, village=ozhar)
         make_user(db, SDO, Role.SDO, taluka="Jawhar", district="Palghar")
         make_user(db, SDO_OTHER, Role.SDO, taluka="Dahanu", district="Palghar")
-        make_user(db, COLLECTOR, Role.COLLECTOR, district="Palghar")
-        make_user(db, DFO, Role.DFO, district="Palghar")
-        make_user(db, DTWO, Role.TRIBAL_WELFARE_OFFICER, district="Palghar")
-        make_user(db, COLLECTOR_OTHER, Role.COLLECTOR, district="Nashik")
         db.commit()
         return {"village": ozhar.id}
 
@@ -76,51 +75,45 @@ def _filed_form_a(client: TestClient, village_id: uuid.UUID) -> str:
     return case_id
 
 
-def test_full_path_to_title_draft(db_client: TestClient, ids: dict[str, uuid.UUID]) -> None:
+def _get(client: TestClient, case_id: str, phone: str) -> Any:
+    return client.get(f"/api/v1/cases/{case_id}", headers=auth_headers(client, phone))
+
+
+def test_full_path_hands_over_to_the_district(
+    db_client: TestClient, ids: dict[str, uuid.UUID]
+) -> None:
     case_id = _filed_form_a(db_client, ids["village"])
 
     # SDO cannot see it yet; Gram Sabha has it in its queue
-    sdo_view = db_client.get(f"/api/v1/cases/{case_id}", headers=auth_headers(db_client, SDO))
-    assert sdo_view.status_code == 404
+    assert _get(db_client, case_id, SDO).status_code == 404
     queue = db_client.get("/api/v1/review/queue", headers=auth_headers(db_client, GS)).json()
     assert case_id in [c["id"] for c in queue]
 
     assert _act(db_client, case_id, GS, "approve").json()["state"] == "sdo_review"
     # an SDO of another taluka can neither see nor act
     assert _act(db_client, case_id, SDO_OTHER, "approve").status_code == 404
-    assert _act(db_client, case_id, SDO, "approve").json()["state"] == "district_review"
+    handed = _act(db_client, case_id, SDO, "approve").json()
+    assert handed["state"] == "district_review"
+    assert handed["allowed_actions"] == []
 
-    # title draft is previewable at the district, not yet issued
-    preview = db_client.get(
-        f"/api/v1/cases/{case_id}/title-draft", headers=auth_headers(db_client, DFO)
-    )
-    assert preview.status_code == 200, preview.text
-    assert preview.json()["annexure"].startswith("Annexure II")
-    assert preview.json()["status"].startswith("draft")
+    # nothing more happens here: the district website takes it from now
+    again = _act(db_client, case_id, SDO, "return", "Second thoughts")
+    assert again.status_code == 409 and again.json()["error"] == "HANDED_TO_DISTRICT"
 
-    # other district's collector sees nothing
-    assert _act(db_client, case_id, COLLECTOR_OTHER, "approve").status_code == 404
-
-    r1 = _act(db_client, case_id, DFO, "approve").json()
-    assert r1["state"] == "district_review" and r1["district_approvals"] == ["dfo"]
-    assert _act(db_client, case_id, DFO, "approve").status_code == 409  # not twice
-    r2 = _act(db_client, case_id, DTWO, "approve").json()
-    assert r2["state"] == "district_review"
-    r3 = _act(db_client, case_id, COLLECTOR, "approve").json()
-    assert r3["state"] == "title_issued"
-
+    # the title draft is ready for the district committee to sign
     title = db_client.get(
         f"/api/v1/cases/{case_id}/title-draft", headers=auth_headers(db_client, VILLAGER)
     ).json()
-    assert title["status"] == "issued"
+    assert title["annexure"].startswith("Annexure II")
+    assert title["status"].startswith("draft")
     assert title["fields"]["1_holders_including_spouse"] == ["Ramu Bhoye", "Sita Bhoye"]
     assert title["fields"]["10_area_ha"] == 1.25
-    assert [s["role"] for s in title["signatories"]] == [
-        "dfo",
-        "tribal_welfare_officer",
-        "collector",
+    assert [s["designation"] for s in title["signatories"]] == [
+        "Tribal Welfare Divisional Officer (TWDO)",
+        "Forest Divisional Officer (FDO)",
+        "Deputy Collector",
     ]
-    assert all(s["signed_at"] for s in title["signatories"])
+    assert not any(s["signed_at"] for s in title["signatories"])
 
     history = db_client.get(
         f"/api/v1/cases/{case_id}/history", headers=auth_headers(db_client, VILLAGER)
@@ -129,39 +122,70 @@ def test_full_path_to_title_draft(db_client: TestClient, ids: dict[str, uuid.UUI
         ("submit", "villager"),
         ("approve", "gram_sabha"),
         ("approve", "sdo"),
-        ("approve", "dfo"),
-        ("approve", "tribal_welfare_officer"),
-        ("approve", "collector"),
     ]
 
 
-def test_return_goes_down_and_restarts_district_round(
+def test_sdo_sends_the_claim_back_to_the_villager(
     db_client: TestClient, ids: dict[str, uuid.UUID]
 ) -> None:
     case_id = _filed_form_a(db_client, ids["village"])
     _act(db_client, case_id, GS, "approve")
-    _act(db_client, case_id, SDO, "approve")
-    _act(db_client, case_id, DFO, "approve")
-    no_remarks = _act(db_client, case_id, COLLECTOR, "return")
-    assert no_remarks.status_code == 422
-    back = _act(db_client, case_id, COLLECTOR, "return", "Boundary of the field is unclear")
-    assert back.json()["state"] == "sdo_review"
-    # SDO still sees it after the return; re-forwards; the DFO must approve again
-    again = _act(db_client, case_id, SDO, "approve").json()
-    assert again["state"] == "district_review" and again["district_approvals"] == []
+    assert _act(db_client, case_id, SDO, "return").status_code == 422  # a remark is required
+    back = _act(db_client, case_id, SDO, "return", "The photo of the field is not clear")
+    assert back.json()["state"] == "draft"
+
+    seen = _get(db_client, case_id, VILLAGER).json()
+    returned = seen["returned"]
+    assert returned["by_role"] == "sdo"
+    assert returned["remarks"] == "The photo of the field is not clear"
+    assert returned["returned_on"] == date.today().isoformat()
+    assert returned["resubmit_by"] == (date.today() + timedelta(days=60)).isoformat()
+    assert returned["days_left"] == 60
+    assert seen["allowed_actions"] == ["submit"]
+
+    # the villager corrects the form and resubmits; it starts again at the Gram Sabha
+    put = db_client.put(
+        f"/api/v1/cases/{case_id}/form-a", json=FORM_A, headers=auth_headers(db_client, VILLAGER)
+    )
+    assert put.status_code == 200
+    resubmitted = _act(db_client, case_id, VILLAGER, "submit").json()
+    assert resubmitted["state"] == "gs_review"
+    assert resubmitted["returned"] is None
 
 
-def test_gram_sabha_returns_to_claimant_who_can_edit_again(
+def test_gram_sabha_sends_the_claim_back_to_the_villager(
     db_client: TestClient, ids: dict[str, uuid.UUID]
 ) -> None:
     case_id = _filed_form_a(db_client, ids["village"])
     back = _act(db_client, case_id, GS, "return", "Please attach the voter ID")
     assert back.json()["state"] == "draft"
-    put = db_client.put(
-        f"/api/v1/cases/{case_id}/form-a", json=FORM_A, headers=auth_headers(db_client, VILLAGER)
-    )
-    assert put.status_code == 200
+    assert back.json()["returned"]["by_role"] == "gram_sabha"
     assert _act(db_client, case_id, VILLAGER, "submit").json()["state"] == "gs_review"
+
+
+def test_resubmission_after_sixty_days_is_refused(
+    db_client: TestClient, ids: dict[str, uuid.UUID], session_factory: sessionmaker[Session]
+) -> None:
+    case_id = _filed_form_a(db_client, ids["village"])
+    _act(db_client, case_id, GS, "return", "Photos are missing")
+    # move this claim's history 61 days into the past (the history is append-only, so the
+    # guard is lifted for this one change in the throwaway test database)
+    with session_factory() as db:
+        db.execute(text("ALTER TABLE workflow_event DISABLE TRIGGER workflow_event_append_only"))
+        db.execute(
+            text(
+                "UPDATE workflow_event SET created_at = created_at - interval '61 days' "
+                "WHERE case_id = :c"
+            ),
+            {"c": case_id},
+        )
+        db.execute(text("ALTER TABLE workflow_event ENABLE TRIGGER workflow_event_append_only"))
+        db.commit()
+    seen = _get(db_client, case_id, VILLAGER).json()
+    assert seen["returned"]["days_left"] == 0
+    assert seen["allowed_actions"] == []
+    late = _act(db_client, case_id, VILLAGER, "submit")
+    assert late.status_code == 409 and late.json()["error"] == "RESUBMIT_WINDOW_PASSED"
 
 
 def test_reject_needs_reasons_and_is_final(
@@ -203,9 +227,7 @@ def test_form_c_by_gram_sabha_reaches_annexure_iv(
     complete_cfr_prerequisites(db_client, ids["village"], GS, case_id)
     # the Gram Sabha (as reviewer) forwards its own claim to the SDO
     assert _act(db_client, case_id, GS, "approve").json()["state"] == "sdo_review"
-    _act(db_client, case_id, SDO, "approve")
-    for officer in (COLLECTOR, DFO, DTWO):
-        _act(db_client, case_id, officer, "approve")
+    assert _act(db_client, case_id, SDO, "approve").json()["state"] == "district_review"
     title = db_client.get(f"/api/v1/cases/{case_id}/title-draft", headers=gs).json()
     assert title["annexure"].startswith("Annexure IV")
     assert title["fields"]["6_boundary_description"]["prominent_landmarks"]["east"] == ["Nala"]
@@ -240,13 +262,11 @@ def test_form_b_title_iii_carries_per_right_boundaries(
     _act(db_client, case_id, VILLAGER, "submit")
     _act(db_client, case_id, GS, "approve")
     _act(db_client, case_id, SDO, "approve")
-    for officer in (DFO, DTWO, COLLECTOR):
-        _act(db_client, case_id, officer, "approve")
     title = db_client.get(
         f"/api/v1/cases/{case_id}/title-draft", headers=auth_headers(db_client, VILLAGER)
     ).json()
     assert title["annexure"].startswith("Annexure III")
-    assert title["status"] == "issued"
+    assert title["status"].startswith("draft")
     [boundary] = title["fields"]["9_boundaries"]
     assert boundary["survey_compartment_numbers"] == ["156", "157"]
     assert (boundary["east"], boundary["south"]) == ("Maraban", "Talav")

@@ -15,15 +15,14 @@ from ..models import (
     CaseState,
     ClaimType,
     GsMember,
-    Role,
 )
 from ..schemas.cases import SignatoryOut, TitleDraftOut
-from .cases import CaseContext, district_signatories
+from .cases import CaseContext
 
-SIGNATORIES: tuple[tuple[Role, str], ...] = (
-    (Role.DFO, "Divisional Forest Officer / Deputy Conservator of Forests"),
-    (Role.TRIBAL_WELFARE_OFFICER, "District Tribal Welfare Officer"),
-    (Role.COLLECTOR, "District Collector / Deputy Commissioner"),
+SIGNATORIES: tuple[str, ...] = (
+    "Tribal Welfare Divisional Officer (TWDO)",
+    "Forest Divisional Officer (FDO)",
+    "Deputy Collector",
 )
 
 NOTE = (
@@ -49,18 +48,12 @@ def _community(st: bool | None, otfd: bool | None) -> str:
 def build_title_draft(db: Session, ctx: CaseContext) -> TitleDraftOut:
     case, village = ctx.case, ctx.village
     state_name = village.state or "Maharashtra"
-    signed = district_signatories(case)
     signatories = [
-        SignatoryOut(
-            designation=label,
-            role=role,
-            name=signed[role].actor_name if role in signed else None,
-            signed_at=signed[role].created_at if role in signed else None,
-        )
-        for role, label in SIGNATORIES
+        SignatoryOut(designation=label, role=None, name=None, signed_at=None)
+        for label in SIGNATORIES
     ]
     issued = case.state is CaseState.TITLE_ISSUED
-    status = "issued" if issued else "draft (awaiting district approval)"
+    status = "issued" if issued else "draft (to be signed by the district committee)"
     place = {
         "village_gram_sabha": f"{village.name_mr} ({village.name_en})",
         "gram_panchayat": village.gram_panchayat,

@@ -23,7 +23,6 @@ from .claims import (
     WorkflowEvent,
 )
 from .enums import (
-    DISTRICT_ROLES,
     BoundarySide,
     BoundaryStatus,
     CaseState,
@@ -62,7 +61,6 @@ from .procedure import (
 )
 
 __all__ = [
-    "DISTRICT_ROLES",
     "AppUser",
     "Attendance",
     "Base",

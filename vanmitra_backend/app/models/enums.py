@@ -5,20 +5,24 @@ from enum import StrEnum
 
 class Role(StrEnum):
     """
-    Module 3 logins, in three levels (claim path: village → SDO → district).
-    Village roles are scoped to one village, the SDO to a taluka (sub-division),
-    district officers to a district.
+    Logins of this backend. The system has four access levels: villager, Gram Sabha,
+    SDO and the district level. The district level (the District Collector, and the
+    District committee of TWDO, FDO and Deputy Collector who sign the title) is a separate
+    website, so it has no logins here. Village roles are scoped to one village, the SDO
+    to a taluka (sub-division).
     """
 
-    # Level 1: village
+    # Level 1: villager
     VILLAGER = "villager"  # village user / claimant: files Forms A, B, C
+    # Level 2: Gram Sabha
     GRAM_SABHA = "gram_sabha"  # Gram Panchayat / Gram Sabha office: reviews, forwards to SDO
-    # Level 2: sub-division
+    # Level 3: sub-division
     SDO = "sdo"  # Sub-Divisional Officer, chair of the SDLC [Rule 5, 6(j)]
-    # Level 3: district (all three sign the title, Rule 8(h)(i))
-    COLLECTOR = "collector"  # District Collector / Deputy Commissioner, chair of the DLC
-    DFO = "dfo"  # Divisional Forest Officer / Deputy Conservator of Forests
-    TRIBAL_WELFARE_OFFICER = "tribal_welfare_officer"  # District Tribal Welfare Officer
+    # No longer used: the district logins moved to the district website. Kept only so
+    # records saved before the change still load; they go when the data moves to MongoDB.
+    COLLECTOR = "collector"
+    DFO = "dfo"
+    TRIBAL_WELFARE_OFFICER = "tribal_welfare_officer"
 
     @property
     def level(self) -> str:
@@ -27,9 +31,6 @@ class Role(StrEnum):
         if self is Role.SDO:
             return "subdivision"
         return "district"
-
-
-DISTRICT_ROLES: tuple[Role, ...] = (Role.COLLECTOR, Role.DFO, Role.TRIBAL_WELFARE_OFFICER)
 
 
 class Gender(StrEnum):
@@ -65,10 +66,11 @@ class ClaimType(StrEnum):
 
 class CaseState(StrEnum):
     """
-    Module 3 claim path:
+    Claim path:
     DRAFT → GS_REVIEW (filed to the Gram Panchayat / Gram Sabha) → SDO_REVIEW →
-    DISTRICT_REVIEW (Collector, DFO, Tribal Welfare Officer each approve) → TITLE_ISSUED.
-    Returns go one level down with remarks; REJECTED needs written reasons [Rule 12A(7)].
+    DISTRICT_REVIEW (handed over to the district website) → TITLE_ISSUED (when the
+    district committee has signed). The Gram Sabha and the SDO can send a claim back to
+    the villager (DRAFT) with remarks; REJECTED needs written reasons [Rule 12A(7)].
     """
 
     DRAFT = "draft"
@@ -82,7 +84,7 @@ class CaseState(StrEnum):
 class WorkflowAction(StrEnum):
     SUBMIT = "submit"  # village user / Gram Sabha files the draft
     APPROVE = "approve"
-    RETURN = "return"  # back one level, with remarks
+    RETURN = "return"  # back to the villager, with remarks
     REJECT = "reject"  # terminal, with written reasons
 
 

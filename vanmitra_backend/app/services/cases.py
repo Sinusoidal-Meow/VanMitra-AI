@@ -2,16 +2,16 @@
 
 import uuid
 from dataclasses import dataclass
+from datetime import date
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..auth.deps import village_ref
 from ..auth.principal import Principal
-from ..domain.workflow import can_view
+from ..domain.workflow import can_view, resubmit_deadline
 from ..errors import ApiError
 from ..models import (
-    DISTRICT_ROLES,
     CaseState,
     ClaimCase,
     ClaimType,
@@ -19,7 +19,6 @@ from ..models import (
     Role,
     Village,
     WorkflowAction,
-    WorkflowEvent,
 )
 
 # Who may open which form. Form A is an individual claim (village user); Form C is the
@@ -74,37 +73,32 @@ def ensure_claim_type(ctx: CaseContext, claim_type: ClaimType, error: str) -> No
         raise ApiError(409, error, "case.wrong_form", {"claim_type": ctx.case.claim_type})
 
 
-def district_approvals(case: ClaimCase) -> frozenset[Role]:
-    """District officers who have approved since the case last entered district review."""
-    approvals: set[Role] = set()
-    for ev in case.events:  # ordered by created_at
-        if (
-            ev.to_state is CaseState.DISTRICT_REVIEW
-            and ev.from_state is not CaseState.DISTRICT_REVIEW
-        ):
-            approvals = set()  # a new district round starts
-        elif (
-            ev.action is WorkflowAction.APPROVE
-            and ev.from_state is CaseState.DISTRICT_REVIEW
-            and ev.actor_role in DISTRICT_ROLES
-        ):
-            approvals.add(ev.actor_role)
-    return frozenset(approvals)
+@dataclass(frozen=True)
+class ReturnInfo:
+    """A claim that was sent back to the villager and is waiting to be corrected."""
+
+    by_role: Role
+    by_name: str
+    remarks: str
+    returned_on: date
+    resubmit_by: date
 
 
-def district_signatories(case: ClaimCase) -> dict[Role, WorkflowEvent]:
-    """The approving event of each district officer in the final (or current) round."""
-    current: dict[Role, WorkflowEvent] = {}
-    for ev in case.events:
-        if (
-            ev.to_state is CaseState.DISTRICT_REVIEW
-            and ev.from_state is not CaseState.DISTRICT_REVIEW
-        ):
-            current = {}
-        elif (
-            ev.action is WorkflowAction.APPROVE
-            and ev.from_state is CaseState.DISTRICT_REVIEW
-            and ev.actor_role in DISTRICT_ROLES
-        ):
-            current[ev.actor_role] = ev
-    return current
+def returned_info(case: ClaimCase) -> ReturnInfo | None:
+    """
+    Set while the claim is a draft that was sent back and not yet resubmitted: who sent it
+    back, why, and the last day the villager may resubmit (RESUBMIT_DAYS from the return).
+    """
+    if case.state is not CaseState.DRAFT or not case.events:
+        return None
+    last = case.events[-1]  # ordered by created_at
+    if last.action is not WorkflowAction.RETURN:
+        return None
+    returned_on = last.created_at.date()
+    return ReturnInfo(
+        by_role=last.actor_role,
+        by_name=last.actor_name,
+        remarks=last.remarks or "",
+        returned_on=returned_on,
+        resubmit_by=resubmit_deadline(returned_on),
+    )

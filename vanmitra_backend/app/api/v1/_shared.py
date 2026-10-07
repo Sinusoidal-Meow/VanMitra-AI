@@ -1,11 +1,13 @@
 """Response builders shared by the case, form and workflow routers."""
 
+from datetime import date
+
 from ...domain.form_b import Completeness
 from ...domain.workflow import allowed_actions
 from ...models import ClaimCase, ClaimType, Village
-from ...schemas.cases import CaseOut
+from ...schemas.cases import CaseOut, ReturnedOut
 from ...schemas.form_b import CompletenessItemOut, CompletenessOut, VillageHeader
-from ...services.cases import CaseContext, district_approvals
+from ...services.cases import CaseContext, returned_info
 
 FORM_LETTER = {ClaimType.IFR: "A", ClaimType.CR: "B", ClaimType.CFR: "C"}
 
@@ -44,7 +46,19 @@ def claimant_label(case: ClaimCase, village: Village) -> str:
 
 def case_out(ctx: CaseContext) -> CaseOut:
     case, village = ctx.case, ctx.village
-    approvals = district_approvals(case)
+    back = returned_info(case)
+    returned = (
+        ReturnedOut(
+            by_role=back.by_role,
+            by_name=back.by_name,
+            remarks=back.remarks,
+            returned_on=back.returned_on,
+            resubmit_by=back.resubmit_by,
+            days_left=max((back.resubmit_by - date.today()).days, 0),
+        )
+        if back
+        else None
+    )
     return CaseOut(
         id=case.id,
         claim_type=case.claim_type,
@@ -62,9 +76,9 @@ def case_out(ctx: CaseContext) -> CaseOut:
             state=case.state,
             actor_roles=ctx.roles,
             is_creator=ctx.is_creator,
-            district_approvals=approvals,
+            resubmit_by=back.resubmit_by if back else None,
         ),
-        district_approvals=sorted(approvals),
+        returned=returned,
         created_at=case.created_at,
         updated_at=case.updated_at,
     )

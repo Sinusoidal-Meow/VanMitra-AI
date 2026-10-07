@@ -117,12 +117,21 @@ def test_admin_creates_officials_with_jurisdiction(
     admin = auth_headers(db_client, "9100000004")
     ok = db_client.post(
         "/api/v1/admin/users",
-        json={"name": "DFO", "phone": "9100000030", "pin": "445566", "role": "dfo",
-              "district": "Palghar"},
+        json={"name": "SDO Dahanu", "phone": "9100000030", "pin": "445566", "role": "sdo",
+              "taluka": "Dahanu", "district": "Palghar"},
         headers=admin,
     )  # fmt: skip
     assert ok.status_code == 201, ok.text
     assert ok.json()["district"] == "Palghar"
+    # district-level logins live on the district website, not in this backend
+    district = db_client.post(
+        "/api/v1/admin/users",
+        json={"name": "DFO", "phone": "9100000033", "pin": "445566", "role": "dfo",
+              "district": "Palghar"},
+        headers=admin,
+    )  # fmt: skip
+    assert district.status_code == 422
+    assert district.json()["error"] == "UNKNOWN_ROLE"
     missing = db_client.post(
         "/api/v1/admin/users",
         json={"name": "SDO", "phone": "9100000031", "pin": "445566", "role": "sdo",
