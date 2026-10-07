@@ -11,6 +11,7 @@ import '../../services/localization_service.dart';
 import '../../services/module_b_service.dart';
 import '../../widgets/common/app_components.dart';
 import '../../widgets/common/animated_bottom_nav_bar.dart';
+import '../../widgets/common/vanmitra_background_watermark.dart';
 import '../../widgets/portal_frame_scaffold.dart';
 import '../claims/my_claims_screen.dart';
 import '../gram_sabha/gram_sabha_dashboard.dart';
@@ -100,7 +101,12 @@ class _HomeTab extends ConsumerWidget {
     return PortalFrameScaffold(
       breadcrumbs: const [],
       bottomNavigationBar: bottomNavigationBar,
-      body: CustomScrollView(
+      body: Stack(
+        children: [
+          const Positioned.fill(
+            child: VanMitraBackgroundWatermark(),
+          ),
+          CustomScrollView(
         physics: const BouncingScrollPhysics(),
         slivers: [
           SliverPadding(
@@ -246,6 +252,8 @@ class _HomeTab extends ConsumerWidget {
               ]),
             ),
           ),
+        ],
+      ),
         ],
       ),
     );

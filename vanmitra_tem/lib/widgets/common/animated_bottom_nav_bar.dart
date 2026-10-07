@@ -25,7 +25,8 @@ class AnimatedBottomNavBar extends StatefulWidget {
   State<AnimatedBottomNavBar> createState() => _AnimatedBottomNavBarState();
 }
 
-class _AnimatedBottomNavBarState extends State<AnimatedBottomNavBar> with SingleTickerProviderStateMixin {
+class _AnimatedBottomNavBarState extends State<AnimatedBottomNavBar>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _anim;
 
@@ -65,7 +66,8 @@ class _AnimatedBottomNavBarState extends State<AnimatedBottomNavBar> with Single
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 350));
+    _controller = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 350));
     _anim = Tween<double>(
       begin: widget.currentTab.index.toDouble(),
       end: widget.currentTab.index.toDouble(),
@@ -79,7 +81,8 @@ class _AnimatedBottomNavBarState extends State<AnimatedBottomNavBar> with Single
       _anim = Tween<double>(
         begin: _anim.value,
         end: widget.currentTab.index.toDouble(),
-      ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutBack));
+      ).animate(
+          CurvedAnimation(parent: _controller, curve: Curves.easeOutBack));
       _controller.forward(from: 0.0);
     }
   }
@@ -241,7 +244,7 @@ class _NavCurvePainter extends CustomPainter {
     final host = Offset.zero & size;
     final notchCenterX = size.width * (animValue + 0.5) / 5;
     final guest = Rect.fromCircle(center: Offset(notchCenterX, 4), radius: 34);
-    
+
     final shape = AutomaticNotchedShape(
       RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
       const CircleBorder(),
@@ -249,9 +252,12 @@ class _NavCurvePainter extends CustomPainter {
     final path = shape.getOuterPath(host, guest);
 
     // Draw shadow
-    canvas.drawShadow(path, isDark ? Colors.black : const Color(0xFF1B4332), isDark ? 12 : 8, true);
+    canvas.drawShadow(path, isDark ? Colors.black : const Color(0xFF1B4332),
+        isDark ? 12 : 8, true);
 
-    final bgPaint = Paint()..color = bgColor..style = PaintingStyle.fill;
+    final bgPaint = Paint()
+      ..color = bgColor
+      ..style = PaintingStyle.fill;
     canvas.drawPath(path, bgPaint);
 
     if (borderWidth > 0) {
@@ -266,10 +272,10 @@ class _NavCurvePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _NavCurvePainter old) {
     return old.animValue != animValue ||
-           old.bgColor != bgColor ||
-           old.borderColor != borderColor ||
-           old.borderWidth != borderWidth ||
-           old.isDark != isDark;
+        old.bgColor != bgColor ||
+        old.borderColor != borderColor ||
+        old.borderWidth != borderWidth ||
+        old.isDark != isDark;
   }
 }
 
@@ -307,7 +313,8 @@ class _AnimatedNavItem extends StatelessWidget {
             right: 0,
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 200),
-              transitionBuilder: (child, animation) => ScaleTransition(scale: animation, child: child),
+              transitionBuilder: (child, animation) =>
+                  ScaleTransition(scale: animation, child: child),
               child: Icon(
                 isActive ? data.activeIcon : data.icon,
                 key: ValueKey(isActive),
