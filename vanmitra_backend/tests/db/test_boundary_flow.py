@@ -10,13 +10,14 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.models import Role
 
 from .conftest import auth_headers, make_user, make_village, new_case
 
-GS_A, GS_B, VILLAGER_A = "9700000001", "9700000002", "9700000003"
+GS_A, GS_B, VILLAGER_A, GS_C = "9700000001", "9700000002", "9700000003", "9700000004"
 TODAY = date.today()
 
 
@@ -213,3 +214,42 @@ def test_new_version_carries_landmarks_over(db_client: TestClient, ctx: dict[str
     assert [(v["version"], v["is_current"]) for v in versions] == [(1, False), (2, True)]
     lm = b["landmarks"][0]["id"]
     assert db_client.delete(f"{url}/landmarks/{lm}", headers=_h(db_client, GS_A)).status_code == 204
+
+
+def test_a_claim_that_no_longer_stands_does_not_block_its_neighbour(
+    db_client: TestClient, ctx: dict[str, Any], session_factory: sessionmaker[Session]
+) -> None:
+    with session_factory() as db:
+        village_c = make_village(db, "BoundaryC")
+        make_user(db, GS_C, Role.GRAM_SABHA, village=village_c)
+        db.commit()
+        village_c_id = village_c.id
+    case_c = new_case(db_client, village_c_id, GS_C, "cfr")
+    overlapping_a = square(73.20, 19.905, 73.21, 19.915)  # the north half of A
+    res = db_client.post(
+        f"/api/v1/cases/{case_c}/boundary",
+        json={"polygon": overlapping_a},
+        headers=_h(db_client, GS_C),
+    )
+    assert res.status_code == 201, res.text
+    a_url = f"/api/v1/cases/{ctx['case_a']}"
+    assert (
+        db_client.get(f"{a_url}/boundary", headers=_h(db_client, GS_A)).json()["open_disputes"] == 1
+    )
+
+    # C's claim expires (the expiry itself is tested in test_expiry_flow)
+    with session_factory() as db:
+        db.execute(text("UPDATE claim_case SET state = 'expired' WHERE id = :c"), {"c": case_c})
+        db.commit()
+    assert (
+        db_client.get(f"{a_url}/boundary", headers=_h(db_client, GS_A)).json()["open_disputes"] == 0
+    )
+    with_c = [
+        d
+        for d in db_client.get(f"{a_url}/disputes", headers=_h(db_client, GS_A)).json()
+        if d["neighbour_case_id"] == case_c
+    ]
+    assert with_c and not any(d["is_open"] for d in with_c)
+    # and a fresh check does not open a new dispute with it
+    check = db_client.post(f"{a_url}/boundary/conflicts/check", headers=_h(db_client, GS_A))
+    assert not any(d["is_open"] for d in check.json())

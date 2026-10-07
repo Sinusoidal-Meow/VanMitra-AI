@@ -65,8 +65,13 @@ def append(db: Session, gram_sabha_id: uuid.UUID, row: Base) -> LedgerEntry:
     """
     db.flush()
     db.refresh(row)  # server defaults (created_at) are part of the hashed payload
+    # populate_existing: a session that already holds this Gram Sabha in memory (sessions
+    # keep objects across commits) must still read the head another writer may have moved.
     gs = db.execute(
-        select(GramSabha).where(GramSabha.id == gram_sabha_id).with_for_update()
+        select(GramSabha)
+        .where(GramSabha.id == gram_sabha_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
     ).scalar_one()
     prev = gs.chain_head_hash or GENESIS
     seq = (

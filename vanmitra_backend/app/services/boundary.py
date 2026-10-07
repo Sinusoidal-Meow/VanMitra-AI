@@ -10,7 +10,7 @@ from decimal import Decimal
 from typing import Any
 
 from geoalchemy2 import WKTElement
-from sqlalchemy import ColumnElement, and_, func, or_, select
+from sqlalchemy import ColumnElement, Select, and_, func, or_, select
 from sqlalchemy.orm import Session, aliased
 
 from ..geo import GeoError
@@ -38,6 +38,8 @@ from ..schemas.boundary import (
 )
 
 GPS_LIMIT_M = 15.0  # B-14
+# Claims that no longer stand: they neither open nor keep a dispute with a neighbour.
+CLOSED_STATES = (CaseState.REJECTED, CaseState.EXPIRED)
 MIN_OVERLAP_HA = Decimal("0.0001")  # 1 m²: below this it is GPS noise along a shared edge
 EMPTY = WKTElement("GEOMETRYCOLLECTION EMPTY", srid=SRID)
 
@@ -204,10 +206,22 @@ def _open_clause() -> ColumnElement[bool]:
     )
 
 
+def _live_cases() -> Select[uuid.UUID]:
+    return select(ClaimCase.id).where(ClaimCase.state.not_in(CLOSED_STATES))
+
+
 def open_disputes(db: Session, case_id: uuid.UUID) -> int:
+    """Open overlaps of this claim with a neighbour's claim that still stands."""
     return (
         db.scalar(
-            select(func.count()).select_from(Dispute).where(_involving(case_id), _open_clause())
+            select(func.count())
+            .select_from(Dispute)
+            .where(
+                _involving(case_id),
+                _open_clause(),
+                Dispute.case_id.in_(_live_cases()),
+                Dispute.neighbour_case_id.in_(_live_cases()),
+            )
         )
         or 0
     )
@@ -240,7 +254,7 @@ def detect_overlaps(
             CfrBoundary.id == boundary.id,
             other.is_current.is_(True),
             other_case.claim_type == ClaimType.CFR,
-            other_case.state != CaseState.REJECTED,
+            other_case.state.not_in(CLOSED_STATES),
             other_case.gram_sabha_id != case.gram_sabha_id,
         )
     ).all()
@@ -295,6 +309,14 @@ def disputes_out(db: Session, case_id: uuid.UUID) -> list[DisputeOut]:
         .where(_involving(case_id))
         .order_by(Dispute.created_at)
     ).all()
+    closed = set(
+        db.scalars(
+            select(ClaimCase.id).where(
+                ClaimCase.id.in_({x for d, _ in rows for x in (d.case_id, d.neighbour_case_id)}),
+                ClaimCase.state.in_(CLOSED_STATES),
+            )
+        )
+    )
     out = []
     for d, g in rows:
         neighbour_case = d.neighbour_case_id if d.case_id == case_id else d.case_id
@@ -319,7 +341,7 @@ def disputes_out(db: Session, case_id: uuid.UUID) -> list[DisputeOut]:
                 outcome=d.outcome,
                 sdlc_referral_on=d.sdlc_referral_on,
                 sdlc_referral_ref=d.sdlc_referral_ref,
-                is_open=d.is_open,
+                is_open=d.is_open and not ({d.case_id, d.neighbour_case_id} & closed),
             )
         )
     return out
