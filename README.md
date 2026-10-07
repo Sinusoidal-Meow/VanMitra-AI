@@ -26,6 +26,8 @@
 | Piyush Dhane | Team Member |
 | Samrudhhi Shinde | Team Member |
 | Ishan Wankhede | Team Member |
+| Kaushal Talekar | Team Member |
+| Soham Patki | Team Member |
 
 ---
 
