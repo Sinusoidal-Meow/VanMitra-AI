@@ -41,6 +41,7 @@ from .enums import (
     UseZoneType,
     WorkflowAction,
 )
+from .notifications import Notification
 from .people import AppUser, GramSabha, GsMember, UserRole, Village
 from .procedure import (
     Attendance,
@@ -61,6 +62,7 @@ from .procedure import (
 )
 
 __all__ = [
+    "Notification",
     "AppUser",
     "Attendance",
     "Base",

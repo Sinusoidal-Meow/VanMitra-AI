@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     media_dir: str = "./media_store"
     max_upload_mb: int = 20
 
+    # Check for claims whose time to resubmit has passed, every N minutes (0 = off).
+    expiry_check_minutes: int = 60
+
     # Old "Model A" AI endpoints, kept until the app migrates (BACKEND_PLAN B-04).
     enable_legacy_api: bool = True
 

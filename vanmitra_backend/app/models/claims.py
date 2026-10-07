@@ -301,8 +301,9 @@ class WorkflowEvent(IdMixin, Base):
     action: Mapped[WorkflowAction] = mapped_column(pg_enum(WorkflowAction, "workflow_action"))
     from_state: Mapped[CaseState] = mapped_column(pg_enum(CaseState, "case_state"))
     to_state: Mapped[CaseState] = mapped_column(pg_enum(CaseState, "case_state"))
-    actor_user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("app_user.id"))
-    actor_role: Mapped[Role] = mapped_column(pg_enum(Role, "app_role"))
+    # Empty for the automatic expiry, which no person performs.
+    actor_user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("app_user.id"))
+    actor_role: Mapped[Role | None] = mapped_column(pg_enum(Role, "app_role"))
     actor_name: Mapped[str] = mapped_column(String(200))  # as it was at the time
     remarks: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

@@ -16,6 +16,7 @@ from . import (
     health,
     media,
     members,
+    notifications,
     villages,
     workflow,
 )
@@ -38,3 +39,4 @@ router.include_router(boundary.router)
 router.include_router(gramsabha.router)
 router.include_router(documents.router)
 router.include_router(followup.router)
+router.include_router(notifications.router)

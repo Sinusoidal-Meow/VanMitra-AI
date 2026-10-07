@@ -79,6 +79,7 @@ class CaseState(StrEnum):
     DISTRICT_REVIEW = "district_review"
     TITLE_ISSUED = "title_issued"
     REJECTED = "rejected"
+    EXPIRED = "expired"  # sent back and not resubmitted in time: closed automatically
 
 
 class WorkflowAction(StrEnum):
@@ -86,6 +87,7 @@ class WorkflowAction(StrEnum):
     APPROVE = "approve"
     RETURN = "return"  # back to the villager, with remarks
     REJECT = "reject"  # terminal, with written reasons
+    EXPIRE = "expire"  # done by the system only, when the time to resubmit has passed
 
 
 class FormBRight(StrEnum):

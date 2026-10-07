@@ -35,6 +35,7 @@ village user ──submit──▶ GRAM SABHA ──approve──▶ SDO ──a
 | `district_review` | the district website | none in this backend (`409 HANDED_TO_DISTRICT`) |
 | `title_issued` | — | read the title draft (set when the district side reports the signed title) |
 | `rejected` | — | final |
+| `expired` | — | final: sent back and not resubmitted within 60 days (closed automatically) |
 
 - **Who opens which form:** Form A (`ifr`) by the village user; Form B (`cr`) by the village user or the Gram Sabha; Form C (`cfr`) by the Gram Sabha.
 - **Editing:** only the claimant who opened the case, only in `draft`. A `return` to `draft` makes it editable again.
@@ -108,6 +109,15 @@ Workflow errors: `403 NOT_YOUR_LEVEL` · `403 ONLY_CLAIMANT_CAN_SUBMIT` · `409 
   "note": "Title draft prepared with VanMitra for printing and signature …" }
 ```
 The district committee signs on the district website; `status` becomes `"issued"` once the case is `title_issued`. Field keys are numbered in the printed order of the annexure.
+
+### Notifications (in the app)
+| Method | Path | Who | Purpose |
+|---|---|---|---|
+| GET | `/notifications` | logged in | `{unread, items:[{id, case_id, kind, title_en, body_en, title_mr, body_mr, created_at, read}]}`, newest first (100 at most) |
+| POST | `/notifications/{id}/read` | the recipient | Mark one as read (`404` for someone else's) |
+| POST | `/notifications/read-all` | logged in | Mark all as read |
+
+**Expiry:** the server checks every `VANMITRA_EXPIRY_CHECK_MINUTES` (default 60; `0` switches it off). A claim sent back to the villager and not resubmitted by `returned.resubmit_by` becomes `expired`; its history gets an `expire` event with `actor_role: null` and `actor_name: "VanMitra (automatic)"`. One notification (`kind: "claim_expired"`) goes to the person who filed the claim and one to each Gram Sabha login of that village — nobody else.
 
 ## 4. Form A: Claim Form for Rights to Forest Land [Rule 11(1)(a)]
 

@@ -58,7 +58,7 @@ class EventOut(BaseModel):
     from_state: CaseState
     to_state: CaseState
     actor_name: str
-    actor_role: Role
+    actor_role: Role | None
     remarks: str | None
     at: datetime
 

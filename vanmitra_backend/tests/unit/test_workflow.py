@@ -31,7 +31,7 @@ def test_happy_path_hands_over_to_the_district() -> None:
 
 
 def test_nothing_more_happens_here_once_handed_to_the_district() -> None:
-    for action in A:
+    for action in (A.SUBMIT, A.APPROVE, A.RETURN, A.REJECT):
         with pytest.raises(WorkflowError) as e:
             decide(
                 state=S.DISTRICT_REVIEW,

@@ -5,6 +5,8 @@ Run locally:  uvicorn app.main:app --reload --port 8000
 API docs:     http://localhost:8000/docs
 """
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import FastAPI
@@ -14,11 +16,23 @@ from . import __version__
 from .api.v1 import router as v1_router
 from .config import get_settings
 from .errors import install_error_handlers
+from .scheduler import run_expiry_checks
 
 
 def create_app() -> FastAPI:
     settings = get_settings()
+
+    @asynccontextmanager
+    async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        task = run_expiry_checks(settings.expiry_check_minutes)
+        try:
+            yield
+        finally:
+            if task is not None:
+                task.cancel()
+
     app = FastAPI(
+        lifespan=lifespan,
         title="VanMitra API",
         description=(
             "Community Forest Resource (CFR) claim module, Section 3(1)(i) FRA 2006. "

@@ -20,7 +20,8 @@ Rules:
 - Only the claimant who created the draft may submit it (village user or Gram Sabha).
 - Each level is reviewed only by its own role, within its jurisdiction (checked by caller).
 - Return and reject need written remarks; a rejection must give reasons [Rule 12A(7)].
-- REJECTED, TITLE_ISSUED and a claim handed to the district are final in this backend.
+- A claim not resubmitted in time is closed automatically as EXPIRED (see domain.expiry).
+- REJECTED, EXPIRED, TITLE_ISSUED and a claim handed to the district are final here.
 """
 
 from collections.abc import Iterable
@@ -53,7 +54,7 @@ APPROVE_TO: dict[CaseState, CaseState] = {
 # Both reviewers send a claim straight back to the villager.
 RETURN_TO = CaseState.DRAFT
 
-FINAL_STATES = frozenset({CaseState.TITLE_ISSUED, CaseState.REJECTED})
+FINAL_STATES = frozenset({CaseState.TITLE_ISSUED, CaseState.REJECTED, CaseState.EXPIRED})
 
 
 class WorkflowError(Exception):
@@ -94,6 +95,8 @@ def decide(
     """
     roles = set(actor_roles)
 
+    if action is WorkflowAction.EXPIRE:  # only the daily check expires a claim
+        raise WorkflowError(403, "SYSTEM_ONLY", "workflow.system_only")
     if state is CaseState.DISTRICT_REVIEW:
         raise WorkflowError(409, "HANDED_TO_DISTRICT", "workflow.handed_to_district")
     if state in FINAL_STATES:

@@ -13,6 +13,7 @@ os.environ["VANMITRA_ENABLE_LEGACY_API"] = "false"
 os.environ["VANMITRA_JWT_SECRET"] = "test-secret-not-for-real-use-0123456789"
 os.environ["VANMITRA_DATABASE_URL"] = "postgresql+psycopg://nobody:nobody@127.0.0.1:1/none"
 os.environ["VANMITRA_DB_CONNECT_TIMEOUT_S"] = "1"
+os.environ["VANMITRA_EXPIRY_CHECK_MINUTES"] = "0"
 os.environ["VANMITRA_MEDIA_DIR"] = tempfile.mkdtemp(prefix="vanmitra-media-")
 
 import pytest  # noqa: E402

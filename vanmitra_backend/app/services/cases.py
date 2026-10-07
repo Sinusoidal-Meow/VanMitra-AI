@@ -92,7 +92,7 @@ def returned_info(case: ClaimCase) -> ReturnInfo | None:
     if case.state is not CaseState.DRAFT or not case.events:
         return None
     last = case.events[-1]  # ordered by created_at
-    if last.action is not WorkflowAction.RETURN:
+    if last.action is not WorkflowAction.RETURN or last.actor_role is None:
         return None
     returned_on = last.created_at.date()
     return ReturnInfo(
