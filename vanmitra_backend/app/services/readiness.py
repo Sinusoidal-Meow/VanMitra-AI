@@ -2,9 +2,7 @@
 
 import uuid
 
-from sqlalchemy import select
-from sqlalchemy.orm import Session
-
+from ..db import Store
 from ..domain.form_b import Completeness
 from ..domain.readiness import ReadinessInput, readiness
 from ..models import ClaimType, EvidenceKind, LetterTemplate
@@ -13,28 +11,22 @@ from . import procedure_facts
 from .cases import CaseContext
 
 
-def current_evidence(db: Session, case_id: uuid.UUID) -> list[Evidence]:
-    """Evidence rows not superseded by a correction, oldest first."""
-    rows = db.scalars(
-        select(Evidence).where(Evidence.case_id == case_id).order_by(Evidence.created_at)
-    ).all()
+def current_evidence(db: Store, case_id: uuid.UUID) -> list[Evidence]:
+    """Evidence records not superseded by a correction, oldest first."""
+    rows = db.find(Evidence, {"case_id": case_id}, sort=[("created_at", 1), ("_id", 1)])
     superseded = {r.supersedes_id for r in rows if r.supersedes_id}
     return [r for r in rows if r.id not in superseded]
 
 
-def verified_ids(db: Session, evidence_ids: list[uuid.UUID]) -> set[uuid.UUID]:
+def verified_ids(db: Store, evidence_ids: list[uuid.UUID]) -> set[uuid.UUID]:
     if not evidence_ids:
         return set()
     return set(
-        db.scalars(
-            select(EvidenceVerification.evidence_id).where(
-                EvidenceVerification.evidence_id.in_(evidence_ids)
-            )
-        )
+        db.distinct(EvidenceVerification, "evidence_id", {"evidence_id": {"$in": evidence_ids}})
     )
 
 
-def readiness_input(db: Session, ctx: CaseContext) -> ReadinessInput:
+def readiness_input(db: Store, ctx: CaseContext) -> ReadinessInput:
     case = ctx.case
     evidence = current_evidence(db, case.id)
     verified = verified_ids(db, [e.id for e in evidence])
@@ -49,16 +41,15 @@ def readiness_input(db: Session, ctx: CaseContext) -> ReadinessInput:
     if case.claim_type is ClaimType.CFR and case.form_c is not None:
         names = {b.name.strip().casefold() for b in case.form_c.bordering_villages}
         adjacent_total = len(names)
-        sent = {
-            (c.neighbour_village or "").strip().casefold()
-            for c in db.scalars(
-                select(Correspondence).where(
-                    Correspondence.gram_sabha_id == case.gram_sabha_id,
-                    Correspondence.template == LetterTemplate.G2_INTIMATION_ADJOINING,
-                    Correspondence.dispatched_on.is_not(None),
-                )
-            )
-        }
+        letters = db.find(
+            Correspondence,
+            {
+                "gram_sabha_id": case.gram_sabha_id,
+                "template": LetterTemplate.G2_INTIMATION_ADJOINING.value,
+                "dispatched_on": {"$ne": None},
+            },
+        )
+        sent = {(c.neighbour_village or "").strip().casefold() for c in letters}
         adjacent_intimated = len(names & sent)
 
     facts = procedure_facts.collect(db, ctx)
@@ -78,5 +69,5 @@ def readiness_input(db: Session, ctx: CaseContext) -> ReadinessInput:
     )
 
 
-def compute(db: Session, ctx: CaseContext) -> Completeness:
+def compute(db: Store, ctx: CaseContext) -> Completeness:
     return readiness(readiness_input(db, ctx))

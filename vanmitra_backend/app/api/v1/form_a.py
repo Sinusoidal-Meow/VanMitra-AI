@@ -114,29 +114,22 @@ def put_form_a(
     form.other_information = body.other_information
     form.updated_by_user_id = user.id
 
-    # Replace child rows (flush deletes first; see form_b.put_form_b).
-    form.family_members.clear()
-    form.claims.clear()
-    case.evidence_entries.clear()
-    db.flush()
-    form.family_members.extend(
+    form.family_members = [
         FormAFamilyMember(seq=i, name=m.name, age=m.age, relation=m.relation)
         for i, m in enumerate(body.family_members, start=1)
-    )
+    ]
     order = list(CLAIM_SPECS)
-    form.claims.extend(
+    form.claims = [
         FormAClaimItem(
             claim_code=code,
             extent_ha=Decimal(str(round(c.extent_ha, 2))) if c.extent_ha is not None else None,
             details=c.details,
         )
         for code, c in sorted(body.claims.items(), key=lambda kv: order.index(kv[0]))
-    )
-    case.evidence_entries.extend(
+    ]
+    case.evidence_entries = [
         ClaimEvidenceEntry(seq=i, rule_ref=e.rule_ref, description=e.description)
         for i, e in enumerate(body.evidence, start=1)
-    )
+    ]
     db.commit()
-    db.refresh(case)
-    db.refresh(form)
     return form_a_out(ctx)

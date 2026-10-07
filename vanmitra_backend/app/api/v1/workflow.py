@@ -6,7 +6,6 @@ Rules live in domain.workflow; this router records every action in workflow_even
 import uuid
 
 from fastapi import APIRouter
-from sqlalchemy import select
 
 from ...auth.deps import CurrentPrincipal, DbSession, village_ref
 from ...domain.workflow import STAGE, WorkflowError, decide
@@ -15,7 +14,7 @@ from ...models import CaseState, ClaimCase, GramSabha, Village, WorkflowAction, 
 from ...schemas.cases import ActionIn, CaseOut, EventOut, TitleDraftOut
 from ...services import acknowledgement, ledger
 from ...services import gramsabha as gs_facts
-from ...services.cases import CaseContext, load_case, returned_info
+from ...services.cases import CaseContext, case_events, load_case, returned_info
 from ...services.title import build_title_draft
 from ._shared import case_out
 
@@ -34,7 +33,7 @@ def _act(
     ctx = load_case(db, principal, case_id)
     case = ctx.case
     remarks = body.remarks if body else None
-    back = returned_info(case)
+    back = returned_info(db, case)
     try:
         decision = decide(
             state=case.state,
@@ -77,9 +76,7 @@ def _act(
     case.state = decision.to_state
     case.reached_stage = max(case.reached_stage, STAGE.get(decision.to_state, 0))
     db.commit()
-    db.refresh(case)
-    db.expire(case, ["events"])  # reload history so approvals include this action
-    return case_out(ctx)
+    return case_out(ctx, db)
 
 
 @router.post("/cases/{case_id}/submit", response_model=CaseOut)
@@ -121,7 +118,8 @@ def reject(
 @router.get("/cases/{case_id}/history", response_model=list[EventOut])
 def history(case_id: uuid.UUID, db: DbSession, principal: CurrentPrincipal) -> list[EventOut]:
     """Every action on the case, oldest first: who, in which role, remarks, when."""
-    ctx = load_case(db, principal, case_id)
+    load_case(db, principal, case_id)
+    events = case_events(db, case_id)
     return [
         EventOut(
             action=e.action,
@@ -132,22 +130,26 @@ def history(case_id: uuid.UUID, db: DbSession, principal: CurrentPrincipal) -> l
             remarks=e.remarks,
             at=e.created_at,
         )
-        for e in ctx.case.events
+        for e in events
     ]
 
 
 @router.get("/review/queue", response_model=list[CaseOut])
 def review_queue(db: DbSession, principal: CurrentPrincipal) -> list[CaseOut]:
     """Cases waiting for the caller's decision, across their jurisdiction, oldest first."""
-    rows = db.execute(
-        select(ClaimCase, Village)
-        .join(GramSabha, GramSabha.id == ClaimCase.gram_sabha_id)
-        .join(Village, Village.id == GramSabha.village_id)
-        .where(ClaimCase.state.in_(REVIEW_STATES))
-        .order_by(ClaimCase.updated_at)
-    ).all()
-    out = []
-    for case, village in rows:
+    cases = db.find(
+        ClaimCase,
+        {"state": {"$in": [s.value for s in REVIEW_STATES]}},
+        sort=[("updated_at", 1)],
+    )
+    out: list[CaseOut] = []
+    for case in cases:
+        gs = db.get(GramSabha, case.gram_sabha_id)
+        if gs is None:
+            continue
+        village = db.get(Village, gs.village_id)
+        if village is None:
+            continue
         roles = principal.roles_for(village_ref(village))
         if not roles:
             continue
@@ -157,7 +159,7 @@ def review_queue(db: DbSession, principal: CurrentPrincipal) -> list[CaseOut]:
             roles=roles,
             is_creator=case.created_by_user_id == principal.user_id,
         )
-        item = case_out(ctx)
+        item = case_out(ctx, db)
         if WorkflowAction.APPROVE in item.allowed_actions:
             out.append(item)
     return out

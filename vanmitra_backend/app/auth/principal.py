@@ -3,8 +3,8 @@ Who is calling, and what they may do where.
 
 Every role is held within a jurisdiction:
 - village roles (villager, gram_sabha) cover one village;
-- the SDO covers every village of a taluka (sub-division) in a district;
-- district officers (collector, dfo, tribal_welfare_officer) cover a whole district.
+- the SDO covers every village of a taluka (sub-division) in a district.
+The district level is a separate website and has no logins here.
 
 Admin is back-office only and does NOT bypass these checks.
 """

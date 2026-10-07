@@ -2,21 +2,19 @@
 
 import uuid
 
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session
-
+from ..db import Store
 from ..models import BoundaryStatus, CaseClaimant, ClaimType, Gender, GsMember
-from ..models.procedure import Attendance, GsMeeting, Resolution, VerificationProceeding
+from ..models.procedure import GsMeeting, Resolution, VerificationProceeding
 from ..schemas.gramsabha import ApprovalCheckOut, ApprovalPrerequisite
 from . import boundary
 from .cases import CaseContext
 
 
-def latest_verification(db: Session, case_id: uuid.UUID) -> VerificationProceeding | None:
-    return db.scalar(
-        select(VerificationProceeding)
-        .where(VerificationProceeding.case_id == case_id)
-        .order_by(VerificationProceeding.attempt_no.desc())
+def latest_verification(db: Store, case_id: uuid.UUID) -> VerificationProceeding | None:
+    return db.find_one(
+        VerificationProceeding,
+        {"case_id": case_id},
+        sort=[("attempt_no", -1)],
     )
 
 
@@ -39,44 +37,43 @@ def finality_note(v: VerificationProceeding | None) -> bool:
     )
 
 
-def current_resolution(db: Session, case_id: uuid.UUID) -> Resolution | None:
-    rows = db.scalars(
-        select(Resolution).where(Resolution.case_id == case_id).order_by(Resolution.created_at)
-    ).all()
+def current_resolution(db: Store, case_id: uuid.UUID) -> Resolution | None:
+    rows = db.find(
+        Resolution,
+        {"case_id": case_id},
+        sort=[("created_at", 1), ("_id", 1)],
+    )
     superseded = {r.supersedes_id for r in rows if r.supersedes_id}
     live = [r for r in rows if r.id not in superseded]
     return live[-1] if live else None
 
 
-def meeting_counts(db: Session, meeting: GsMeeting) -> tuple[int, int]:
+def meeting_counts(db: Store, meeting: GsMeeting) -> tuple[int, int]:
     """(present, women present) from the attendance register."""
-    row = db.execute(
-        select(func.count(), func.count().filter(GsMember.gender == Gender.FEMALE))
-        .select_from(Attendance)
-        .join(GsMember, GsMember.id == Attendance.gs_member_id)
-        .where(Attendance.meeting_id == meeting.id, Attendance.present.is_(True))
-    ).one()
-    return int(row[0]), int(row[1])
-
-
-def claimant_counts(db: Session, meeting: GsMeeting, case_id: uuid.UUID) -> tuple[int, int]:
-    """(claimants in the case, of whom present at the meeting)."""
-    claimant_ids = set(
-        db.scalars(select(CaseClaimant.gs_member_id).where(CaseClaimant.case_id == case_id))
+    present_member_ids = [a.gs_member_id for a in meeting.attendance if a.present]
+    if not present_member_ids:
+        return 0, 0
+    women_count = db.count(
+        GsMember,
+        {
+            "_id": {"$in": present_member_ids},
+            "gender": Gender.FEMALE.value,
+        },
     )
+    return len(present_member_ids), women_count
+
+
+def claimant_counts(db: Store, meeting: GsMeeting, case_id: uuid.UUID) -> tuple[int, int]:
+    """(claimants in the case, of whom present at the meeting)."""
+    claimants = db.find(CaseClaimant, {"case_id": case_id})
+    claimant_ids = {c.gs_member_id for c in claimants}
     if not claimant_ids:
         return 0, 0
-    present = set(
-        db.scalars(
-            select(Attendance.gs_member_id).where(
-                Attendance.meeting_id == meeting.id, Attendance.present.is_(True)
-            )
-        )
-    )
-    return len(claimant_ids), len(claimant_ids & present)
+    present_ids = {a.gs_member_id for a in meeting.attendance if a.present}
+    return len(claimant_ids), len(claimant_ids & present_ids)
 
 
-def approval_check(db: Session, ctx: CaseContext) -> ApprovalCheckOut:
+def approval_check(db: Store, ctx: CaseContext) -> ApprovalCheckOut:
     """
     The Gram Sabha may forward a CFR claim only with a resolution that passed quorum
     and approved the boundary [Sec 6(1), Rule 12(1)(g)] (BR-04), a closed field

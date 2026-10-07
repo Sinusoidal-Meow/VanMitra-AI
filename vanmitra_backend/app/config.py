@@ -13,7 +13,10 @@ class Settings(BaseSettings):
 
     env: str = "development"  # development | test | production
 
-    database_url: str = "postgresql+psycopg://vanmitra:vanmitra@localhost:5433/vanmitra"
+    # MongoDB. The real link (MongoDB Atlas) is a secret: it goes in .env as
+    # VANMITRA_MONGODB_URI and is never committed. The default is a local server.
+    mongodb_uri: str = "mongodb://localhost:27017/?replicaSet=rs0&directConnection=true"
+    mongodb_db: str = "vanmitra"
     db_connect_timeout_s: int = 3
 
     jwt_secret: str = _DEV_JWT_SECRET

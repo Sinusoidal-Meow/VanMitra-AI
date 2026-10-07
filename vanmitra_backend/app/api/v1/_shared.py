@@ -1,5 +1,6 @@
 """Response builders shared by the case, form and workflow routers."""
 
+from ...db import Store
 from ...domain.dates import today_ist
 from ...domain.form_b import Completeness
 from ...domain.workflow import allowed_actions
@@ -43,9 +44,9 @@ def claimant_label(case: ClaimCase, village: Village) -> str:
     return f"Gram Sabha, {village.name_en}"
 
 
-def case_out(ctx: CaseContext) -> CaseOut:
+def case_out(ctx: CaseContext, db: Store | None = None) -> CaseOut:
     case, village = ctx.case, ctx.village
-    back = returned_info(case)
+    back = returned_info(db, case)
     returned = (
         ReturnedOut(
             by_role=back.by_role,

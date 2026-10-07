@@ -8,7 +8,6 @@ from datetime import UTC, datetime
 
 from fastapi import APIRouter
 from pydantic import BaseModel
-from sqlalchemy import func, select
 
 from ...auth.deps import CurrentUser, DbSession
 from ...errors import ApiError
@@ -51,23 +50,16 @@ def _out(n: Notification) -> NotificationOut:
 
 
 def _unread(db: DbSession, user_id: uuid.UUID) -> int:
-    return (
-        db.scalar(
-            select(func.count())
-            .select_from(Notification)
-            .where(Notification.user_id == user_id, Notification.read_at.is_(None))
-        )
-        or 0
-    )
+    return db.count(Notification, {"user_id": user_id, "read_at": None})
 
 
 @router.get("/notifications", response_model=NotificationsOut)
 def my_notifications(db: DbSession, user: CurrentUser) -> NotificationsOut:
-    rows = db.scalars(
-        select(Notification)
-        .where(Notification.user_id == user.id)
-        .order_by(Notification.created_at.desc())
-        .limit(MAX_LISTED)
+    rows = db.find(
+        Notification,
+        {"user_id": user.id},
+        sort=[("created_at", -1)],
+        limit=MAX_LISTED,
     )
     return NotificationsOut(unread=_unread(db, user.id), items=[_out(n) for n in rows])
 
@@ -86,9 +78,8 @@ def mark_read(notification_id: uuid.UUID, db: DbSession, user: CurrentUser) -> N
 @router.post("/notifications/read-all", response_model=NotificationsOut)
 def mark_all_read(db: DbSession, user: CurrentUser) -> NotificationsOut:
     now = datetime.now(UTC)
-    for n in db.scalars(
-        select(Notification).where(Notification.user_id == user.id, Notification.read_at.is_(None))
-    ):
+    unread_docs = db.find(Notification, {"user_id": user.id, "read_at": None})
+    for n in unread_docs:
         n.read_at = now
     db.commit()
     return my_notifications(db, user)

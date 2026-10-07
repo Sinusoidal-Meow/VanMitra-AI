@@ -151,13 +151,8 @@ def put_form_b(
     form.other_information = body.other_information
     form.updated_by_user_id = user.id
 
-    # Replace child rows. Flush the deletes first: within one flush SQLAlchemy inserts
-    # before it deletes, which would trip the unique (case_id, right_code) / (case_id, seq).
-    form.rights.clear()
-    case.evidence_entries.clear()
-    db.flush()
     order = list(RIGHT_SPECS)
-    form.rights.extend(
+    form.rights = [
         FormBRightClaim(
             right_code=code,
             details=r.details,
@@ -172,12 +167,10 @@ def put_form_b(
             annual_quantity=r.annual_quantity,
         )
         for code, r in sorted(body.rights.items(), key=lambda kv: order.index(kv[0]))
-    )
-    case.evidence_entries.extend(
+    ]
+    case.evidence_entries = [
         ClaimEvidenceEntry(seq=i, rule_ref=e.rule_ref, description=e.description)
         for i, e in enumerate(body.evidence, start=1)
-    )
+    ]
     db.commit()
-    db.refresh(case)
-    db.refresh(form)
     return form_b_out(ctx)

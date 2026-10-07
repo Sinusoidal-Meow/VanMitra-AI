@@ -16,6 +16,7 @@ from fastapi import FastAPI, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from pymongo.errors import ConnectionFailure, DuplicateKeyError, PyMongoError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 
@@ -91,7 +92,25 @@ async def _validation_error(_: Request, exc: Exception) -> JSONResponse:
     )
 
 
+async def _database_error(_: Request, exc: Exception) -> JSONResponse:
+    """MongoDB problems in the error format the app understands."""
+    assert isinstance(exc, PyMongoError)
+    if isinstance(exc, DuplicateKeyError):
+        status, error, key = 409, "DUPLICATE", "db.duplicate"
+    elif exc.has_error_label("TransientTransactionError"):
+        # Two people changed the same record at the same moment; the other one won.
+        status, error, key = 409, "WRITE_CONFLICT", "db.retry"
+    elif isinstance(exc, ConnectionFailure):  # includes server selection timeouts
+        status, error, key = 503, "DATABASE_UNAVAILABLE", "db.unavailable"
+    else:
+        status, error, key = 500, "DATABASE_ERROR", "db.error"
+    return JSONResponse(
+        status_code=status, content={"error": error, "message_key": key, "details": {}}
+    )
+
+
 def install_error_handlers(app: FastAPI) -> None:
     app.add_exception_handler(ApiError, _api_error)
     app.add_exception_handler(StarletteHTTPException, _http_error)
     app.add_exception_handler(RequestValidationError, _validation_error)
+    app.add_exception_handler(PyMongoError, _database_error)

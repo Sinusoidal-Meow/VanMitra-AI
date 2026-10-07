@@ -1,29 +1,23 @@
 """
-Fixtures for tests against a real PostgreSQL + PostGIS database.
+Fixtures for tests against a real MongoDB database.
 
-Every test here is skipped unless VANMITRA_TEST_DATABASE_URL points at a THROWAWAY
-database: the session fixture migrates it up once, and back down to empty at the end.
+Every test here is skipped unless VANMITRA_TEST_MONGODB_URI points at a THROWAWAY
+database for integration tests.
 """
 
 import os
 import uuid
 from collections.abc import Iterator
-from pathlib import Path
 
 import pytest
-from alembic import command
-from alembic.config import Config
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, sessionmaker
 
 from app.auth.security import hash_pin
-from app.db import get_db
+from app.db import Store, ensure_indexes, get_client, get_db
 from app.main import create_app
 from app.models import AppUser, GramSabha, Role, UserRole, Village
 
-TEST_DB_URL = os.environ.get("VANMITRA_TEST_DATABASE_URL")
-BACKEND_DIR = Path(__file__).resolve().parents[2]
+TEST_MONGODB_URI = os.environ.get("VANMITRA_TEST_MONGODB_URI")
 TEST_PIN = "123456"
 
 
@@ -31,31 +25,42 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
     for item in items:
         if "tests/db/" in item.nodeid.replace("\\", "/"):
             item.add_marker(pytest.mark.db)
-            if not TEST_DB_URL:
-                item.add_marker(pytest.mark.skip(reason="VANMITRA_TEST_DATABASE_URL not set"))
+            if not TEST_MONGODB_URI:
+                item.add_marker(pytest.mark.skip(reason="VANMITRA_TEST_MONGODB_URI not set"))
+
+
+class _StoreMaker:
+    def __init__(self, database):
+        self._database = database
+
+    def __call__(self) -> Store:
+        return Store(self._database)
 
 
 @pytest.fixture(scope="session")
-def session_factory() -> Iterator[sessionmaker[Session]]:
-    assert TEST_DB_URL
-    cfg = Config(str(BACKEND_DIR / "alembic.ini"))
-    cfg.set_main_option("script_location", str(BACKEND_DIR / "migrations"))
-    cfg.set_main_option("sqlalchemy.url", TEST_DB_URL)
-    command.upgrade(cfg, "head")
-    engine = create_engine(TEST_DB_URL)
+def mongo_test_db():
+    assert TEST_MONGODB_URI
+    db_name = os.environ.get("VANMITRA_TEST_MONGODB_DB", "vanmitra_test")
+    client = get_client()
+    db = client[db_name]
+    ensure_indexes(db)
     try:
-        yield sessionmaker(bind=engine, expire_on_commit=False)
+        yield db
     finally:
-        engine.dispose()
-        command.downgrade(cfg, "base")
+        client.drop_database(db_name)
+
+
+@pytest.fixture(scope="session")
+def session_factory(mongo_test_db):
+    yield _StoreMaker(mongo_test_db)
 
 
 @pytest.fixture
-def db_client(session_factory: sessionmaker[Session]) -> TestClient:
+def db_client(mongo_test_db) -> TestClient:
     app = create_app()
 
-    def _get_db() -> Iterator[Session]:
-        with session_factory() as s:
+    def _get_db() -> Iterator[Store]:
+        with Store(mongo_test_db) as s:
             yield s
 
     app.dependency_overrides[get_db] = _get_db
@@ -63,7 +68,7 @@ def db_client(session_factory: sessionmaker[Session]) -> TestClient:
 
 
 def make_village(
-    db: Session, name_en: str, taluka: str = "Jawhar", district: str = "Palghar"
+    db: Store, name_en: str, taluka: str = "Jawhar", district: str = "Palghar"
 ) -> Village:
     village = Village(
         name_mr=name_en,
@@ -74,14 +79,13 @@ def make_village(
         state="Maharashtra",
     )
     db.add(village)
-    db.flush()
     db.add(GramSabha(village_id=village.id))
-    db.flush()
+    db.commit()
     return village
 
 
 def make_user(
-    db: Session,
+    db: Store,
     phone: str,
     role: Role | None,
     *,
@@ -94,7 +98,6 @@ def make_user(
         phone=phone, name=f"User {phone}", pin_hash=hash_pin(TEST_PIN), is_admin=role is None
     )
     db.add(user)
-    db.flush()
     if role is not None:
         db.add(
             UserRole(
@@ -105,7 +108,7 @@ def make_user(
                 district=district,
             )
         )
-        db.flush()
+    db.commit()
     return user
 
 

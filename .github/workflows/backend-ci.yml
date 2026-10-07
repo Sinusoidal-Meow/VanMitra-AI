@@ -14,22 +14,6 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
-    # Throwaway database for the `db` tests (migrated up and down by the tests).
-    services:
-      postgis:
-        image: postgis/postgis:16-3.4
-        env:
-          POSTGRES_DB: vanmitra_test
-          POSTGRES_USER: vanmitra
-          POSTGRES_PASSWORD: vanmitra
-        ports: ["5432:5432"]
-        options: >-
-          --health-cmd "pg_isready -U vanmitra -d vanmitra_test"
-          --health-interval 5s --health-timeout 3s --health-retries 20
-
-    env:
-      VANMITRA_TEST_DATABASE_URL: postgresql+psycopg://vanmitra:vanmitra@localhost:5432/vanmitra_test
-
     steps:
       - uses: actions/checkout@v4
 
@@ -45,14 +29,11 @@ jobs:
 
       - name: Lint
         run: |
-          ruff check app tests scripts migrations
-          ruff format --check app tests scripts migrations
+          ruff check app tests scripts
+          ruff format --check app tests scripts
 
       - name: Type check
         run: mypy app scripts
 
-      - name: Migration SQL renders (offline)
-        run: alembic upgrade head --sql > /dev/null
-
-      - name: Tests (including database tests)
+      - name: Tests
         run: pytest -q

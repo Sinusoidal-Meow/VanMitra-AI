@@ -1,22 +1,19 @@
 """
 Seed demo data for local development: Ozhar village (Jawhar, Palghar), its Gram Sabha,
 five fictional members and one demo login for every role of the three levels.
-Safe to run again: existing rows are kept, demo users get their name and role synced.
+Safe to run again: existing records are kept, demo users get their name and role synced.
 
     python -m scripts.seed_demo
 
-Run it yourself, after `alembic upgrade head`. It writes to VANMITRA_DATABASE_URL.
+It writes to the configured MongoDB database.
 Demo phones are fake (9000000001-8). Every demo PIN is 123456: development only.
 """
 
 import sys
 
-from sqlalchemy import select
-from sqlalchemy.orm import Session
-
 from app.auth.security import hash_pin
 from app.config import get_settings
-from app.db import get_engine
+from app.db import Store, get_database
 from app.models import (
     AppUser,
     ConsolidationStatus,
@@ -28,6 +25,7 @@ from app.models import (
     UserRole,
     Village,
 )
+from app.mongo import ensure_indexes
 
 DEMO_PIN = "123456"
 TALUKA, DISTRICT = "Jawhar", "Palghar"
@@ -60,8 +58,9 @@ def _grant(user: AppUser, role: Role, village: Village) -> UserRole:
     return UserRole(user_id=user.id, role=role, district=DISTRICT)
 
 
-def seed(db: Session) -> None:
-    village = db.scalar(select(Village).where(Village.name_en == "Ozhar", Village.taluka == TALUKA))
+def seed(db: Store) -> None:
+    gram_sabha: GramSabha | None = None
+    village = db.find_one(Village, {"name_en": "Ozhar", "taluka": TALUKA})
     if village is None:
         village = Village(
             name_mr="ओझर",
@@ -73,33 +72,38 @@ def seed(db: Session) -> None:
             consolidation_status=ConsolidationStatus.RECOGNISED,
         )
         db.add(village)
-        db.flush()
-        db.add(GramSabha(village_id=village.id))
-        db.flush()
+        gram_sabha = GramSabha(village_id=village.id)
+        db.add(gram_sabha)
+        db.commit()
         print(f"created village Ozhar ({village.id})")
+    else:
+        gram_sabha = db.find_one(GramSabha, {"village_id": village.id})
+        if gram_sabha is None:
+            gram_sabha = GramSabha(village_id=village.id)
+            db.add(gram_sabha)
+            db.commit()
 
     for phone, name, role in DEMO_USERS:
-        user = db.scalar(select(AppUser).where(AppUser.phone == phone))
+        user = db.find_one(AppUser, {"phone": phone})
         if user is None:
             user = AppUser(
                 phone=phone, name=name, pin_hash=hash_pin(DEMO_PIN), is_admin=role is None
             )
             db.add(user)
-            db.flush()
+            db.commit()
             print(f"created user {phone}  {name}")
         elif user.name != name:
             user.name = name
             print(f"renamed user {phone}  {name}")
         if role is None:
             continue
-        held = set(db.scalars(select(UserRole.role).where(UserRole.user_id == user.id)))
+        held = {ur.role for ur in db.find(UserRole, {"user_id": user.id})}
         if role not in held:
             db.add(_grant(user, role, village))
             print(f"granted   {phone}  {role.value}")
 
-    gram_sabha = db.scalar(select(GramSabha).where(GramSabha.village_id == village.id))
     assert gram_sabha is not None
-    existing = set(db.scalars(select(GsMember.name).where(GsMember.gram_sabha_id == gram_sabha.id)))
+    existing = {m.name for m in db.find(GsMember, {"gram_sabha_id": gram_sabha.id})}
     for member_name, gender, category in DEMO_MEMBERS:
         if member_name not in existing:
             db.add(
@@ -115,7 +119,11 @@ def seed(db: Session) -> None:
 def main() -> None:
     if get_settings().env == "production":
         sys.exit("Refusing to seed demo users in production.")
-    with Session(get_engine()) as db:
+    database = get_database()
+    print("Ensuring MongoDB indexes...")
+    ensure_indexes(database)
+    print("Seeding demo data...")
+    with Store(database) as db:
         seed(db)
     print(f"\nDone. Log in with any demo phone and PIN {DEMO_PIN}.")
 

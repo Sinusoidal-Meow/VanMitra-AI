@@ -9,18 +9,15 @@ Gram Sabha-approved version is frozen (approval comes with the resolution).
 
 import uuid
 from datetime import timedelta
+from typing import Any
 
 from fastapi import APIRouter, status
-from sqlalchemy import func, select
 
 from ...auth.deps import CurrentPrincipal, CurrentUser, DbSession
 from ...errors import ApiError, RuleViolation
 from ...geo import (
     GeoError,
     accuracy_stats,
-    line_wkt,
-    point_wkt,
-    polygon_wkt,
     position,
     ring,
     split_ring,
@@ -95,14 +92,14 @@ def _editable(db: DbSession, ctx: CaseContext) -> CfrBoundary:
     return b
 
 
-def _polygon(db: DbSession, body: PolygonIn) -> tuple[str, list[list[tuple[float, float]]]]:
+def _polygon(body: PolygonIn) -> tuple[dict[str, Any], list[list[tuple[float, float]]]]:
     try:
         rings = [ring(r) for r in body.coordinates]
-        wkt = polygon_wkt(rings)
-        geo.ensure_valid(db, wkt)
+        geojson: dict[str, Any] = {"type": "Polygon", "coordinates": rings}
+        geo.ensure_valid(geojson)
     except GeoError as e:
         raise _geo_error(e) from e
-    return wkt, rings
+    return geojson, rings
 
 
 def _own_media(db: DbSession, user: AppUser, media_id: uuid.UUID | None) -> None:
@@ -133,7 +130,7 @@ def save_boundary(
     """
     ctx = load_case(db, principal, case_id)
     _ensure_can_map(ctx)
-    wkt, rings = _polygon(db, body.polygon)
+    polygon_geojson, rings = _polygon(body.polygon)
     outer = rings[0]
     if body.vertex_accuracy_m is not None and len(body.vertex_accuracy_m) != len(outer) - 1:
         raise ApiError(
@@ -141,56 +138,64 @@ def save_boundary(
         )
     try:
         pieces = split_ring(outer, body.segment_breaks)
-        segment_wkts = [line_wkt(p) for p in pieces]
     except GeoError as e:
         raise _geo_error(e) from e
 
     previous = geo.current_boundary(db, case_id)
-    version = (
-        db.scalar(select(func.max(CfrBoundary.version)).where(CfrBoundary.case_id == case_id)) or 0
-    ) + 1
+    latest = db.find(CfrBoundary, {"case_id": case_id}, sort=[("version", -1)], limit=1)
+    version = (latest[0].version if latest else 0) + 1
+
+    segments: list[BoundarySegment] = []
+    for seq, piece in enumerate(pieces):
+        seg_geom = {"type": "LineString", "coordinates": piece}
+        segments.append(BoundarySegment(seq=seq, geom=seg_geom, length_m=geo.length_m(seg_geom)))
+
     b = CfrBoundary(
         case_id=case_id,
         version=version,
-        geom=geo.element(wkt),
+        geom=polygon_geojson,
         source=body.source,
         status=BoundaryStatus.DRAFT,
-        area_ha=geo.area_ha(db, wkt),
+        area_ha=geo.area_ha(polygon_geojson),
         accuracy_stats=accuracy_stats(body.vertex_accuracy_m, len(outer) - 1, geo.GPS_LIMIT_M),
         is_current=True,
         created_by_user_id=user.id,
+        segments=segments,
     )
-    for seq, seg in enumerate(segment_wkts):
-        b.segments.append(
-            BoundarySegment(seq=seq, geom=geo.element(seg), length_m=geo.length_m(db, seg))
-        )
     if previous is not None:
         previous.is_current = False
         if previous.status is BoundaryStatus.DRAFT:
-            _carry_over(db, previous, b, len(segment_wkts))
+            _carry_over(previous, b, len(segments))
     db.add(b)
     geo.detect_overlaps(db, ctx.case, b)
     db.commit()
-    db.refresh(b)
     return geo.boundary_out(db, b)
 
 
-def _carry_over(db: DbSession, old: CfrBoundary, new: CfrBoundary, segments: int) -> None:
+def _carry_over(old: CfrBoundary, new: CfrBoundary, segments: int) -> None:
     for lm in old.landmarks:
         if lm.segment_seq < segments:
             new.landmarks.append(
                 BoundaryLandmark(
-                    segment_seq=lm.segment_seq, name=lm.name, kind=lm.kind, point=lm.point,
-                    photo_media_id=lm.photo_media_id, evidence_id=lm.evidence_id,
+                    segment_seq=lm.segment_seq,
+                    name=lm.name,
+                    kind=lm.kind,
+                    point=lm.point,
+                    photo_media_id=lm.photo_media_id,
+                    evidence_id=lm.evidence_id,
                 )
-            )  # fmt: skip
+            )
     for z in old.use_zones:
         new.use_zones.append(
             UseZone(
-                use_type=z.use_type, name=z.name, geom=z.geom, area_ha=z.area_ha,
-                season=z.season, user_hamlets=list(z.user_hamlets),
+                use_type=z.use_type,
+                name=z.name,
+                geom=z.geom,
+                area_ha=z.area_ha,
+                season=z.season,
+                user_hamlets=list(z.user_hamlets),
             )
-        )  # fmt: skip
+        )
 
 
 @router.get("/cases/{case_id}/boundary", response_model=BoundaryOut)
@@ -205,16 +210,19 @@ def boundary_versions(
     case_id: uuid.UUID, db: DbSession, principal: CurrentPrincipal
 ) -> list[BoundaryVersionOut]:
     load_case(db, principal, case_id)
-    rows = db.scalars(
-        select(CfrBoundary).where(CfrBoundary.case_id == case_id).order_by(CfrBoundary.version)
-    )
+    rows = db.find(CfrBoundary, {"case_id": case_id}, sort=[("version", 1)])
     return [
         BoundaryVersionOut(
-            id=b.id, version=b.version, status=b.status, source=b.source, area_ha=b.area_ha,
-            is_current=b.is_current, created_at=b.created_at,
+            id=b.id,
+            version=b.version,
+            status=b.status,
+            source=b.source,
+            area_ha=b.area_ha,
+            is_current=b.is_current,
+            created_at=b.created_at,
         )
         for b in rows
-    ]  # fmt: skip
+    ]
 
 
 # ── Landmarks and use zones ───────────────────────────────────────────────────
@@ -245,17 +253,16 @@ def add_landmark(
         if ev is None or ev.case_id != case_id:
             raise ApiError(422, "EVIDENCE_NOT_IN_CASE", "boundary.evidence_not_in_case")
     lm = BoundaryLandmark(
-        boundary_id=b.id,
         segment_seq=body.segment_seq,
         name=body.name,
         kind=body.kind,
-        point=geo.element(point_wkt(body.lon, body.lat)),
+        point={"type": "Point", "coordinates": [body.lon, body.lat]},
         photo_media_id=body.photo_media_id,
         evidence_id=body.evidence_id,
     )
-    db.add(lm)
+    b.landmarks.append(lm)
     db.commit()
-    return next(x for x in geo.landmarks_out(db, b.id) if x.id == lm.id)
+    return next(x for x in geo.landmarks_out(b) if x.id == lm.id)
 
 
 @router.delete("/cases/{case_id}/boundary/landmarks/{landmark_id}", status_code=204)
@@ -264,10 +271,10 @@ def delete_landmark(
 ) -> None:
     ctx = load_case(db, principal, case_id)
     b = _editable(db, ctx)
-    lm = db.get(BoundaryLandmark, landmark_id)
-    if lm is None or lm.boundary_id != b.id:
+    original_len = len(b.landmarks)
+    b.landmarks = [lm for lm in b.landmarks if lm.id != landmark_id]
+    if len(b.landmarks) == original_len:
         raise ApiError(404, "LANDMARK_NOT_FOUND", "boundary.landmark_not_found")
-    db.delete(lm)
     db.commit()
 
 
@@ -282,19 +289,18 @@ def add_use_zone(
     """An area of customary use [Rule 13(2)(b)]. Never clipped; `within_boundary` tells."""
     ctx = load_case(db, principal, case_id)
     b = _editable(db, ctx)
-    wkt, _ = _polygon(db, body.polygon)
+    polygon_geojson, _ = _polygon(body.polygon)
     zone = UseZone(
-        boundary_id=b.id,
         use_type=body.use_type,
         name=body.name,
-        geom=geo.element(wkt),
-        area_ha=geo.area_ha(db, wkt),
+        geom=polygon_geojson,
+        area_ha=geo.area_ha(polygon_geojson),
         season=body.season,
         user_hamlets=list(body.user_hamlets),
     )
-    db.add(zone)
+    b.use_zones.append(zone)
     db.commit()
-    return next(z for z in geo.use_zones_out(db, b.id) if z.id == zone.id)
+    return next(z for z in geo.use_zones_out(b) if z.id == zone.id)
 
 
 @router.delete("/cases/{case_id}/boundary/use-zones/{zone_id}", status_code=204)
@@ -303,29 +309,24 @@ def delete_use_zone(
 ) -> None:
     ctx = load_case(db, principal, case_id)
     b = _editable(db, ctx)
-    zone = db.get(UseZone, zone_id)
-    if zone is None or zone.boundary_id != b.id:
+    original_len = len(b.use_zones)
+    b.use_zones = [z for z in b.use_zones if z.id != zone_id]
+    if len(b.use_zones) == original_len:
         raise ApiError(404, "USE_ZONE_NOT_FOUND", "boundary.use_zone_not_found")
-    db.delete(zone)
     db.commit()
 
 
 # ── Boundary walk (G9) ────────────────────────────────────────────────────────
 
 
-def _walk_out(db: DbSession, w: BoundaryWalk) -> WalkOut:
-    trace, length = db.execute(
-        select(
-            func.ST_AsGeoJSON(BoundaryWalk.trace, 7),
-            func.ST_Length(func.Geography(BoundaryWalk.trace)),
-        ).where(BoundaryWalk.id == w.id)
-    ).one()
+def _walk_out(w: BoundaryWalk) -> WalkOut:
+    trace_length = geo.length_m(w.trace) if w.trace else None
     return WalkOut(
         id=w.id,
         walked_on=w.walked_on,
         participants=[Participant.model_validate(p) for p in w.participants],
-        trace=geo.as_json(trace) if trace else None,
-        trace_length_m=round(float(length), 1) if length is not None else None,
+        trace=w.trace,
+        trace_length_m=trace_length,
         notes=w.notes,
         created_at=w.created_at,
     )
@@ -340,19 +341,19 @@ def record_walk(
     """Who walked the customary boundary, and when, with the GPS trace [Rule 12(1)(f)]."""
     ctx = load_case(db, principal, case_id)
     _ensure_can_map(ctx)
-    member_ids = {p.gs_member_id for p in body.participants if p.gs_member_id}
+    member_ids = [p.gs_member_id for p in body.participants if p.gs_member_id]
     if member_ids:
-        found = db.scalar(
-            select(func.count())
-            .select_from(GsMember)
-            .where(GsMember.id.in_(member_ids), GsMember.gram_sabha_id == ctx.case.gram_sabha_id)
+        found = db.count(
+            GsMember,
+            {"_id": {"$in": member_ids}, "gram_sabha_id": ctx.case.gram_sabha_id},
         )
         if found != len(member_ids):
             raise ApiError(422, "PARTICIPANT_NOT_IN_ROSTER", "boundary.participant_not_in_roster")
     trace = None
     if body.trace is not None:
         try:
-            trace = geo.element(line_wkt([position(p) for p in body.trace.coordinates]))
+            pts = [position(p) for p in body.trace.coordinates]
+            trace = {"type": "LineString", "coordinates": pts}
         except GeoError as e:
             raise _geo_error(e) from e
     walk = BoundaryWalk(
@@ -360,24 +361,24 @@ def record_walk(
         walked_on=body.walked_on,
         participants=[p.model_dump(mode="json") for p in body.participants],
         trace=trace,
+        trace_length_m=geo.length_m(trace) if trace else None,
         notes=body.notes,
         created_by_user_id=user.id,
     )
     db.add(walk)
     db.commit()
-    db.refresh(walk)
-    return _walk_out(db, walk)
+    return _walk_out(walk)
 
 
 @router.get("/cases/{case_id}/boundary/walks", response_model=list[WalkOut])
 def list_walks(case_id: uuid.UUID, db: DbSession, principal: CurrentPrincipal) -> list[WalkOut]:
     load_case(db, principal, case_id)
-    walks = db.scalars(
-        select(BoundaryWalk)
-        .where(BoundaryWalk.case_id == case_id)
-        .order_by(BoundaryWalk.walked_on, BoundaryWalk.created_at)
+    walks = db.find(
+        BoundaryWalk,
+        {"case_id": case_id},
+        sort=[("walked_on", 1), ("created_at", 1)],
     )
-    return [_walk_out(db, w) for w in walks]
+    return [_walk_out(w) for w in walks]
 
 
 # ── Overlaps and disputes [Rule 12(3)] ────────────────────────────────────────

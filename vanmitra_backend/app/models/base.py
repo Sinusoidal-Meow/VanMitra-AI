@@ -1,24 +1,23 @@
-"""Declarative base, ID generation and shared columns."""
+"""
+The shape of every stored record (a "document" in MongoDB), ids and timestamps.
+
+Each kind of record is a Pydantic model with a COLLECTION name. Records are converted
+to MongoDB form by `to_mongo()` and back by `from_mongo()`:
+- the id is stored as `_id` (a UUIDv7, so ids sort in creation order);
+- calendar dates are stored as "YYYY-MM-DD" text, times in UTC to the millisecond
+  (MongoDB keeps milliseconds only, and the hash chain must see exactly what is stored);
+- enum values are stored as their text, decimals as Decimal128.
+"""
 
 import uuid
-from datetime import datetime
+from collections.abc import Mapping
+from datetime import UTC, date, datetime
+from decimal import Decimal
+from enum import Enum
+from typing import Annotated, Any, ClassVar, Self
 
 import uuid6
-from sqlalchemy import DateTime, MetaData, func
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
-
-# Stable constraint names so Alembic migrations are predictable.
-NAMING_CONVENTION = {
-    "ix": "ix_%(column_0_label)s",
-    "uq": "uq_%(table_name)s_%(column_0_name)s",
-    "ck": "ck_%(table_name)s_%(constraint_name)s",
-    "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
-    "pk": "pk_%(table_name)s",
-}
-
-
-class Base(DeclarativeBase):
-    metadata = MetaData(naming_convention=NAMING_CONVENTION)
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 
 
 def new_id() -> uuid.UUID:
@@ -26,12 +25,73 @@ def new_id() -> uuid.UUID:
     return uuid.UUID(bytes=uuid6.uuid7().bytes)
 
 
-class IdMixin:
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=new_id)
+def to_ms(moment: datetime) -> datetime:
+    """The moment in UTC, cut to whole milliseconds (what MongoDB stores)."""
+    aware = moment if moment.tzinfo else moment.replace(tzinfo=UTC)
+    utc = aware.astimezone(UTC)
+    return utc.replace(microsecond=(utc.microsecond // 1000) * 1000)
 
 
-class TimestampMixin:
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
-    )
+def now_ms() -> datetime:
+    return to_ms(datetime.now(UTC))
+
+
+def bson_ready(value: Any) -> Any:
+    """Plain values MongoDB stores exactly and gives back unchanged."""
+    if isinstance(value, Enum):
+        return value.value
+    if isinstance(value, datetime):
+        return to_ms(value)
+    if isinstance(value, date):
+        return value.isoformat()
+    if isinstance(value, dict):
+        return {str(k): bson_ready(v) for k, v in value.items()}
+    if isinstance(value, list | tuple | set | frozenset):
+        return [bson_ready(v) for v in value]
+    return value  # str, int, float, bool, None, UUID, Decimal
+
+
+class Part(BaseModel):
+    """A piece stored inside a record (a form, a list entry), not on its own."""
+
+    model_config = ConfigDict(extra="ignore")
+
+
+class Doc(BaseModel):
+    """A record stored on its own in a MongoDB collection."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    COLLECTION: ClassVar[str] = ""
+    # Append-only records (rule C8) are never replaced or deleted by the server.
+    APPEND_ONLY: ClassVar[bool] = False
+
+    id: uuid.UUID = Field(default_factory=new_id)
+
+    def to_mongo(self) -> dict[str, Any]:
+        data: dict[str, Any] = bson_ready(self.model_dump(exclude={"id"}))
+        return {"_id": self.id, **data}
+
+    @classmethod
+    def from_mongo(cls, raw: Mapping[str, Any]) -> Self:
+        data = {k: v for k, v in raw.items() if k != "_id"}
+        return cls.model_validate({"id": raw["_id"], **data})
+
+
+class TimestampedDoc(Doc):
+    """A record with created/updated times (updated_at moves on every saved change)."""
+
+    created_at: datetime = Field(default_factory=now_ms)
+    updated_at: datetime = Field(default_factory=now_ms)
+
+
+def _places(places: str) -> Any:
+    def quantize(value: Decimal | None) -> Decimal | None:
+        return None if value is None else value.quantize(Decimal(places))
+
+    return AfterValidator(quantize)
+
+
+# Decimals rounded like the old database columns: Numeric(x, 2) and Numeric(x, 4).
+Dec2 = Annotated[Decimal, _places("0.01")]
+Dec4 = Annotated[Decimal, _places("0.0001")]

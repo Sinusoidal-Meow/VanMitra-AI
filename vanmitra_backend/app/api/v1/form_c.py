@@ -10,7 +10,6 @@ import uuid
 from decimal import Decimal
 
 from fastapi import APIRouter
-from sqlalchemy import select
 
 from ...auth.deps import CurrentPrincipal, CurrentUser, DbSession
 from ...domain.form_c import (
@@ -50,11 +49,11 @@ def _form_c_out(db: DbSession, ctx: CaseContext) -> FormCOut:
     case, village = ctx.case, ctx.village
     form = case.form_c
     assert form is not None
-    members = db.scalars(
-        select(GsMember)
-        .where(GsMember.gram_sabha_id == case.gram_sabha_id, GsMember.active.is_(True))
-        .order_by(GsMember.name)
-    ).all()
+    members = db.find(
+        GsMember,
+        {"gram_sabha_id": case.gram_sabha_id, "active": True},
+        sort=[("name", 1)],
+    )
     counts = member_sheet_counts(m.category for m in members)
     evidence = sorted(case.evidence_entries, key=lambda e: e.seq)
     landmarks = sorted(form.landmarks, key=lambda lm: lm.seq)
@@ -160,17 +159,11 @@ def put_form_c(
     form.khasra_compartment_numbers = list(dict.fromkeys(body.khasra_compartment_numbers))
     form.updated_by_user_id = user.id
 
-    # Child rows are replaced wholesale. Flush the deletes first: within one flush
-    # SQLAlchemy inserts before it deletes, which would trip the unique (case_id, seq).
-    form.landmarks.clear()
-    form.bordering_villages.clear()
-    case.evidence_entries.clear()
-    db.flush()
-    form.landmarks.extend(
+    form.landmarks = [
         FormCLandmark(seq=i, side=lm.side, kind=lm.kind, name=lm.name, description=lm.description)
         for i, lm in enumerate(body.landmarks, start=1)
-    )
-    form.bordering_villages.extend(
+    ]
+    form.bordering_villages = [
         FormCBorderingVillage(
             seq=i,
             name=b.name,
@@ -178,12 +171,10 @@ def put_form_c(
             sharing_details=b.sharing_details,
         )
         for i, b in enumerate(body.bordering_villages, start=1)
-    )
-    case.evidence_entries.extend(
+    ]
+    case.evidence_entries = [
         ClaimEvidenceEntry(seq=i, rule_ref=e.rule_ref, description=e.description)
         for i, e in enumerate(body.evidence, start=1)
-    )
+    ]
     db.commit()
-    db.refresh(case)
-    db.refresh(form)
     return _form_c_out(db, ctx)

@@ -1,27 +1,15 @@
-"""Claim cases and the Form B draft (community rights)."""
+"""
+Claim cases. A claim and its form are one record: the Form A, B or C draft is stored
+inside the claim, with its lists (family members, rights, landmarks, ...). The history
+of actions on a claim is a separate, append-only record (workflow_event).
+"""
 
 import uuid
 from datetime import date, datetime
-from decimal import Decimal
 
-from sqlalchemy import (
-    Boolean,
-    Date,
-    DateTime,
-    ForeignKey,
-    Integer,
-    Numeric,
-    SmallInteger,
-    String,
-    Text,
-    UniqueConstraint,
-    func,
-    text,
-)
-from sqlalchemy.dialects.postgresql import ARRAY
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from pydantic import Field
 
-from .base import Base, IdMixin, TimestampMixin
+from .base import Dec2, Doc, Part, TimestampedDoc, new_id, now_ms
 from .enums import (
     BoundarySide,
     CaseState,
@@ -33,279 +21,196 @@ from .enums import (
     Role,
     WorkflowAction,
 )
-from .people import GramSabha, pg_enum
 
 
-class ClaimCase(IdMixin, TimestampMixin, Base):
-    """
-    One claim. IFR, CR and CFR cases share this table (Spec §2.1), so cases in a
-    village share the same Gram Sabha meeting, quorum record and evidence pool.
-    Community (CR/CFR) cases are owned by the Gram Sabha, not an individual.
-    """
-
-    __tablename__ = "claim_case"
-    # The acknowledgement serial is a number in the Gram Sabha's own register.
-    __table_args__ = (
-        UniqueConstraint("gram_sabha_id", "ack_serial", name="uq_claim_case_ack_serial"),
-    )
-
-    gram_sabha_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("gram_sabha.id"), index=True)
-    claim_type: Mapped[ClaimType] = mapped_column(pg_enum(ClaimType, "claim_type"))
-    state: Mapped[CaseState] = mapped_column(
-        pg_enum(CaseState, "case_state"), default=CaseState.DRAFT
-    )
-    created_by_user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("app_user.id"))
-    # Furthest level the case has reached (0 draft, 1 Gram Sabha, 2 SDO, 3 district,
-    # 4 title). Officials see a case once it has reached their level, even if returned.
-    reached_stage: Mapped[int] = mapped_column(SmallInteger, server_default=text("0"))
-    # Acknowledgement in writing of every claim received [Rule 11(3)], issued on filing.
-    ack_serial: Mapped[str | None] = mapped_column(String(60))
-    acknowledged_on: Mapped[date | None] = mapped_column(Date)
-    # The call for claims it was filed under, and whether it came within the window.
-    claim_call_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("claim_call.id"))
-    filed_within_window: Mapped[bool | None] = mapped_column(Boolean)
-
-    gram_sabha: Mapped[GramSabha] = relationship()
-    form_a: Mapped["FormA | None"] = relationship(
-        back_populates="case", cascade="all, delete-orphan", uselist=False
-    )
-    events: Mapped[list["WorkflowEvent"]] = relationship(
-        back_populates="case", order_by="WorkflowEvent.created_at"
-    )
-    form_b: Mapped["FormB | None"] = relationship(
-        back_populates="case", cascade="all, delete-orphan", uselist=False
-    )
-    form_c: Mapped["FormC | None"] = relationship(
-        back_populates="case", cascade="all, delete-orphan", uselist=False
-    )
-    evidence_entries: Mapped[list["ClaimEvidenceEntry"]] = relationship(
-        back_populates="case",
-        cascade="all, delete-orphan",
-        order_by="ClaimEvidenceEntry.seq",
-    )
-
-
-class FormB(TimestampMixin, Base):
-    """The Form B draft for a CR case. Items 2-5 come from the village registry."""
-
-    __tablename__ = "form_b"
-
-    case_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("claim_case.id"), primary_key=True)
-    # Item 1. Empty while drafting; completeness reports it.
-    claimant_names: Mapped[list[str]] = mapped_column(
-        ARRAY(String(200)), server_default=text("'{}'")
-    )
-    # Items 1(a), 1(b). NULL = not answered yet.
-    is_fdst_community: Mapped[bool | None] = mapped_column(Boolean)
-    is_otfd_community: Mapped[bool | None] = mapped_column(Boolean)
-    # Item 8.
-    other_information: Mapped[str | None] = mapped_column(Text)
-    updated_by_user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("app_user.id"))
-
-    case: Mapped[ClaimCase] = relationship(back_populates="form_b")
-    rights: Mapped[list["FormBRightClaim"]] = relationship(
-        back_populates="form_b", cascade="all, delete-orphan"
-    )
-
-
-class FormBRightClaim(IdMixin, Base):
+class FormBRightClaim(Part):
     """A claimed right from Form B "Nature of community rights enjoyed" (items 1-6).
 
-    No row means the right is not claimed.
+    No entry means the right is not claimed.
     """
 
-    __tablename__ = "form_b_right"
-    __table_args__ = (UniqueConstraint("case_id", "right_code", name="uq_form_b_right_code"),)
-
-    case_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("form_b.case_id"), index=True)
-    right_code: Mapped[FormBRight] = mapped_column(pg_enum(FormBRight, "form_b_right_code"))
+    id: uuid.UUID = Field(default_factory=new_id)
+    right_code: FormBRight  # one entry per right
     # How the community enjoys the right, in the community's own words (any language).
-    details: Mapped[str] = mapped_column(Text)
+    details: str
     # Optional named things: produce (mahua, tendu), ponds, grazing areas, local names.
-    items: Mapped[list[str]] = mapped_column(ARRAY(String(200)), server_default=text("'{}'"))
+    items: list[str] = Field(default_factory=list)
     # Maharashtra field practice, "लाभ घेतलेल्या सामूहिक हक्कांचे स्वरूप" (1mitra.md §6.2):
     # per right, the survey/compartment numbers, the area, the four boundaries by landmark
     # (चतु:सीमा) and the annual quantity used. All optional.
-    survey_compartment_numbers: Mapped[list[str]] = mapped_column(
-        ARRAY(String(50)), server_default=text("'{}'")
-    )
-    total_area_ha: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
-    common_use_area_ha: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
-    boundary_east: Mapped[str | None] = mapped_column(String(200))
-    boundary_west: Mapped[str | None] = mapped_column(String(200))
-    boundary_north: Mapped[str | None] = mapped_column(String(200))
-    boundary_south: Mapped[str | None] = mapped_column(String(200))
-    annual_quantity: Mapped[str | None] = mapped_column(Text)
-
-    form_b: Mapped[FormB] = relationship(back_populates="rights")
+    survey_compartment_numbers: list[str] = Field(default_factory=list)
+    total_area_ha: Dec2 | None = None
+    common_use_area_ha: Dec2 | None = None
+    boundary_east: str | None = None
+    boundary_west: str | None = None
+    boundary_north: str | None = None
+    boundary_south: str | None = None
+    annual_quantity: str | None = None
 
 
-class ClaimEvidenceEntry(IdMixin, Base):
+class FormB(Part):
+    """The Form B draft for a CR case. Items 2-5 come from the village registry."""
+
+    # Item 1. Empty while drafting; completeness reports it.
+    claimant_names: list[str] = Field(default_factory=list)
+    # Items 1(a), 1(b). None = not answered yet.
+    is_fdst_community: bool | None = None
+    is_otfd_community: bool | None = None
+    # Item 8.
+    other_information: str | None = None
+    updated_by_user_id: uuid.UUID
+    rights: list[FormBRightClaim] = Field(default_factory=list)
+    created_at: datetime = Field(default_factory=now_ms)
+    updated_at: datetime = Field(default_factory=now_ms)
+
+
+class ClaimEvidenceEntry(Part):
     """
     A line of the form's "Evidence in support" list (Form B item 7 / Form C item 8),
-    tagged with its Rule 13 sub-clause. The Stage 2 evidence ledger will link each
-    entry to the captured, hash-chained artefact.
+    tagged with its Rule 13 sub-clause.
     """
 
-    __tablename__ = "claim_evidence_entry"
-    __table_args__ = (UniqueConstraint("case_id", "seq", name="uq_claim_evidence_entry_seq"),)
-
-    case_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("claim_case.id"), index=True)
-    seq: Mapped[int] = mapped_column(Integer)  # 1-based order as printed
-    rule_ref: Mapped[EvidenceRule] = mapped_column(pg_enum(EvidenceRule, "evidence_rule"))
-    description: Mapped[str] = mapped_column(Text)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-
-    case: Mapped[ClaimCase] = relationship(back_populates="evidence_entries")
+    id: uuid.UUID = Field(default_factory=new_id)
+    seq: int  # 1-based order as printed
+    rule_ref: EvidenceRule
+    description: str
+    created_at: datetime = Field(default_factory=now_ms)
 
 
-class FormC(TimestampMixin, Base):
+class FormCLandmark(Part):
+    """A recognisable landmark of the CFR area (item 5b): on a boundary side or within."""
+
+    id: uuid.UUID = Field(default_factory=new_id)
+    seq: int
+    side: BoundarySide
+    kind: LandmarkKind
+    name: str  # local name, e.g. "नागदेवता"
+    description: str | None = None
+
+
+class FormCBorderingVillage(Part):
+    """Item 7: a bordering village, with any sharing of resources and responsibilities."""
+
+    id: uuid.UUID = Field(default_factory=new_id)
+    seq: int
+    name: str
+    shares_resources: bool = False
+    sharing_details: str | None = None
+
+
+class FormC(Part):
     """
     The Form C draft for a CFR case [Sec 3(1)(i); Rule 11(1), 11(4)].
     Items 1-4 come from the village registry and item 5 (member sheet) from the
     Gram Sabha roster; the map polygon itself is captured in the mapping stage.
     """
 
-    __tablename__ = "form_c"
-
-    case_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("claim_case.id"), primary_key=True)
     # Item 5a: the resolving statement, editable by the FRC (local language allowed).
-    resolution_statement: Mapped[str] = mapped_column(Text)
+    resolution_statement: str
     # Item 5b: the community forest resource in words, until the mapped polygon exists.
-    area_description: Mapped[str | None] = mapped_column(Text)
-    approx_area_ha: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    area_description: str | None = None
+    approx_area_ha: Dec2 | None = None
     # Item 5b: "or seasonal use of landscape in the case of pastoral communities".
-    pastoral_seasonal_use: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
-    seasonal_use_details: Mapped[str | None] = mapped_column(Text)
+    pastoral_seasonal_use: bool = False
+    seasonal_use_details: str | None = None
     # Item 6: khasra / compartment numbers, "if any and if known" (optional by design).
-    khasra_compartment_numbers: Mapped[list[str]] = mapped_column(
-        ARRAY(String(50)), server_default=text("'{}'")
-    )
-    updated_by_user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("app_user.id"))
-
-    case: Mapped[ClaimCase] = relationship(back_populates="form_c")
-    landmarks: Mapped[list["FormCLandmark"]] = relationship(
-        back_populates="form_c", cascade="all, delete-orphan", order_by="FormCLandmark.seq"
-    )
-    bordering_villages: Mapped[list["FormCBorderingVillage"]] = relationship(
-        back_populates="form_c",
-        cascade="all, delete-orphan",
-        order_by="FormCBorderingVillage.seq",
-    )
+    khasra_compartment_numbers: list[str] = Field(default_factory=list)
+    updated_by_user_id: uuid.UUID
+    landmarks: list[FormCLandmark] = Field(default_factory=list)
+    bordering_villages: list[FormCBorderingVillage] = Field(default_factory=list)
+    created_at: datetime = Field(default_factory=now_ms)
+    updated_at: datetime = Field(default_factory=now_ms)
 
 
-class FormCLandmark(IdMixin, Base):
-    """A recognisable landmark of the CFR area (item 5b): on a boundary side or within."""
+class FormAFamilyMember(Part):
+    """Item 10: other members of the family with age (children and adult dependents)."""
 
-    __tablename__ = "form_c_landmark"
-    __table_args__ = (UniqueConstraint("case_id", "seq", name="uq_form_c_landmark_seq"),)
-
-    case_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("form_c.case_id"), index=True)
-    seq: Mapped[int] = mapped_column(Integer)
-    side: Mapped[BoundarySide] = mapped_column(pg_enum(BoundarySide, "boundary_side"))
-    kind: Mapped[LandmarkKind] = mapped_column(pg_enum(LandmarkKind, "landmark_kind"))
-    name: Mapped[str] = mapped_column(String(200))  # local name, e.g. "नागदेवता"
-    description: Mapped[str | None] = mapped_column(Text)
-
-    form_c: Mapped[FormC] = relationship(back_populates="landmarks")
+    id: uuid.UUID = Field(default_factory=new_id)
+    seq: int
+    name: str
+    age: int | None = None
+    relation: str | None = None
 
 
-class FormCBorderingVillage(IdMixin, Base):
-    """Item 7: a bordering village, with any sharing of resources and responsibilities."""
+class FormAClaimItem(Part):
+    """
+    A claimed item under Form A "Nature of claim on land" (items 1-7).
 
-    __tablename__ = "form_c_bordering_village"
-    __table_args__ = (UniqueConstraint("case_id", "seq", name="uq_form_c_bordering_village_seq"),)
+    No entry means the item is not claimed.
+    """
 
-    case_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("form_c.case_id"), index=True)
-    seq: Mapped[int] = mapped_column(Integer)
-    name: Mapped[str] = mapped_column(String(200))
-    shares_resources: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
-    sharing_details: Mapped[str | None] = mapped_column(Text)
-
-    form_c: Mapped[FormC] = relationship(back_populates="bordering_villages")
+    id: uuid.UUID = Field(default_factory=new_id)
+    claim_code: FormAClaim  # one entry per item
+    extent_ha: Dec2 | None = None
+    details: str
 
 
-class FormA(TimestampMixin, Base):
+class FormA(Part):
     """
     The Form A draft for an IFR case: Claim Form for Rights to Forest Land [Rule 11(1)(a)].
     Items 5-8 (village, GP, tehsil, district) come from the village registry.
     """
 
-    __tablename__ = "form_a"
-
-    case_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("claim_case.id"), primary_key=True)
-    claimant_names: Mapped[list[str]] = mapped_column(
-        ARRAY(String(200)), server_default=text("'{}'")
-    )  # item 1
-    spouse_name: Mapped[str | None] = mapped_column(String(200))  # item 2
-    father_mother_name: Mapped[str | None] = mapped_column(String(200))  # item 3
-    address: Mapped[str | None] = mapped_column(Text)  # item 4
-    is_scheduled_tribe: Mapped[bool | None] = mapped_column(Boolean)  # item 9(a)
-    is_otfd: Mapped[bool | None] = mapped_column(Boolean)  # item 9(b)
-    spouse_is_scheduled_tribe: Mapped[bool | None] = mapped_column(Boolean)  # item 9 note
-    other_information: Mapped[str | None] = mapped_column(Text)  # claim item 9
-    updated_by_user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("app_user.id"))
-
-    case: Mapped[ClaimCase] = relationship(back_populates="form_a")
-    family_members: Mapped[list["FormAFamilyMember"]] = relationship(
-        back_populates="form_a", cascade="all, delete-orphan", order_by="FormAFamilyMember.seq"
-    )
-    claims: Mapped[list["FormAClaimItem"]] = relationship(
-        back_populates="form_a", cascade="all, delete-orphan"
-    )
+    claimant_names: list[str] = Field(default_factory=list)  # item 1
+    spouse_name: str | None = None  # item 2
+    father_mother_name: str | None = None  # item 3
+    address: str | None = None  # item 4
+    is_scheduled_tribe: bool | None = None  # item 9(a)
+    is_otfd: bool | None = None  # item 9(b)
+    spouse_is_scheduled_tribe: bool | None = None  # item 9 note
+    other_information: str | None = None  # claim item 9
+    updated_by_user_id: uuid.UUID
+    family_members: list[FormAFamilyMember] = Field(default_factory=list)
+    claims: list[FormAClaimItem] = Field(default_factory=list)
+    created_at: datetime = Field(default_factory=now_ms)
+    updated_at: datetime = Field(default_factory=now_ms)
 
 
-class FormAFamilyMember(IdMixin, Base):
-    """Item 10: other members of the family with age (children and adult dependents)."""
-
-    __tablename__ = "form_a_family_member"
-    __table_args__ = (UniqueConstraint("case_id", "seq", name="uq_form_a_family_member_seq"),)
-
-    case_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("form_a.case_id"), index=True)
-    seq: Mapped[int] = mapped_column(Integer)
-    name: Mapped[str] = mapped_column(String(200))
-    age: Mapped[int | None] = mapped_column(SmallInteger)
-    relation: Mapped[str | None] = mapped_column(String(100))
-
-    form_a: Mapped[FormA] = relationship(back_populates="family_members")
-
-
-class FormAClaimItem(IdMixin, Base):
+class ClaimCase(TimestampedDoc):
     """
-    A claimed item under Form A "Nature of claim on land" (items 1-7).
-
-    No row means the item is not claimed.
+    One claim. IFR, CR and CFR cases share this collection (Spec §2.1), so cases in a
+    village share the same Gram Sabha meeting, quorum record and evidence pool.
+    Community (CR/CFR) cases are owned by the Gram Sabha, not an individual.
     """
 
-    __tablename__ = "form_a_claim"
-    __table_args__ = (UniqueConstraint("case_id", "claim_code", name="uq_form_a_claim_code"),)
+    COLLECTION = "claim_case"
 
-    case_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("form_a.case_id"), index=True)
-    claim_code: Mapped[FormAClaim] = mapped_column(pg_enum(FormAClaim, "form_a_claim_code"))
-    extent_ha: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
-    details: Mapped[str] = mapped_column(Text)
+    gram_sabha_id: uuid.UUID
+    claim_type: ClaimType
+    state: CaseState = CaseState.DRAFT
+    created_by_user_id: uuid.UUID
+    # Furthest level the case has reached (0 draft, 1 Gram Sabha, 2 SDO, 3 district,
+    # 4 title). Officials see a case once it has reached their level, even if returned.
+    reached_stage: int = 0
+    # Acknowledgement in writing of every claim received [Rule 11(3)], issued on filing.
+    # The serial is unique within the Gram Sabha's own register.
+    ack_serial: str | None = None
+    acknowledged_on: date | None = None
+    # The call for claims it was filed under, and whether it came within the window.
+    claim_call_id: uuid.UUID | None = None
+    filed_within_window: bool | None = None
+    # The form of this claim (only the one matching claim_type is ever set).
+    form_a: FormA | None = None
+    form_b: FormB | None = None
+    form_c: FormC | None = None
+    evidence_entries: list[ClaimEvidenceEntry] = Field(default_factory=list)
 
-    form_a: Mapped[FormA] = relationship(back_populates="claims")
 
-
-class WorkflowEvent(IdMixin, Base):
+class WorkflowEvent(Doc):
     """
     Append-only history of every action on a case: who, in which role, what, remarks.
-    District approvals are recorded one per officer (from_state = to_state =
-    district_review) until all three have approved.
     """
 
-    __tablename__ = "workflow_event"
+    COLLECTION = "workflow_event"
+    APPEND_ONLY = True
 
-    case_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("claim_case.id"), index=True)
-    action: Mapped[WorkflowAction] = mapped_column(pg_enum(WorkflowAction, "workflow_action"))
-    from_state: Mapped[CaseState] = mapped_column(pg_enum(CaseState, "case_state"))
-    to_state: Mapped[CaseState] = mapped_column(pg_enum(CaseState, "case_state"))
+    case_id: uuid.UUID
+    action: WorkflowAction
+    from_state: CaseState
+    to_state: CaseState
     # Empty for the automatic expiry, which no person performs.
-    actor_user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("app_user.id"))
-    actor_role: Mapped[Role | None] = mapped_column(pg_enum(Role, "app_role"))
-    actor_name: Mapped[str] = mapped_column(String(200))  # as it was at the time
-    remarks: Mapped[str | None] = mapped_column(Text)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-
-    case: Mapped[ClaimCase] = relationship(back_populates="events")
+    actor_user_id: uuid.UUID | None = None
+    actor_role: Role | None = None
+    actor_name: str  # as it was at the time
+    remarks: str | None = None
+    created_at: datetime = Field(default_factory=now_ms)

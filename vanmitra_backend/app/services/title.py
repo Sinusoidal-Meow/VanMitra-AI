@@ -4,9 +4,7 @@ Field order follows the printed annexures (1mitra.md §6.4). Signed by three dis
 officers: DFO/DCF, District Tribal Welfare Officer, Collector/DC.
 """
 
-from sqlalchemy import select
-from sqlalchemy.orm import Session
-
+from ..db import Store
 from ..domain.form_a import CLAIM_SPECS
 from ..domain.form_b import RIGHT_SPECS
 from ..domain.form_c import member_sheet_counts
@@ -45,7 +43,7 @@ def _community(st: bool | None, otfd: bool | None) -> str:
     return "Not stated"
 
 
-def build_title_draft(db: Session, ctx: CaseContext) -> TitleDraftOut:
+def build_title_draft(db: Store, ctx: CaseContext) -> TitleDraftOut:
     case, village = ctx.case, ctx.village
     state_name = village.state or "Maharashtra"
     signatories = [
@@ -150,11 +148,9 @@ def build_title_draft(db: Session, ctx: CaseContext) -> TitleDraftOut:
 
     form_c = case.form_c
     assert form_c is not None
-    members = db.scalars(
-        select(GsMember.category).where(
-            GsMember.gram_sabha_id == case.gram_sabha_id, GsMember.active.is_(True)
-        )
-    ).all()
+    members = [
+        m.category for m in db.find(GsMember, {"gram_sabha_id": case.gram_sabha_id, "active": True})
+    ]
     counts = member_sheet_counts(members)
     by_side: dict[str, list[str]] = {}
     for lm in sorted(form_c.landmarks, key=lambda lm: lm.seq):

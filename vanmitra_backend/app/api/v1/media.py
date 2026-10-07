@@ -9,7 +9,6 @@ from typing import Annotated
 
 from fastapi import APIRouter, File, Form, UploadFile, status
 from fastapi.responses import FileResponse
-from sqlalchemy import or_, select
 
 from ... import storage
 from ...auth.deps import CurrentPrincipal, CurrentUser, DbSession
@@ -85,7 +84,6 @@ async def upload(
     )
     db.add(media)
     db.commit()
-    db.refresh(media)
     return media_out(media)
 
 
@@ -95,11 +93,11 @@ def _accessible(db: DbSession, principal: CurrentPrincipal, media_id: uuid.UUID)
         raise ApiError(404, "MEDIA_NOT_FOUND", "media.not_found")
     if media.uploaded_by_user_id == principal.user_id:
         return media
-    case_ids = db.scalars(
-        select(Evidence.case_id).where(
-            or_(Evidence.media_id == media_id, Evidence.signed_scan_media_id == media_id)
-        )
-    ).all()
+    case_ids = db.distinct(
+        Evidence,
+        "case_id",
+        {"$or": [{"media_id": media_id}, {"signed_scan_media_id": media_id}]},
+    )
     for case_id in set(case_ids):
         try:
             load_case(db, principal, case_id)

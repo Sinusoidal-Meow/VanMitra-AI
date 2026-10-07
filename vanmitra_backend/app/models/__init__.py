@@ -1,6 +1,6 @@
-"""SQLAlchemy models. Import every model module here so Alembic sees all tables."""
+"""Stored records (MongoDB documents) and the vocabularies they use."""
 
-from .base import Base
+from .base import Doc, Part, TimestampedDoc, new_id, now_ms
 from .boundary import (
     BoundaryLandmark,
     BoundarySegment,
@@ -61,11 +61,42 @@ from .procedure import (
     VerificationProceeding,
 )
 
+# Every kind of record stored on its own, by collection name (used by the hash chain to
+# load a chained record, and by the database setup).
+DOC_TYPES: dict[str, type[Doc]] = {
+    m.COLLECTION: m
+    for m in (
+        Village,
+        GramSabha,
+        GsMember,
+        AppUser,
+        UserRole,
+        ClaimCase,
+        WorkflowEvent,
+        Frc,
+        CaseClaimant,
+        Recusal,
+        ClaimCall,
+        Media,
+        Evidence,
+        EvidenceVerification,
+        LedgerEntry,
+        Correspondence,
+        VerificationProceeding,
+        GsMeeting,
+        Resolution,
+        TitleFollowup,
+        CfrBoundary,
+        BoundaryWalk,
+        Dispute,
+        Notification,
+    )
+}
+
 __all__ = [
-    "Notification",
+    "DOC_TYPES",
     "AppUser",
     "Attendance",
-    "Base",
     "BoundaryLandmark",
     "BoundarySegment",
     "BoundarySide",
@@ -82,6 +113,7 @@ __all__ = [
     "Correspondence",
     "Dispute",
     "DisputeOutcome",
+    "Doc",
     "Evidence",
     "EvidenceKind",
     "EvidenceRule",
@@ -107,9 +139,12 @@ __all__ = [
     "LetterTemplate",
     "Media",
     "MemberCategory",
+    "Notification",
+    "Part",
     "Recusal",
     "Resolution",
     "Role",
+    "TimestampedDoc",
     "TitleFollowup",
     "UseZone",
     "UseZoneType",
@@ -118,4 +153,6 @@ __all__ = [
     "Village",
     "WorkflowAction",
     "WorkflowEvent",
+    "new_id",
+    "now_ms",
 ]

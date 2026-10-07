@@ -6,8 +6,7 @@ Each later stage of the procedure fills in its part here.
 
 from dataclasses import dataclass
 
-from sqlalchemy.orm import Session
-
+from ..db import Store
 from ..models import BoundaryStatus, ClaimType
 from . import boundary, gramsabha
 from .cases import CaseContext
@@ -22,7 +21,7 @@ class ProcedureFacts:
     open_disputes: int = 0
 
 
-def collect(db: Session, ctx: CaseContext) -> ProcedureFacts:
+def collect(db: Store, ctx: CaseContext) -> ProcedureFacts:
     approved = False
     unmarked: int | None = None
     disputes = 0

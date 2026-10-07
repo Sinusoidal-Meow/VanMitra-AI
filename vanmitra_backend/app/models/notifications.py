@@ -7,21 +7,20 @@ written at the time.
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, Text, func
-from sqlalchemy.orm import Mapped, mapped_column
+from pydantic import Field
 
-from .base import Base, IdMixin
+from .base import Doc, now_ms
 
 
-class Notification(IdMixin, Base):
-    __tablename__ = "notification"
+class Notification(Doc):
+    COLLECTION = "notification"
 
-    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("app_user.id"), index=True)
-    case_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("claim_case.id"), index=True)
-    kind: Mapped[str] = mapped_column(String(40))  # e.g. "claim_expired"
-    title_en: Mapped[str] = mapped_column(String(200))
-    body_en: Mapped[str] = mapped_column(Text)
-    title_mr: Mapped[str] = mapped_column(String(200))
-    body_mr: Mapped[str] = mapped_column(Text)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    user_id: uuid.UUID
+    case_id: uuid.UUID | None = None
+    kind: str  # e.g. "claim_expired"
+    title_en: str
+    body_en: str
+    title_mr: str
+    body_mr: str
+    created_at: datetime = Field(default_factory=now_ms)
+    read_at: datetime | None = None

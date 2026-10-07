@@ -1,22 +1,24 @@
 """
-PostGIS work for the boundary: validity, areas in UTM 43N, GeoJSON out, and overlap
-detection against neighbouring villages' claims, which opens disputes [Rule 12(3)].
+Boundary geometry with Shapely + PyProj: validity, areas/lengths in UTM 43N, GeoJSON out,
+and overlap detection against neighbouring villages' claims, which opens disputes [Rule 12(3)].
 """
 
+import hashlib
 import json
 import uuid
 from datetime import date
 from decimal import Decimal
 from typing import Any
 
-from geoalchemy2 import WKTElement
-from sqlalchemy import ColumnElement, Select, and_, func, or_, select
-from sqlalchemy.orm import Session, aliased
+import shapely
+import shapely.ops
+from pyproj import Transformer
+from shapely.geometry import mapping, shape
+from shapely.validation import explain_validity
 
+from ..db import Store
 from ..geo import GeoError
 from ..models import (
-    BoundaryLandmark,
-    BoundarySegment,
     BoundaryStatus,
     CaseState,
     CfrBoundary,
@@ -25,10 +27,8 @@ from ..models import (
     Dispute,
     DisputeOutcome,
     GramSabha,
-    UseZone,
     Village,
 )
-from ..models.boundary import AREA_SRID, SRID
 from ..schemas.boundary import (
     BoundaryOut,
     DisputeOut,
@@ -38,128 +38,103 @@ from ..schemas.boundary import (
 )
 
 GPS_LIMIT_M = 15.0  # B-14
-# Claims that no longer stand: they neither open nor keep a dispute with a neighbour.
 CLOSED_STATES = (CaseState.REJECTED, CaseState.EXPIRED)
 MIN_OVERLAP_HA = Decimal("0.0001")  # 1 m²: below this it is GPS noise along a shared edge
-EMPTY = WKTElement("GEOMETRYCOLLECTION EMPTY", srid=SRID)
+
+_transformer = Transformer.from_crs("EPSG:4326", "EPSG:32643", always_xy=True)
 
 
-def element(wkt: str) -> WKTElement:
-    return WKTElement(wkt, srid=SRID)
+def to_utm(geom: Any) -> Any:
+    return shapely.ops.transform(_transformer.transform, geom)
 
 
-def _from_wkt(wkt: str) -> ColumnElement[Any]:
-    return func.ST_GeomFromText(wkt, SRID)
+def ensure_valid(geom_or_wkt: str | dict[str, Any]) -> None:
+    geom = shapely.from_wkt(geom_or_wkt) if isinstance(geom_or_wkt, str) else shape(geom_or_wkt)
+    if not geom.is_valid:
+        raise GeoError("geo.invalid_polygon", explain_validity(geom))
 
 
-def ensure_valid(db: Session, wkt: str) -> None:
-    reason = db.scalar(select(func.ST_IsValidReason(_from_wkt(wkt))))
-    if reason != "Valid Geometry":
-        raise GeoError("geo.invalid_polygon", str(reason))
+def area_ha(geom_or_wkt: str | dict[str, Any]) -> Decimal:
+    geom = shapely.from_wkt(geom_or_wkt) if isinstance(geom_or_wkt, str) else shape(geom_or_wkt)
+    utm_geom = to_utm(geom)
+    return (Decimal(str(utm_geom.area)) / 10000).quantize(Decimal("0.0001"))
 
 
-def area_ha(db: Session, wkt: str) -> Decimal:
-    m2 = db.scalar(select(func.ST_Area(func.ST_Transform(_from_wkt(wkt), AREA_SRID))))
-    return (Decimal(str(m2 or 0)) / 10000).quantize(Decimal("0.0001"))
+def length_m(geom_or_wkt: str | dict[str, Any]) -> float:
+    geom = shapely.from_wkt(geom_or_wkt) if isinstance(geom_or_wkt, str) else shape(geom_or_wkt)
+    utm_geom = to_utm(geom)
+    return round(float(utm_geom.length), 2)
 
 
-def length_m(db: Session, wkt: str) -> float:
-    m = db.scalar(select(func.ST_Length(func.ST_Transform(_from_wkt(wkt), AREA_SRID))))
-    return round(float(m or 0), 2)
-
-
-def as_json(text: str | None) -> dict[str, Any]:
-    return dict(json.loads(text)) if text else {}
-
-
-def current_boundary(db: Session, case_id: uuid.UUID) -> CfrBoundary | None:
-    return db.scalar(
-        select(CfrBoundary).where(CfrBoundary.case_id == case_id, CfrBoundary.is_current.is_(True))
-    )
+def current_boundary(db: Store, case_id: uuid.UUID) -> CfrBoundary | None:
+    return db.find_one(CfrBoundary, {"case_id": case_id, "is_current": True})
 
 
 # ── Output ────────────────────────────────────────────────────────────────────
 
 
-def _segments(db: Session, b: CfrBoundary) -> list[SegmentOut]:
+def _segments_out(b: CfrBoundary) -> list[SegmentOut]:
     counts: dict[int, int] = {}
     for lm in b.landmarks:
         counts[lm.segment_seq] = counts.get(lm.segment_seq, 0) + 1
-    rows = db.execute(
-        select(
-            BoundarySegment.seq,
-            func.ST_AsGeoJSON(BoundarySegment.geom, 7),
-            BoundarySegment.length_m,
-        )
-        .where(BoundarySegment.boundary_id == b.id)
-        .order_by(BoundarySegment.seq)
-    ).all()
     return [
-        SegmentOut(seq=seq, geometry=as_json(g), length_m=length, landmark_count=counts.get(seq, 0))
-        for seq, g, length in rows
+        SegmentOut(
+            seq=s.seq,
+            geometry=s.geom,
+            length_m=s.length_m,
+            landmark_count=counts.get(s.seq, 0),
+        )
+        for s in sorted(b.segments, key=lambda s: s.seq)
     ]
 
 
-def landmarks_out(db: Session, boundary_id: uuid.UUID) -> list[LandmarkOut]:
-    seg = aliased(BoundarySegment)
-    distance = func.ST_Distance(func.Geography(BoundaryLandmark.point), func.Geography(seg.geom))
-    rows = db.execute(
-        select(
-            BoundaryLandmark,
-            func.ST_X(BoundaryLandmark.point),
-            func.ST_Y(BoundaryLandmark.point),
-            distance,
+def landmarks_out(b: CfrBoundary) -> list[LandmarkOut]:
+    seg_by_seq = {s.seq: s for s in b.segments}
+    out: list[LandmarkOut] = []
+    for lm in sorted(b.landmarks, key=lambda item: (item.segment_seq, item.created_at)):
+        seg = seg_by_seq.get(lm.segment_seq)
+        dist = 0.0
+        if seg is not None:
+            seg_utm = to_utm(shape(seg.geom))
+            pt_utm = to_utm(shape(lm.point))
+            dist = round(float(pt_utm.distance(seg_utm)), 1)
+        coords = lm.point.get("coordinates", [0.0, 0.0])
+        lon, lat = float(coords[0]), float(coords[1])
+        out.append(
+            LandmarkOut(
+                id=lm.id,
+                segment_seq=lm.segment_seq,
+                name=lm.name,
+                kind=lm.kind,
+                lon=lon,
+                lat=lat,
+                distance_to_segment_m=dist,
+                photo_media_id=lm.photo_media_id,
+                evidence_id=lm.evidence_id,
+            )
         )
-        .outerjoin(
-            seg,
-            and_(
-                seg.boundary_id == BoundaryLandmark.boundary_id,
-                seg.seq == BoundaryLandmark.segment_seq,
-            ),
-        )
-        .where(BoundaryLandmark.boundary_id == boundary_id)
-        .order_by(BoundaryLandmark.segment_seq, BoundaryLandmark.created_at)
-    ).all()
-    return [
-        LandmarkOut(
-            id=lm.id,
-            segment_seq=lm.segment_seq,
-            name=lm.name,
-            kind=lm.kind,
-            lon=lon,
-            lat=lat,
-            distance_to_segment_m=round(float(d or 0), 1),
-            photo_media_id=lm.photo_media_id,
-            evidence_id=lm.evidence_id,
-        )
-        for lm, lon, lat, d in rows
-    ]
+    return out
 
 
-def use_zones_out(db: Session, boundary_id: uuid.UUID) -> list[UseZoneOut]:
-    rows = db.execute(
-        select(
-            UseZone,
-            func.ST_AsGeoJSON(UseZone.geom, 7),
-            func.ST_CoveredBy(UseZone.geom, CfrBoundary.geom),
+def use_zones_out(b: CfrBoundary) -> list[UseZoneOut]:
+    poly = shape(b.geom)
+    out: list[UseZoneOut] = []
+    for z in sorted(b.use_zones, key=lambda u: u.created_at):
+        zone_poly = shape(z.geom)
+        inside = poly.covers(zone_poly) or poly.contains(zone_poly)
+        out.append(
+            UseZoneOut(
+                id=z.id,
+                use_type=z.use_type,
+                name=z.name,
+                geometry=z.geom,
+                area_ha=z.area_ha,
+                season=z.season,
+                user_hamlets=list(z.user_hamlets),
+                within_boundary=bool(inside),
+            )
         )
-        .join(CfrBoundary, CfrBoundary.id == UseZone.boundary_id)
-        .where(UseZone.boundary_id == boundary_id)
-        .order_by(UseZone.created_at)
-    ).all()
-    return [
-        UseZoneOut(
-            id=z.id,
-            use_type=z.use_type,
-            name=z.name,
-            geometry=as_json(g),
-            area_ha=z.area_ha,
-            season=z.season,
-            user_hamlets=list(z.user_hamlets),
-            within_boundary=bool(inside),
-        )
-        for z, g, inside in rows
-    ]
+    return out
 
 
 def segments_without_landmark(b: CfrBoundary) -> int:
@@ -167,24 +142,21 @@ def segments_without_landmark(b: CfrBoundary) -> int:
     return sum(1 for s in b.segments if s.seq not in marked)
 
 
-def boundary_out(db: Session, b: CfrBoundary) -> BoundaryOut:
-    geometry = db.scalar(
-        select(func.ST_AsGeoJSON(CfrBoundary.geom, 7)).where(CfrBoundary.id == b.id)
-    )
+def boundary_out(db: Store, b: CfrBoundary) -> BoundaryOut:
     return BoundaryOut(
         id=b.id,
         case_id=b.case_id,
         version=b.version,
         status=b.status,
         source=b.source,
-        geometry=as_json(geometry),
+        geometry=b.geom,
         area_ha=b.area_ha,
         accuracy_stats=b.accuracy_stats,
         sealed_hash=b.sealed_hash,
         approved_on=b.approved_on,
-        segments=_segments(db, b),
-        landmarks=landmarks_out(db, b.id),
-        use_zones=use_zones_out(db, b.id),
+        segments=_segments_out(b),
+        landmarks=landmarks_out(b),
+        use_zones=use_zones_out(b),
         segments_without_landmark=segments_without_landmark(b),
         open_disputes=open_disputes(db, b.case_id),
         created_at=b.created_at,
@@ -194,41 +166,30 @@ def boundary_out(db: Session, b: CfrBoundary) -> BoundaryOut:
 # ── Disputes ──────────────────────────────────────────────────────────────────
 
 
-def _involving(case_id: uuid.UUID) -> ColumnElement[bool]:
-    return or_(Dispute.case_id == case_id, Dispute.neighbour_case_id == case_id)
-
-
-def _open_clause() -> ColumnElement[bool]:
-    return and_(
-        Dispute.sdlc_referral_on.is_(None),
-        Dispute.overlap_ha > 0,
-        or_(Dispute.outcome.is_(None), Dispute.outcome == DisputeOutcome.NOT_RESOLVED),
-    )
-
-
-def _live_cases() -> Select[uuid.UUID]:
-    return select(ClaimCase.id).where(ClaimCase.state.not_in(CLOSED_STATES))
-
-
-def open_disputes(db: Session, case_id: uuid.UUID) -> int:
+def open_disputes(db: Store, case_id: uuid.UUID) -> int:
     """Open overlaps of this claim with a neighbour's claim that still stands."""
-    return (
-        db.scalar(
-            select(func.count())
-            .select_from(Dispute)
-            .where(
-                _involving(case_id),
-                _open_clause(),
-                Dispute.case_id.in_(_live_cases()),
-                Dispute.neighbour_case_id.in_(_live_cases()),
-            )
-        )
-        or 0
+    involving = db.find(
+        Dispute,
+        {"$or": [{"case_id": case_id}, {"neighbour_case_id": case_id}]},
     )
+    count = 0
+    for d in involving:
+        if not d.is_open:
+            continue
+        c1 = db.get(ClaimCase, d.case_id)
+        c2 = db.get(ClaimCase, d.neighbour_case_id)
+        if (
+            c1 is not None
+            and c1.state not in CLOSED_STATES
+            and c2 is not None
+            and c2.state not in CLOSED_STATES
+        ):
+            count += 1
+    return count
 
 
 def detect_overlaps(
-    db: Session, case: ClaimCase, boundary: CfrBoundary, today: date | None = None
+    db: Store, case: ClaimCase, boundary: CfrBoundary, today: date | None = None
 ) -> None:
     """
     Compare the boundary with every current CFR boundary of another Gram Sabha. Each
@@ -237,54 +198,69 @@ def detect_overlaps(
     """
     today = today or date.today()
     db.flush()
-    other = aliased(CfrBoundary)
-    other_case = aliased(ClaimCase)
-    inter = func.ST_CollectionExtract(func.ST_Intersection(CfrBoundary.geom, other.geom), 3)
-    rows = db.execute(
-        select(
-            other.case_id,
-            other_case.gram_sabha_id,
-            func.ST_AsEWKT(inter),
-            func.ST_Area(func.ST_Transform(inter, AREA_SRID)),
-        )
-        .select_from(CfrBoundary)
-        .join(other, func.ST_Intersects(CfrBoundary.geom, other.geom))
-        .join(other_case, other_case.id == other.case_id)
-        .where(
-            CfrBoundary.id == boundary.id,
-            other.is_current.is_(True),
-            other_case.claim_type == ClaimType.CFR,
-            other_case.state.not_in(CLOSED_STATES),
-            other_case.gram_sabha_id != case.gram_sabha_id,
-        )
-    ).all()
+
+    poly1 = shape(boundary.geom)
+    other_boundaries = db.find(
+        CfrBoundary,
+        {"is_current": True, "case_id": {"$ne": case.id}},
+    )
 
     overlapping: set[uuid.UUID] = set()
-    for neighbour_case_id, neighbour_gs_id, ewkt, m2 in rows:
-        ha = (Decimal(str(m2 or 0)) / 10000).quantize(Decimal("0.0001"))
+    for other_b in other_boundaries:
+        other_case = db.get(ClaimCase, other_b.case_id)
+        if other_case is None:
+            continue
+        if other_case.claim_type is not ClaimType.CFR:
+            continue
+        if other_case.state in CLOSED_STATES:
+            continue
+        if other_case.gram_sabha_id == case.gram_sabha_id:
+            continue
+
+        poly2 = shape(other_b.geom)
+        if not poly1.intersects(poly2):
+            continue
+
+        inter = poly1.intersection(poly2)
+        if inter.is_empty:
+            continue
+
+        if inter.geom_type in ("Polygon", "MultiPolygon"):
+            inter_poly = inter
+        elif inter.geom_type == "GeometryCollection":
+            polys = [
+                g for g in getattr(inter, "geoms", []) if g.geom_type in ("Polygon", "MultiPolygon")
+            ]
+            if not polys:
+                continue
+            inter_poly = shapely.unary_union(polys)
+        else:
+            continue
+
+        inter_utm = to_utm(inter_poly)
+        ha = (Decimal(str(inter_utm.area)) / 10000).quantize(Decimal("0.0001"))
         if ha < MIN_OVERLAP_HA:
             continue
-        overlapping.add(neighbour_case_id)
-        geom = WKTElement(ewkt, extended=True)
-        existing = db.scalar(
-            select(Dispute).where(
-                or_(
-                    and_(
-                        Dispute.case_id == case.id, Dispute.neighbour_case_id == neighbour_case_id
-                    ),
-                    and_(
-                        Dispute.case_id == neighbour_case_id, Dispute.neighbour_case_id == case.id
-                    ),
-                )
-            )
+
+        overlapping.add(other_case.id)
+        inter_geojson = mapping(inter_poly)
+
+        existing = db.find_one(
+            Dispute,
+            {
+                "$or": [
+                    {"case_id": case.id, "neighbour_case_id": other_case.id},
+                    {"case_id": other_case.id, "neighbour_case_id": case.id},
+                ]
+            },
         )
         if existing is None:
             db.add(
                 Dispute(
                     case_id=case.id,
-                    neighbour_case_id=neighbour_case_id,
-                    neighbour_gram_sabha_id=neighbour_gs_id,
-                    overlap_geom=geom,
+                    neighbour_case_id=other_case.id,
+                    neighbour_gram_sabha_id=other_case.gram_sabha_id,
+                    overlap_geom=inter_geojson,
                     overlap_ha=ha,
                     detected_on=today,
                 )
@@ -293,46 +269,46 @@ def detect_overlaps(
             None,
             DisputeOutcome.NOT_RESOLVED,
         ):
-            existing.overlap_geom = geom
+            existing.overlap_geom = inter_geojson
             existing.overlap_ha = ha
 
-    for d in db.scalars(select(Dispute).where(_involving(case.id), _open_clause())):
-        other_id = d.neighbour_case_id if d.case_id == case.id else d.case_id
-        if other_id not in overlapping:
-            d.overlap_geom = EMPTY
-            d.overlap_ha = Decimal(0)
+    for d in db.find(Dispute, {"$or": [{"case_id": case.id}, {"neighbour_case_id": case.id}]}):
+        if d.is_open:
+            other_id = d.neighbour_case_id if d.case_id == case.id else d.case_id
+            if other_id not in overlapping:
+                d.overlap_geom = None
+                d.overlap_ha = Decimal(0)
 
 
-def disputes_out(db: Session, case_id: uuid.UUID) -> list[DisputeOut]:
-    rows = db.execute(
-        select(Dispute, func.ST_AsGeoJSON(Dispute.overlap_geom, 7))
-        .where(_involving(case_id))
-        .order_by(Dispute.created_at)
-    ).all()
-    closed = set(
-        db.scalars(
-            select(ClaimCase.id).where(
-                ClaimCase.id.in_({x for d, _ in rows for x in (d.case_id, d.neighbour_case_id)}),
-                ClaimCase.state.in_(CLOSED_STATES),
-            )
-        )
+def disputes_out(db: Store, case_id: uuid.UUID) -> list[DisputeOut]:
+    rows = db.find(
+        Dispute,
+        {"$or": [{"case_id": case_id}, {"neighbour_case_id": case_id}]},
+        sort=[("created_at", 1)],
     )
-    out = []
-    for d, g in rows:
-        neighbour_case = d.neighbour_case_id if d.case_id == case_id else d.case_id
-        village = db.scalar(
-            select(Village)
-            .join(GramSabha, GramSabha.village_id == Village.id)
-            .join(ClaimCase, ClaimCase.gram_sabha_id == GramSabha.id)
-            .where(ClaimCase.id == neighbour_case)
-        )
+    this_case = db.get(ClaimCase, case_id)
+    is_this_closed = this_case.state in CLOSED_STATES if this_case else False
+
+    out: list[DisputeOut] = []
+    for d in rows:
+        neighbour_case_id = d.neighbour_case_id if d.case_id == case_id else d.case_id
+        neighbour_case = db.get(ClaimCase, neighbour_case_id)
+        is_neighbour_closed = neighbour_case.state in CLOSED_STATES if neighbour_case else False
+        village_str = ""
+        if neighbour_case is not None:
+            gs = db.get(GramSabha, neighbour_case.gram_sabha_id)
+            if gs is not None:
+                village = db.get(Village, gs.village_id)
+                if village is not None:
+                    village_str = f"{village.name_mr} ({village.name_en})"
+
         out.append(
             DisputeOut(
                 id=d.id,
                 case_id=case_id,
-                neighbour_case_id=neighbour_case,
-                neighbour_village=f"{village.name_mr} ({village.name_en})" if village else "",
-                overlap=as_json(g),
+                neighbour_case_id=neighbour_case_id,
+                neighbour_village=village_str,
+                overlap=d.overlap_geom or {},
                 overlap_ha=d.overlap_ha,
                 detected_on=d.detected_on,
                 joint_meeting_on=d.joint_meeting_on,
@@ -341,27 +317,19 @@ def disputes_out(db: Session, case_id: uuid.UUID) -> list[DisputeOut]:
                 outcome=d.outcome,
                 sdlc_referral_on=d.sdlc_referral_on,
                 sdlc_referral_ref=d.sdlc_referral_ref,
-                is_open=d.is_open and not ({d.case_id, d.neighbour_case_id} & closed),
+                is_open=d.is_open and not (is_this_closed or is_neighbour_closed),
             )
         )
     return out
 
 
-def seal(db: Session, b: CfrBoundary, today: date | None = None) -> None:
+def seal(b: CfrBoundary, today: date | None = None) -> None:
     """Freeze the version the Gram Sabha approved: a hash of its geometry and landmarks."""
-    import hashlib
-
-    ewkt = db.scalar(select(func.ST_AsEWKT(CfrBoundary.geom)).where(CfrBoundary.id == b.id))
-    marks = db.execute(
-        select(
-            BoundaryLandmark.segment_seq,
-            BoundaryLandmark.name,
-            func.ST_AsText(BoundaryLandmark.point),
-        )
-        .where(BoundaryLandmark.boundary_id == b.id)
-        .order_by(BoundaryLandmark.segment_seq, BoundaryLandmark.name)
-    ).all()
-    payload = json.dumps([ewkt, [list(m) for m in marks]], separators=(",", ":"))
+    marks = [
+        [lm.segment_seq, lm.name, lm.point]
+        for lm in sorted(b.landmarks, key=lambda m: (m.segment_seq, m.name))
+    ]
+    payload = json.dumps([b.geom, marks], separators=(",", ":"), sort_keys=True)
     b.sealed_hash = hashlib.sha256(payload.encode("utf-8")).hexdigest()
     b.status = BoundaryStatus.GS_APPROVED
     b.approved_on = today or date.today()

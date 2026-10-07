@@ -7,10 +7,8 @@ from typing import Annotated
 
 from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from sqlalchemy import select
-from sqlalchemy.orm import Session
 
-from ..db import get_db
+from ..db import Store, get_db
 from ..errors import ApiError
 from ..models import AppUser, Role, UserRole, Village
 from .principal import Principal, VillageRef, active_grants
@@ -18,7 +16,7 @@ from .security import decode_token
 
 _bearer = HTTPBearer(auto_error=False)
 
-DbSession = Annotated[Session, Depends(get_db)]
+DbSession = Annotated[Store, Depends(get_db)]
 
 
 def get_current_user(
@@ -38,21 +36,18 @@ CurrentUser = Annotated[AppUser, Depends(get_current_user)]
 
 
 def get_principal(db: DbSession, user: CurrentUser) -> Principal:
-    rows = db.execute(
-        select(
-            UserRole.role,
-            UserRole.village_id,
-            UserRole.taluka,
-            UserRole.district,
-            UserRole.valid_from,
-            UserRole.valid_to,
-        ).where(UserRole.user_id == user.id)
-    ).all()
+    grants = db.find(UserRole, {"user_id": user.id})
     return Principal(
         user_id=user.id,
         name=user.name,
         is_admin=user.is_admin,
-        grants=active_grants(((r[0], r[1], r[2], r[3], r[4], r[5]) for r in rows), date.today()),
+        grants=active_grants(
+            (
+                (g.role, g.village_id, g.taluka, g.district, g.valid_from, g.valid_to)
+                for g in grants
+            ),
+            date.today(),
+        ),
     )
 
 

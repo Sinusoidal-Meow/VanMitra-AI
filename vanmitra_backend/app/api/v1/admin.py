@@ -8,7 +8,6 @@ edits case content.
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, status
-from sqlalchemy import select
 
 from ...auth.deps import DbSession, require_admin
 from ...auth.principal import Principal
@@ -40,7 +39,7 @@ def _scope(body: OfficialCreate, db: DbSession) -> tuple[Village | None, str | N
 @router.post("/users", response_model=UserOut, status_code=status.HTTP_201_CREATED)
 def create_user(body: OfficialCreate, db: DbSession, _: AdminOnly) -> UserOut:
     village, taluka, district = _scope(body, db)
-    if db.scalar(select(AppUser.id).where(AppUser.phone == body.phone)) is not None:
+    if db.exists(AppUser, {"phone": body.phone}):
         raise ApiError(409, "PHONE_ALREADY_REGISTERED", "auth.phone_taken")
     user = AppUser(phone=body.phone, name=body.name.strip(), pin_hash=hash_pin(body.pin))
     db.add(user)
@@ -67,20 +66,20 @@ def create_user(body: OfficialCreate, db: DbSession, _: AdminOnly) -> UserOut:
 
 @router.get("/users", response_model=list[UserOut])
 def list_users(db: DbSession, _: AdminOnly) -> list[UserOut]:
-    rows = db.execute(
-        select(AppUser, UserRole)
-        .join(UserRole, UserRole.user_id == AppUser.id)
-        .order_by(UserRole.role, AppUser.name)
-    ).all()
-    return [
-        UserOut(
-            id=u.id,
-            name=u.name,
-            phone=u.phone,
-            role=r.role,
-            village_id=r.village_id,
-            taluka=r.taluka,
-            district=r.district,
-        )
-        for u, r in rows
-    ]
+    grants = db.find(UserRole, sort=[("role", 1)])
+    users: list[UserOut] = []
+    for r in grants:
+        u = db.get(AppUser, r.user_id)
+        if u is not None:
+            users.append(
+                UserOut(
+                    id=u.id,
+                    name=u.name,
+                    phone=u.phone,
+                    role=r.role,
+                    village_id=r.village_id,
+                    taluka=r.taluka,
+                    district=r.district,
+                )
+            )
+    return sorted(users, key=lambda x: (x.role, x.name))

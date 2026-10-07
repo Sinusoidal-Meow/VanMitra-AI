@@ -11,7 +11,6 @@ from datetime import date
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, status
-from sqlalchemy import func, select
 
 from ...auth.deps import CurrentPrincipal, CurrentUser, DbSession, require_village_role, village_ref
 from ...auth.principal import Principal
@@ -62,7 +61,7 @@ AnyRole = Annotated[tuple[Principal, Village], Depends(require_village_role())]
 
 
 def _gs(db: DbSession, village_id: uuid.UUID) -> GramSabha:
-    gs = db.scalar(select(GramSabha).where(GramSabha.village_id == village_id))
+    gs = db.find_one(GramSabha, {"village_id": village_id})
     if gs is None:
         raise ApiError(409, "GRAM_SABHA_MISSING", "village.gram_sabha_missing")
     return gs
@@ -79,17 +78,15 @@ def _recuse_if_claimant(db: DbSession, user: CurrentUser, case_id: uuid.UUID) ->
     """A Gram Sabha member who is a claimant takes no part in deciding the claim (BR-02)."""
     if user.gs_member_id is None:
         return
-    is_claimant = db.scalar(
-        select(CaseClaimant.id).where(
-            CaseClaimant.case_id == case_id, CaseClaimant.gs_member_id == user.gs_member_id
-        )
+    is_claimant = db.exists(
+        CaseClaimant,
+        {"case_id": case_id, "gs_member_id": user.gs_member_id},
     )
     if not is_claimant:
         return
-    if not db.scalar(
-        select(Recusal.id).where(
-            Recusal.case_id == case_id, Recusal.gs_member_id == user.gs_member_id
-        )
+    if not db.exists(
+        Recusal,
+        {"case_id": case_id, "gs_member_id": user.gs_member_id},
     ):
         db.add(
             Recusal(
@@ -182,14 +179,13 @@ def record_verification(
                 "verification.intimation_required",
                 {"needs": "a dispatched G7 letter sent before the visit"},
             )
-    attempt = (
-        db.scalar(
-            select(func.max(VerificationProceeding.attempt_no)).where(
-                VerificationProceeding.case_id == case_id
-            )
-        )
-        or 0
-    ) + 1
+    latest = db.find(
+        VerificationProceeding,
+        {"case_id": case_id},
+        sort=[("attempt_no", -1)],
+        limit=1,
+    )
+    attempt = (latest[0].attempt_no if latest else 0) + 1
     row = VerificationProceeding(
         case_id=case_id,
         attempt_no=attempt,
@@ -215,10 +211,10 @@ def list_verifications(
     case_id: uuid.UUID, db: DbSession, principal: CurrentPrincipal
 ) -> list[VerificationOut]:
     load_case(db, principal, case_id)
-    rows = db.scalars(
-        select(VerificationProceeding)
-        .where(VerificationProceeding.case_id == case_id)
-        .order_by(VerificationProceeding.attempt_no)
+    rows = db.find(
+        VerificationProceeding,
+        {"case_id": case_id},
+        sort=[("attempt_no", 1)],
     )
     return [_verification_out(v) for v in rows]
 
@@ -228,12 +224,8 @@ def list_verifications(
 
 def _meeting_out(db: DbSession, m: GsMeeting) -> MeetingOut:
     present, women = gs_facts.meeting_counts(db, m)
-    recorded = db.scalar(
-        select(func.count()).select_from(Attendance).where(Attendance.meeting_id == m.id)
-    )
-    resolutions = db.scalar(
-        select(func.count()).select_from(Resolution).where(Resolution.meeting_id == m.id)
-    )
+    recorded = len(m.attendance) > 0
+    resolutions = db.count(Resolution, {"meeting_id": m.id})
     return MeetingOut(
         id=m.id,
         held_on=m.held_on,
@@ -244,24 +236,23 @@ def _meeting_out(db: DbSession, m: GsMeeting) -> MeetingOut:
         present_count=present,
         women_present=women,
         attendance_recorded=bool(recorded),
-        resolutions=resolutions or 0,
+        resolutions=resolutions,
     )
 
 
 def _meeting(
     db: DbSession, principal: CurrentPrincipal, meeting_id: uuid.UUID, *, write: bool
 ) -> GsMeeting:
-    row = db.execute(
-        select(GsMeeting, Village)
-        .join(GramSabha, GramSabha.id == GsMeeting.gram_sabha_id)
-        .join(Village, Village.id == GramSabha.village_id)
-        .where(GsMeeting.id == meeting_id)
-    ).first()
-    if row is None or not principal.has(village_ref(row[1])):
+    m = db.get(GsMeeting, meeting_id)
+    if m is None:
         raise ApiError(404, "MEETING_NOT_FOUND", "meeting.not_found")
-    if write and not principal.has(village_ref(row[1]), [Role.GRAM_SABHA]):
+    gs = db.get(GramSabha, m.gram_sabha_id)
+    village = db.get(Village, gs.village_id) if gs else None
+    if village is None or not principal.has(village_ref(village)):
+        raise ApiError(404, "MEETING_NOT_FOUND", "meeting.not_found")
+    if write and not principal.has(village_ref(village), [Role.GRAM_SABHA]):
         raise ApiError(403, "FORBIDDEN", "auth.forbidden_in_village")
-    return row[0]
+    return m
 
 
 @router.post(
@@ -274,18 +265,14 @@ def create_meeting(body: MeetingIn, db: DbSession, scope: GramSabhaOnly) -> Meet
     gs = _gs(db, village.id)
     if body.notice_on and body.notice_on > body.held_on:
         raise ApiError(422, "NOTICE_AFTER_MEETING", "meeting.notice_after_meeting")
-    registered = db.scalar(
-        select(func.count())
-        .select_from(GsMember)
-        .where(GsMember.gram_sabha_id == gs.id, GsMember.active.is_(True))
-    )
+    registered = db.count(GsMember, {"gram_sabha_id": gs.id, "active": True})
     meeting = GsMeeting(
         gram_sabha_id=gs.id,
         held_on=body.held_on,
         place=body.place,
         notice_on=body.notice_on,
         agenda=body.agenda,
-        registered_count=registered or 0,
+        registered_count=registered,
         created_by_user_id=principal.user_id,
     )
     db.add(meeting)
@@ -296,9 +283,7 @@ def create_meeting(body: MeetingIn, db: DbSession, scope: GramSabhaOnly) -> Meet
 @router.get("/villages/{village_id}/meetings", response_model=list[MeetingOut])
 def list_meetings(db: DbSession, scope: AnyRole) -> list[MeetingOut]:
     gs = _gs(db, scope[1].id)
-    rows = db.scalars(
-        select(GsMeeting).where(GsMeeting.gram_sabha_id == gs.id).order_by(GsMeeting.held_on.desc())
-    )
+    rows = db.find(GsMeeting, {"gram_sabha_id": gs.id}, sort=[("held_on", -1)])
     return [_meeting_out(db, m) for m in rows]
 
 
@@ -316,24 +301,16 @@ def put_attendance(
     absent. It can be corrected until a resolution has been recorded at this meeting.
     """
     meeting = _meeting(db, principal, meeting_id, write=True)
-    if db.scalar(select(Resolution.id).where(Resolution.meeting_id == meeting.id)):
+    if db.exists(Resolution, {"meeting_id": meeting.id}):
         raise ApiError(409, "ATTENDANCE_LOCKED", "meeting.attendance_locked")
-    roster = {
-        m.id
-        for m in db.scalars(
-            select(GsMember).where(
-                GsMember.gram_sabha_id == meeting.gram_sabha_id, GsMember.active.is_(True)
-            )
-        )
-    }
+    members = db.find(GsMember, {"gram_sabha_id": meeting.gram_sabha_id, "active": True})
+    roster = {m.id for m in members}
     present = set(body.present_member_ids)
     if not present <= roster:
         raise ApiError(422, "MEMBER_NOT_IN_ROSTER", "meeting.member_not_in_roster")
-    meeting.attendance.clear()
-    db.flush()
-    meeting.attendance.extend(
+    meeting.attendance = [
         Attendance(gs_member_id=mid, present=mid in present, method="manual") for mid in roster
-    )
+    ]
     db.commit()
     return _meeting_out(db, meeting)
 
@@ -435,22 +412,17 @@ def record_resolution(
         if geo.open_disputes(db, case.id):
             raise RuleViolation("OPEN_DISPUTE", "Rule 12(3)", "boundary.open_dispute")
         if b.status is BoundaryStatus.DRAFT:
-            geo.seal(db, b)
+            geo.seal(b)
         boundary_id = b.id
 
-    db.execute(select(GramSabha.id).where(GramSabha.id == case.gram_sabha_id).with_for_update())
     year = date.today().year
-    used = db.scalar(
-        select(func.count())
-        .select_from(Resolution)
-        .where(Resolution.gram_sabha_id == case.gram_sabha_id, Resolution.number.like(f"%/{year}"))
-    )
+    res_num = db.next_number(f"resolution/{case.gram_sabha_id}/{year}")
     previous = gs_facts.current_resolution(db, case.id)
     row = Resolution(
         gram_sabha_id=case.gram_sabha_id,
         meeting_id=meeting.id,
         case_id=case.id,
-        number=f"{(used or 0) + 1}/{year}",
+        number=f"{res_num}/{year}",
         decision_text=body.decision_text,
         votes_for=body.votes_for,
         votes_against=body.votes_against,
@@ -471,8 +443,10 @@ def list_resolutions(
     case_id: uuid.UUID, db: DbSession, principal: CurrentPrincipal
 ) -> list[ResolutionOut]:
     load_case(db, principal, case_id)
-    rows = db.scalars(
-        select(Resolution).where(Resolution.case_id == case_id).order_by(Resolution.created_at)
+    rows = db.find(
+        Resolution,
+        {"case_id": case_id},
+        sort=[("created_at", 1)],
     )
     return [_resolution_out(r) for r in rows]
 

@@ -18,8 +18,7 @@ class Role(StrEnum):
     GRAM_SABHA = "gram_sabha"  # Gram Panchayat / Gram Sabha office: reviews, forwards to SDO
     # Level 3: sub-division
     SDO = "sdo"  # Sub-Divisional Officer, chair of the SDLC [Rule 5, 6(j)]
-    # No longer used: the district logins moved to the district website. Kept only so
-    # records saved before the change still load; they go when the data moves to MongoDB.
+    # Legacy district roles (kept for role compatibility / validation)
     COLLECTOR = "collector"
     DFO = "dfo"
     TRIBAL_WELFARE_OFFICER = "tribal_welfare_officer"

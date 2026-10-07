@@ -10,7 +10,6 @@ from typing import Annotated
 
 from fastapi import APIRouter
 from pydantic import BaseModel, StringConstraints
-from sqlalchemy import select
 
 from ...auth.deps import CurrentPrincipal, CurrentUser, DbSession
 from ...domain.clocks import (
@@ -26,7 +25,7 @@ from ...errors import ApiError, RuleViolation
 from ...models import CaseState, ClaimCase, Dispute, Role
 from ...models.procedure import ClaimCall, Correspondence, Media, TitleFollowup
 from ...services import gramsabha as gs_facts
-from ...services.cases import CaseContext, load_case
+from ...services.cases import CaseContext, case_events, load_case
 
 router = APIRouter(tags=["follow-up"])
 
@@ -64,19 +63,19 @@ class FollowupOut(FollowupIn):
     closed_on: date | None
 
 
-def _title_issued_on(case: ClaimCase) -> date | None:
-    for ev in reversed(case.events):
+def _title_issued_on(db: DbSession, case: ClaimCase) -> date | None:
+    for ev in reversed(case_events(db, case.id)):
         if ev.to_state is CaseState.TITLE_ISSUED:
             return ev.created_at.date()
     return None
 
 
 def _followup(db: DbSession, case_id: uuid.UUID) -> TitleFollowup | None:
-    return db.scalar(select(TitleFollowup).where(TitleFollowup.case_id == case_id))
+    return db.find_one(TitleFollowup, {"case_id": case_id})
 
 
-def _out(ctx: CaseContext, f: TitleFollowup | None) -> FollowupOut:
-    issued = _title_issued_on(ctx.case)
+def _out(db: DbSession, ctx: CaseContext, f: TitleFollowup | None) -> FollowupOut:
+    issued = _title_issued_on(db, ctx.case)
     missing = []
     if f is None or f.certified_copy_media_id is None:
         missing.append("certified_copy")
@@ -112,7 +111,7 @@ def _ensure_official(ctx: CaseContext) -> None:
 @router.get("/cases/{case_id}/post-title", response_model=FollowupOut)
 def get_followup(case_id: uuid.UUID, db: DbSession, principal: CurrentPrincipal) -> FollowupOut:
     ctx = load_case(db, principal, case_id)
-    return _out(ctx, _followup(db, case_id))
+    return _out(db, ctx, _followup(db, case_id))
 
 
 @router.put("/cases/{case_id}/post-title", response_model=FollowupOut)
@@ -144,7 +143,7 @@ def put_followup(
         setattr(f, field, value)
     f.updated_by_user_id = user.id
     db.commit()
-    return _out(ctx, f)
+    return _out(db, ctx, f)
 
 
 @router.post("/cases/{case_id}/close", response_model=FollowupOut)
@@ -155,7 +154,7 @@ def close_case(
     ctx = load_case(db, principal, case_id)
     _ensure_official(ctx)
     f = _followup(db, case_id)
-    out = _out(ctx, f)
+    out = _out(db, ctx, f)
     if out.missing:
         raise RuleViolation(
             "CANNOT_CLOSE", "Rule 8(i), 12A(9)", "followup.cannot_close", {"missing": out.missing}
@@ -165,7 +164,7 @@ def close_case(
         f.closed_on = date.today()
         f.updated_by_user_id = user.id
         db.commit()
-    return _out(ctx, f)
+    return _out(db, ctx, f)
 
 
 # ── Clocks ────────────────────────────────────────────────────────────────────
@@ -199,9 +198,11 @@ def case_clocks(db: DbSession, ctx: CaseContext, today: date) -> list[Clock]:
                 alerts=ALERT_DAYS,
             )
         )
-    for d in db.scalars(
-        select(Dispute).where((Dispute.case_id == case.id) | (Dispute.neighbour_case_id == case.id))
-    ):
+    disputes = db.find(
+        Dispute,
+        {"$or": [{"case_id": case.id}, {"neighbour_case_id": case.id}]},
+    )
+    for d in disputes:
         if d.overlap_ha <= 0:
             continue
         out.append(
@@ -214,7 +215,7 @@ def case_clocks(db: DbSession, ctx: CaseContext, today: date) -> list[Clock]:
                 met_on=d.joint_meeting_on or d.sdlc_referral_on,
             )
         )
-    issued = _title_issued_on(case)
+    issued = _title_issued_on(db, case)
     if issued is not None:
         f = _followup(db, case.id)
         out.append(

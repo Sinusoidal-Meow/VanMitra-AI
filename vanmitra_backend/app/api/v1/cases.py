@@ -13,7 +13,6 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, status
-from sqlalchemy import select
 
 from ...auth.deps import CurrentPrincipal, CurrentUser, DbSession, require_village_role, village_ref
 from ...auth.principal import Principal
@@ -49,7 +48,7 @@ def create_case(
             "case.not_allowed_to_open_form",
             {"claim_type": body.claim_type, "allowed_roles": sorted(CREATORS[body.claim_type])},
         )
-    gram_sabha = db.scalar(select(GramSabha).where(GramSabha.village_id == village.id))
+    gram_sabha = db.find_one(GramSabha, {"village_id": village.id})
     if gram_sabha is None:
         raise ApiError(409, "GRAM_SABHA_MISSING", "village.gram_sabha_missing")
     case = ClaimCase(
@@ -72,28 +71,35 @@ def create_case(
         )
     db.add(case)
     db.commit()
-    db.refresh(case)
-    return case_out(CaseContext(case=case, village=village, roles=roles, is_creator=True))
+    return case_out(CaseContext(case=case, village=village, roles=roles, is_creator=True), db)
 
 
 @router.get("/cases/mine", response_model=list[CaseOut])
 def my_cases(db: DbSession, principal: CurrentPrincipal) -> list[CaseOut]:
     """Claims the caller has opened."""
-    rows = db.execute(
-        select(ClaimCase, Village)
-        .join(GramSabha, GramSabha.id == ClaimCase.gram_sabha_id)
-        .join(Village, Village.id == GramSabha.village_id)
-        .where(ClaimCase.created_by_user_id == principal.user_id)
-        .order_by(ClaimCase.created_at.desc())
-    ).all()
-    return [
-        case_out(
-            CaseContext(
-                case=c, village=v, roles=principal.roles_for(village_ref(v)), is_creator=True
-            )
-        )
-        for c, v in rows
-    ]
+    cases = db.find(
+        ClaimCase,
+        {"created_by_user_id": principal.user_id},
+        sort=[("created_at", -1)],
+    )
+    out: list[CaseOut] = []
+    for c in cases:
+        gs = db.get(GramSabha, c.gram_sabha_id)
+        if gs is not None:
+            v = db.get(Village, gs.village_id)
+            if v is not None:
+                out.append(
+                    case_out(
+                        CaseContext(
+                            case=c,
+                            village=v,
+                            roles=principal.roles_for(village_ref(v)),
+                            is_creator=True,
+                        ),
+                        db,
+                    )
+                )
+    return out
 
 
 @router.get("/villages/{village_id}/cases", response_model=list[CaseOut])
@@ -104,21 +110,21 @@ def village_cases(
     """Cases of a village that the caller may see (by role and how far each case has got)."""
     principal, village = scope
     roles = principal.roles_for(village_ref(village))
-    cases = db.scalars(
-        select(ClaimCase)
-        .join(GramSabha, GramSabha.id == ClaimCase.gram_sabha_id)
-        .where(GramSabha.village_id == village.id)
-        .order_by(ClaimCase.created_at.desc())
-    ).all()
+    gs = db.find_one(GramSabha, {"village_id": village.id})
+    if gs is None:
+        return []
+    cases = db.find(ClaimCase, {"gram_sabha_id": gs.id}, sort=[("created_at", -1)])
     out = []
     for c in cases:
         mine = c.created_by_user_id == principal.user_id
         if can_view(roles=roles, is_creator=mine, reached_stage=c.reached_stage):
-            out.append(case_out(CaseContext(case=c, village=village, roles=roles, is_creator=mine)))
+            out.append(
+                case_out(CaseContext(case=c, village=village, roles=roles, is_creator=mine), db)
+            )
     return out
 
 
 @router.get("/cases/{case_id}", response_model=CaseOut)
 def get_case(case_id: uuid.UUID, db: DbSession, principal: CurrentPrincipal) -> CaseOut:
     """A case with its state and the actions the caller may take now."""
-    return case_out(load_case(db, principal, case_id))
+    return case_out(load_case(db, principal, case_id), db)

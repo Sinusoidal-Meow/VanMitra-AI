@@ -6,10 +6,9 @@ sheet (item 5). Members are deactivated, never deleted.
 """
 
 import uuid
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, status
-from sqlalchemy import select
 
 from ...auth.deps import CurrentPrincipal, DbSession, require_village_role, village_ref
 from ...auth.principal import Principal
@@ -27,7 +26,7 @@ def _out(m: GsMember) -> MemberOut:
 
 
 def _gram_sabha(db: DbSession, village_id: uuid.UUID) -> GramSabha:
-    gs = db.scalar(select(GramSabha).where(GramSabha.village_id == village_id))
+    gs = db.find_one(GramSabha, {"village_id": village_id})
     if gs is None:
         raise ApiError(409, "GRAM_SABHA_MISSING", "village.gram_sabha_missing")
     return gs
@@ -40,10 +39,11 @@ def list_members(
     include_inactive: bool = False,
 ) -> list[MemberOut]:
     gs = _gram_sabha(db, scope[1].id)
-    query = select(GsMember).where(GsMember.gram_sabha_id == gs.id)
+    query: dict[str, Any] = {"gram_sabha_id": gs.id}
     if not include_inactive:
-        query = query.where(GsMember.active.is_(True))
-    return [_out(m) for m in db.scalars(query.order_by(GsMember.name)).all()]
+        query["active"] = True
+    rows = db.find(GsMember, query, sort=[("name", 1)])
+    return [_out(m) for m in rows]
 
 
 @router.post(
@@ -66,7 +66,6 @@ def add_member(
     )
     db.add(member)
     db.commit()
-    db.refresh(member)
     return _out(member)
 
 
@@ -77,20 +76,17 @@ def update_member(
     db: DbSession,
     principal: CurrentPrincipal,
 ) -> MemberOut:
-    row = db.execute(
-        select(GsMember, Village)
-        .join(GramSabha, GramSabha.id == GsMember.gram_sabha_id)
-        .join(Village, Village.id == GramSabha.village_id)
-        .where(GsMember.id == member_id)
-    ).first()
-    if row is None or not principal.has(village_ref(row[1])):
+    member = db.get(GsMember, member_id)
+    if member is None:
         raise ApiError(404, "MEMBER_NOT_FOUND", "member.not_found")
-    member, village = row[0], row[1]
+    gs = db.get(GramSabha, member.gram_sabha_id)
+    village = db.get(Village, gs.village_id) if gs else None
+    if village is None or not principal.has(village_ref(village)):
+        raise ApiError(404, "MEMBER_NOT_FOUND", "member.not_found")
     if not principal.has(village_ref(village), ROSTER_EDITORS):
         raise ApiError(403, "FORBIDDEN", "auth.forbidden_in_village", {"village_id": village.id})
     for field, value in body.model_dump(exclude_unset=True).items():
         if value is not None:
             setattr(member, field, value)
     db.commit()
-    db.refresh(member)
     return _out(member)

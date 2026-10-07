@@ -3,12 +3,10 @@ from typing import Literal
 
 from fastapi import APIRouter
 from pydantic import BaseModel
-from sqlalchemy import text
-from sqlalchemy.exc import SQLAlchemyError
 
 from ... import __version__
 from ...config import get_settings
-from ...db import get_engine
+from ...mongo import ping
 
 router = APIRouter(tags=["health"])
 
@@ -26,14 +24,9 @@ class HealthResponse(BaseModel):
 def health() -> HealthResponse:
     """
     Always 200 while the process is up (the app treats 200 as reachable).
-    `database` reports whether PostgreSQL answered a `SELECT 1`.
+    `database` reports whether MongoDB answered a ping.
     """
-    try:
-        with get_engine().connect() as conn:
-            conn.execute(text("SELECT 1"))
-        database: Literal["ok", "unavailable"] = "ok"
-    except SQLAlchemyError:
-        database = "unavailable"
+    database: Literal["ok", "unavailable"] = "ok" if ping() else "unavailable"
     return HealthResponse(
         status="ok",
         service="vanmitra-backend",

@@ -8,10 +8,9 @@ CFR determination. Letters are tracked from drafting to dispatch, reminder and r
 
 import uuid
 from datetime import date, timedelta
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query, status
-from sqlalchemy import select
 
 from ...auth.deps import CurrentPrincipal, DbSession, require_village_role, village_ref
 from ...auth.principal import Principal
@@ -37,18 +36,14 @@ GramSabhaOnly = Annotated[tuple[Principal, Village], Depends(require_village_rol
 
 
 def _gs(db: DbSession, village_id: uuid.UUID) -> GramSabha:
-    gs = db.scalar(select(GramSabha).where(GramSabha.village_id == village_id))
+    gs = db.find_one(GramSabha, {"village_id": village_id})
     if gs is None:
         raise ApiError(409, "GRAM_SABHA_MISSING", "village.gram_sabha_missing")
     return gs
 
 
 def current_claim_call(db: DbSession, gram_sabha_id: uuid.UUID) -> ClaimCall | None:
-    return db.scalar(
-        select(ClaimCall).where(
-            ClaimCall.gram_sabha_id == gram_sabha_id, ClaimCall.is_current.is_(True)
-        )
-    )
+    return db.find_one(ClaimCall, {"gram_sabha_id": gram_sabha_id, "is_current": True})
 
 
 def _call_out(c: ClaimCall, today: date | None = None) -> ClaimCallOut:
@@ -84,9 +79,7 @@ def call_for_claims(body: ClaimCallCreate, db: DbSession, scope: GramSabhaOnly) 
     gs = _gs(db, village.id)
     if body.notice_displayed_on and body.notice_displayed_on < body.called_on:
         raise ApiError(422, "NOTICE_BEFORE_CALL", "claim_call.notice_before_call")
-    for old in db.scalars(
-        select(ClaimCall).where(ClaimCall.gram_sabha_id == gs.id, ClaimCall.is_current.is_(True))
-    ):
+    for old in db.find(ClaimCall, {"gram_sabha_id": gs.id, "is_current": True}):
         old.is_current = False
     call = ClaimCall(
         gram_sabha_id=gs.id,
@@ -100,7 +93,6 @@ def call_for_claims(body: ClaimCallCreate, db: DbSession, scope: GramSabhaOnly) 
     )
     db.add(call)
     db.commit()
-    db.refresh(call)
     return _call_out(call)
 
 
@@ -119,11 +111,7 @@ def get_current_call(db: DbSession, scope: AnyRole) -> ClaimCallOut:
 @router.get("/villages/{village_id}/claim-calls", response_model=list[ClaimCallOut])
 def call_history(db: DbSession, scope: AnyRole) -> list[ClaimCallOut]:
     gs = _gs(db, scope[1].id)
-    rows = db.scalars(
-        select(ClaimCall)
-        .where(ClaimCall.gram_sabha_id == gs.id)
-        .order_by(ClaimCall.called_on.desc())
-    ).all()
+    rows = db.find(ClaimCall, {"gram_sabha_id": gs.id}, sort=[("called_on", -1)])
     return [_call_out(c) for c in rows]
 
 
@@ -142,7 +130,6 @@ def extend_call(body: ClaimCallExtend, db: DbSession, scope: GramSabhaOnly) -> C
     call.extension_reason = body.reason
     call.extension_resolution_ref = body.resolution_ref
     db.commit()
-    db.refresh(call)
     return _call_out(call)
 
 
@@ -154,7 +141,6 @@ def notice_displayed(body: ClaimCallDisplayed, db: DbSession, scope: GramSabhaOn
         raise ApiError(422, "NOTICE_BEFORE_CALL", "claim_call.notice_before_call")
     call.notice_displayed_on = body.notice_displayed_on
     db.commit()
-    db.refresh(call)
     return _call_out(call)
 
 
@@ -208,7 +194,6 @@ def create_letter(body: LetterCreate, db: DbSession, scope: GramSabhaOnly) -> Le
     )
     db.add(letter)
     db.commit()
-    db.refresh(letter)
     return _letter_out(letter)
 
 
@@ -219,26 +204,26 @@ def list_letters(
     case_id: uuid.UUID | None = None,
     template: Annotated[LetterTemplate | None, Query()] = None,
 ) -> list[LetterOut]:
-    query = select(Correspondence).where(Correspondence.gram_sabha_id == _gs(db, scope[1].id).id)
+    filter_dict: dict[str, Any] = {"gram_sabha_id": _gs(db, scope[1].id).id}
     if case_id:
-        query = query.where(Correspondence.case_id == case_id)
+        filter_dict["case_id"] = case_id
     if template:
-        query = query.where(Correspondence.template == template)
-    return [_letter_out(c) for c in db.scalars(query.order_by(Correspondence.created_at)).all()]
+        filter_dict["template"] = template.value
+    rows = db.find(Correspondence, filter_dict, sort=[("created_at", 1)])
+    return [_letter_out(c) for c in rows]
 
 
 def _letter_for_gs(db: DbSession, principal: Principal, letter_id: uuid.UUID) -> Correspondence:
-    row = db.execute(
-        select(Correspondence, Village)
-        .join(GramSabha, GramSabha.id == Correspondence.gram_sabha_id)
-        .join(Village, Village.id == GramSabha.village_id)
-        .where(Correspondence.id == letter_id)
-    ).first()
-    if row is None or not principal.has(village_ref(row[1])):
+    letter = db.get(Correspondence, letter_id)
+    if letter is None:
         raise ApiError(404, "LETTER_NOT_FOUND", "letter.not_found")
-    if not principal.has(village_ref(row[1]), [Role.GRAM_SABHA]):
+    gs = db.get(GramSabha, letter.gram_sabha_id)
+    village = db.get(Village, gs.village_id) if gs else None
+    if village is None or not principal.has(village_ref(village)):
+        raise ApiError(404, "LETTER_NOT_FOUND", "letter.not_found")
+    if not principal.has(village_ref(village), [Role.GRAM_SABHA]):
         raise ApiError(403, "FORBIDDEN", "auth.forbidden_in_village")
-    return row[0]
+    return letter
 
 
 @router.post("/letters/{letter_id}/dispatch", response_model=LetterOut)
@@ -249,7 +234,6 @@ def dispatch_letter(
     letter.dispatched_on = body.dispatched_on
     letter.reminder_on = body.dispatched_on + timedelta(days=body.reminder_after_days)
     db.commit()
-    db.refresh(letter)
     return _letter_out(letter)
 
 
@@ -263,5 +247,4 @@ def record_response(
     letter.response_received_on = body.received_on
     letter.outcome = body.outcome
     db.commit()
-    db.refresh(letter)
     return _letter_out(letter)

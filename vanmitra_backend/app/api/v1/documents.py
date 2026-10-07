@@ -10,14 +10,12 @@ from typing import Literal
 
 from fastapi import APIRouter
 from fastapi.responses import HTMLResponse
-from sqlalchemy import select
 
 from ...auth.deps import CurrentPrincipal, DbSession, village_ref
 from ...documents import map_svg, render
 from ...errors import ApiError, RuleViolation
-from ...models import ClaimType, GramSabha, GsMember, Village
+from ...models import BoundaryWalk, CfrBoundary, ClaimType, GramSabha, GsMember, Village
 from ...models.procedure import (
-    Attendance,
     Correspondence,
     GsMeeting,
     VerificationProceeding,
@@ -40,7 +38,7 @@ def _html(code: str, lang: str, ctx: CaseContext, data: dict[str, object]) -> HT
     return HTMLResponse(render(code, lang, ctx.village, str(ctx.case.id), data))
 
 
-def _boundary(db: DbSession, ctx: CaseContext):  # type: ignore[no-untyped-def]
+def _boundary(db: DbSession, ctx: CaseContext) -> CfrBoundary:
     ensure_claim_type(ctx, ClaimType.CFR, "NOT_A_FORM_C_CASE")
     b = geo.current_boundary(db, ctx.case.id)
     if b is None:
@@ -77,37 +75,41 @@ def case_document(
             if e.created_at.date() <= case.acknowledged_on
         ]
         return _html(
-            code, lang, ctx,
-            {"serial": case.ack_serial, "acknowledged_on": case.acknowledged_on,
-             "form": case.claim_type.value.upper(), "within_window": case.filed_within_window,
-             "claimant": claimant_label(case, ctx.village),
-             "documents": docs},
-        )  # fmt: skip
+            code,
+            lang,
+            ctx,
+            {
+                "serial": case.ack_serial,
+                "acknowledged_on": case.acknowledged_on,
+                "form": case.claim_type.value.upper(),
+                "within_window": case.filed_within_window,
+                "claimant": claimant_label(case, ctx.village),
+                "documents": docs,
+            },
+        )
 
     if code == "g8":
-        rows = db.scalars(
-            select(VerificationProceeding)
-            .where(VerificationProceeding.case_id == case.id)
-            .order_by(VerificationProceeding.attempt_no)
+        rows = db.find(
+            VerificationProceeding,
+            {"case_id": case.id},
+            sort=[("attempt_no", 1)],
         )
         return _html(code, lang, ctx, {"proceedings": [_verification_out(v) for v in rows]})
 
     if code == "g9":
         b = _boundary(db, ctx)
         out = geo.boundary_out(db, b)
-        from ...models import BoundaryWalk
-
-        walks = db.scalars(
-            select(BoundaryWalk)
-            .where(BoundaryWalk.case_id == case.id)
-            .order_by(BoundaryWalk.walked_on)
+        walks = db.find(
+            BoundaryWalk,
+            {"case_id": case.id},
+            sort=[("walked_on", 1)],
         )
         return _html(
             code,
             lang,
             ctx,
             {
-                "walks": [_walk_out(db, w) for w in walks],
+                "walks": [_walk_out(w) for w in walks],
                 "segments": out.segments,
                 "landmarks": out.landmarks,
             },
@@ -125,13 +127,21 @@ def case_document(
         zones = [{"geometry": z.geometry} for z in out.use_zones]
         svg = map_svg(out.geometry, [(lm.lon, lm.lat) for lm in out.landmarks], zones)
         return _html(
-            code, lang, ctx,
-            {"area_ha": out.area_ha, "version": out.version, "status": out.status.value,
-             "sealed": out.sealed_hash, "svg": svg, "landmarks": out.landmarks,
-             "zones": out.use_zones,
-             "bordering": [x.name for x in form_c.bordering_villages] if form_c else [],
-             "resolution": res.number if res else None},
-        )  # fmt: skip
+            code,
+            lang,
+            ctx,
+            {
+                "area_ha": out.area_ha,
+                "version": out.version,
+                "status": out.status.value,
+                "sealed": out.sealed_hash,
+                "svg": svg,
+                "landmarks": out.landmarks,
+                "zones": out.use_zones,
+                "bordering": [x.name for x in form_c.bordering_villages] if form_c else [],
+                "resolution": res.number if res else None,
+            },
+        )
 
     if code == "g12":
         if meeting_id is None:
@@ -139,17 +149,22 @@ def case_document(
         meeting = db.get(GsMeeting, meeting_id)
         if meeting is None or meeting.gram_sabha_id != case.gram_sabha_id:
             raise ApiError(404, "MEETING_NOT_FOUND", "meeting.not_found")
-        names = db.execute(
-            select(GsMember.name, Attendance.present)
-            .join(Attendance, Attendance.gs_member_id == GsMember.id)
-            .where(Attendance.meeting_id == meeting.id)
-            .order_by(GsMember.name)
-        ).all()
+        attendance_list = []
+        for att in meeting.attendance:
+            m = db.get(GsMember, att.gs_member_id)
+            if m is not None:
+                attendance_list.append({"name": m.name, "present": att.present})
+        attendance_list.sort(key=lambda x: str(x["name"]))
         return _html(
-            code, lang, ctx,
-            {"m": meeting, "q": _quorum(db, meeting, case.id).model_dump(),
-             "attendance": [{"name": n, "present": p} for n, p in names]},
-        )  # fmt: skip
+            code,
+            lang,
+            ctx,
+            {
+                "m": meeting,
+                "q": _quorum(db, meeting, case.id).model_dump(),
+                "attendance": attendance_list,
+            },
+        )
 
     if code == "g13":
         res = gs_facts.current_resolution(db, case.id)
@@ -158,14 +173,18 @@ def case_document(
         meeting = db.get(GsMeeting, res.meeting_id)
         sealed = None
         if res.boundary_id:
-            from ...models import CfrBoundary
-
             sealed = db.get(CfrBoundary, res.boundary_id)
         return _html(
-            code, lang, ctx,
-            {"r": res, "meeting": meeting, "q": res.quorum_proof,
-             "boundary_sealed": sealed.sealed_hash if sealed else None},
-        )  # fmt: skip
+            code,
+            lang,
+            ctx,
+            {
+                "r": res,
+                "meeting": meeting,
+                "q": res.quorum_proof,
+                "boundary_sealed": sealed.sealed_hash if sealed else None,
+            },
+        )
 
     # g17
     if dispute_id is None:
@@ -181,13 +200,11 @@ def letter_document(
     letter_id: uuid.UUID, db: DbSession, principal: CurrentPrincipal, lang: Lang = "en"
 ) -> HTMLResponse:
     """The tracked letter (G2 / G5 / G6 / G7 / G18) as a printable page."""
-    row = db.execute(
-        select(Correspondence, Village)
-        .join(GramSabha, GramSabha.id == Correspondence.gram_sabha_id)
-        .join(Village, Village.id == GramSabha.village_id)
-        .where(Correspondence.id == letter_id)
-    ).first()
-    if row is None or not principal.has(village_ref(row[1])):
+    letter = db.get(Correspondence, letter_id)
+    if letter is None:
         raise ApiError(404, "LETTER_NOT_FOUND", "letter.not_found")
-    letter, village = row
+    gs = db.get(GramSabha, letter.gram_sabha_id)
+    village = db.get(Village, gs.village_id) if gs else None
+    if village is None or not principal.has(village_ref(village)):
+        raise ApiError(404, "LETTER_NOT_FOUND", "letter.not_found")
     return HTMLResponse(render("g7", lang, village, str(letter.case_id or ""), {"letter": letter}))

@@ -11,7 +11,6 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, status
-from sqlalchemy import select
 
 from ...auth.deps import CurrentPrincipal, DbSession, require_admin, require_village_role
 from ...auth.principal import Principal
@@ -42,14 +41,15 @@ GramSabhaOnly = Annotated[tuple[Principal, Village], Depends(require_village_rol
 
 
 def _gram_sabha(db: DbSession, village_id: uuid.UUID) -> GramSabha:
-    gs = db.scalar(select(GramSabha).where(GramSabha.village_id == village_id))
+    gs = db.find_one(GramSabha, {"village_id": village_id})
     if gs is None:
         raise ApiError(409, "GRAM_SABHA_MISSING", "village.gram_sabha_missing")
     return gs
 
 
 def _village_out(db: DbSession, v: Village) -> VillageOut:
-    gs_id = db.scalar(select(GramSabha.id).where(GramSabha.village_id == v.id))
+    gs = db.find_one(GramSabha, {"village_id": v.id})
+    gs_id = gs.id if gs else None
     return VillageOut(
         id=v.id,
         name_mr=v.name_mr,
@@ -73,14 +73,13 @@ def create_village(body: VillageCreate, db: DbSession, _: AdminOnly) -> VillageO
     """Admin adds a village or hamlet; its Gram Sabha is created with it."""
     if body.parent_village_id and db.get(Village, body.parent_village_id) is None:
         raise ApiError(422, "PARENT_VILLAGE_NOT_FOUND", "village.parent_not_found")
-    if body.lgd_code and db.scalar(select(Village.id).where(Village.lgd_code == body.lgd_code)):
+    if body.lgd_code and db.exists(Village, {"lgd_code": body.lgd_code}):
         raise ApiError(409, "LGD_CODE_TAKEN", "village.lgd_code_taken")
     village = Village(**body.model_dump())
     db.add(village)
     db.flush()
     db.add(GramSabha(village_id=village.id))
     db.commit()
-    db.refresh(village)
     return _village_out(db, village)
 
 
@@ -95,7 +94,6 @@ def update_village(
         if value is not None:
             setattr(village, key, value)
     db.commit()
-    db.refresh(village)
     return _village_out(db, village)
 
 
@@ -107,9 +105,7 @@ def get_village(db: DbSession, scope: AnyRole) -> VillageOut:
 @router.get("/villages/{village_id}/hamlets", response_model=list[VillageOut])
 def hamlets(db: DbSession, scope: AnyRole) -> list[VillageOut]:
     """Hamlets, padas and habitations listed under this village [Rule 2A]."""
-    rows = db.scalars(
-        select(Village).where(Village.parent_village_id == scope[1].id).order_by(Village.name_en)
-    ).all()
+    rows = db.find(Village, {"parent_village_id": scope[1].id}, sort=[("name_en", 1)])
     return [_village_out(db, v) for v in rows]
 
 
@@ -118,9 +114,7 @@ def hamlets(db: DbSession, scope: AnyRole) -> list[VillageOut]:
 
 def _check(db: DbSession, gs: GramSabha, body: FrcCheckIn) -> tuple[FrcCheck, list[GsMember]]:
     members = (
-        db.scalars(
-            select(GsMember).where(GsMember.id.in_(body.member_ids), GsMember.active.is_(True))
-        ).all()
+        db.find(GsMember, {"_id": {"$in": body.member_ids}, "active": True})
         if body.member_ids
         else []
     )
@@ -132,19 +126,16 @@ def _check(db: DbSession, gs: GramSabha, body: FrcCheckIn) -> tuple[FrcCheck, li
             "frc.member_not_in_roster",
             {"known": len(members), "given": len(set(body.member_ids))},
         )
-    has_st = (
-        db.scalar(
-            select(GsMember.id).where(
-                GsMember.gram_sabha_id == gs.id,
-                GsMember.active.is_(True),
-                GsMember.category == MemberCategory.ST,
-            )
-        )
-        is not None
+    has_st = db.exists(
+        GsMember,
+        {
+            "gram_sabha_id": gs.id,
+            "active": True,
+            "category": MemberCategory.ST.value,
+        },
     )
     by_id = {m.id: m for m in members}
     result = check_frc(
-        # one candidate per requested id, so a repeated id is caught as a duplicate
         [FrcCandidate(str(i), by_id[i].gender, by_id[i].category) for i in body.member_ids],
         gram_sabha_has_st=has_st,
         chair_id=str(body.chair_id) if body.chair_id else None,
@@ -157,7 +148,21 @@ def _check_out(c: FrcCheck) -> FrcCheckOut:
     return FrcCheckOut(**c.proof())
 
 
-def _frc_out(frc: Frc) -> FrcOut:
+def _frc_out(db: DbSession, frc: Frc) -> FrcOut:
+    members_out = []
+    for fm in sorted(frc.members, key=lambda fm: (not fm.is_chair, not fm.is_secretary)):
+        m = db.get(GsMember, fm.gs_member_id)
+        if m is not None:
+            members_out.append(
+                FrcMemberOut(
+                    gs_member_id=fm.gs_member_id,
+                    name=m.name,
+                    gender=m.gender,
+                    category=m.category,
+                    is_chair=fm.is_chair,
+                    is_secretary=fm.is_secretary,
+                )
+            )
     return FrcOut(
         id=frc.id,
         constituted_on=frc.constituted_on,
@@ -165,22 +170,12 @@ def _frc_out(frc: Frc) -> FrcOut:
         sdlc_intimated_on=frc.sdlc_intimated_on,
         is_current=frc.is_current,
         composition=FrcCheckOut(**frc.composition_proof),
-        members=[
-            FrcMemberOut(
-                gs_member_id=fm.gs_member_id,
-                name=fm.member.name,
-                gender=fm.member.gender,
-                category=fm.member.category,
-                is_chair=fm.is_chair,
-                is_secretary=fm.is_secretary,
-            )
-            for fm in sorted(frc.members, key=lambda fm: (not fm.is_chair, not fm.is_secretary))
-        ],
+        members=members_out,
     )
 
 
 @router.post("/villages/{village_id}/frc/check", response_model=FrcCheckOut)
-def frc_check(body: FrcCheckIn, db: DbSession, scope: GramSabhaOnly) -> FrcCheckOut:
+def frc_check_endpoint(body: FrcCheckIn, db: DbSession, scope: GramSabhaOnly) -> FrcCheckOut:
     """Live composition check while the FRC is being chosen (nothing is saved)."""
     result, _ = _check(db, _gram_sabha(db, scope[1].id), body)
     return _check_out(result)
@@ -204,7 +199,7 @@ def constitute_frc(body: FrcCreate, db: DbSession, scope: GramSabhaOnly) -> FrcO
             result.failures[0],
             {"failures": result.failures, **result.proof()},
         )
-    for old in db.scalars(select(Frc).where(Frc.gram_sabha_id == gs.id, Frc.is_current.is_(True))):
+    for old in db.find(Frc, {"gram_sabha_id": gs.id, "is_current": True}):
         old.is_current = False
     frc = Frc(
         gram_sabha_id=gs.id,
@@ -224,12 +219,11 @@ def constitute_frc(body: FrcCreate, db: DbSession, scope: GramSabhaOnly) -> FrcO
     ]
     db.add(frc)
     db.commit()
-    db.refresh(frc)
-    return _frc_out(frc)
+    return _frc_out(db, frc)
 
 
 def _current_frc(db: DbSession, gs: GramSabha) -> Frc:
-    frc = db.scalar(select(Frc).where(Frc.gram_sabha_id == gs.id, Frc.is_current.is_(True)))
+    frc = db.find_one(Frc, {"gram_sabha_id": gs.id, "is_current": True})
     if frc is None:
         raise ApiError(404, "FRC_NOT_CONSTITUTED", "frc.not_constituted")
     return frc
@@ -238,16 +232,14 @@ def _current_frc(db: DbSession, gs: GramSabha) -> Frc:
 @router.get("/villages/{village_id}/frc", response_model=FrcOut)
 def get_frc(db: DbSession, scope: AnyRole) -> FrcOut:
     """The current FRC with its stored composition proof (data for the G3 certificate)."""
-    return _frc_out(_current_frc(db, _gram_sabha(db, scope[1].id)))
+    return _frc_out(db, _current_frc(db, _gram_sabha(db, scope[1].id)))
 
 
 @router.get("/villages/{village_id}/frc/history", response_model=list[FrcOut])
 def frc_history(db: DbSession, scope: AnyRole) -> list[FrcOut]:
     gs = _gram_sabha(db, scope[1].id)
-    rows = db.scalars(
-        select(Frc).where(Frc.gram_sabha_id == gs.id).order_by(Frc.created_at.desc())
-    ).all()
-    return [_frc_out(f) for f in rows]
+    rows = db.find(Frc, {"gram_sabha_id": gs.id}, sort=[("created_at", -1)])
+    return [_frc_out(db, f) for f in rows]
 
 
 @router.post("/villages/{village_id}/frc/intimation", response_model=FrcOut)
@@ -258,23 +250,19 @@ def frc_intimation(body: FrcIntimation, db: DbSession, scope: GramSabhaOnly) -> 
         raise ApiError(422, "INTIMATION_BEFORE_CONSTITUTION", "frc.intimation_before_constitution")
     frc.sdlc_intimated_on = body.sdlc_intimated_on
     db.commit()
-    db.refresh(frc)
-    return _frc_out(frc)
+    return _frc_out(db, frc)
 
 
 # ── Claimants per case ────────────────────────────────────────────────────────
 
 
 def _claimants_out(db: DbSession, case_id: uuid.UUID) -> list[ClaimantOut]:
-    rows = db.scalars(
-        select(GsMember)
-        .join(CaseClaimant, CaseClaimant.gs_member_id == GsMember.id)
-        .where(CaseClaimant.case_id == case_id)
-        .order_by(GsMember.name)
-    ).all()
+    claimants = db.find(CaseClaimant, {"case_id": case_id})
+    m_ids = [c.gs_member_id for c in claimants]
+    members = db.find(GsMember, {"_id": {"$in": m_ids}}, sort=[("name", 1)]) if m_ids else []
     return [
         ClaimantOut(gs_member_id=m.id, name=m.name, gender=m.gender, category=m.category)
-        for m in rows
+        for m in members
     ]
 
 
@@ -298,19 +286,19 @@ def put_claimants(
     ensure_editable(ctx)
     ids = set(body.member_ids)
     members = (
-        db.scalars(
-            select(GsMember).where(
-                GsMember.id.in_(ids), GsMember.gram_sabha_id == ctx.case.gram_sabha_id
-            )
-        ).all()
+        db.find(
+            GsMember,
+            {"_id": {"$in": list(ids)}, "gram_sabha_id": ctx.case.gram_sabha_id},
+        )
         if ids
         else []
     )
     if len(members) != len(ids):
         raise ApiError(422, "CLAIMANT_NOT_IN_ROSTER", "case.claimant_not_in_roster")
-    for row in db.scalars(select(CaseClaimant).where(CaseClaimant.case_id == case_id)):
+    existing = db.find(CaseClaimant, {"case_id": case_id})
+    for row in existing:
         db.delete(row)
     db.flush()
-    db.add_all(CaseClaimant(case_id=case_id, gs_member_id=m.id) for m in members)
+    db.add_all([CaseClaimant(case_id=case_id, gs_member_id=m.id) for m in members])
     db.commit()
     return _claimants_out(db, case_id)

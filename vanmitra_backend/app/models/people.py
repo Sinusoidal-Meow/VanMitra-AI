@@ -3,128 +3,86 @@
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import (
-    Boolean,
-    CheckConstraint,
-    Date,
-    DateTime,
-    Enum,
-    ForeignKey,
-    String,
-    UniqueConstraint,
-    func,
-)
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from pydantic import Field
 
-from .base import Base, IdMixin, TimestampMixin
+from .base import Doc, TimestampedDoc, now_ms
 from .enums import ConsolidationStatus, Gender, MemberCategory, Role
 
 
-def pg_enum(enum_cls: type, name: str) -> Enum:
-    """Store the enum's lowercase values, not its Python names."""
-    return Enum(enum_cls, name=name, values_callable=lambda e: [m.value for m in e])
-
-
-class Village(IdMixin, TimestampMixin, Base):
+class Village(TimestampedDoc):
     """Village or hamlet. Hamlets point at their parent village [Rule 2A]."""
 
-    __tablename__ = "village"
+    COLLECTION = "village"
 
-    lgd_code: Mapped[str | None] = mapped_column(String(20), unique=True)
-    name_mr: Mapped[str] = mapped_column(String(200))
-    name_en: Mapped[str] = mapped_column(String(200))
-    gram_panchayat: Mapped[str] = mapped_column(String(200))
-    taluka: Mapped[str] = mapped_column(String(100))  # drives the SDLC jurisdiction
-    district: Mapped[str] = mapped_column(String(100))  # drives the DLC jurisdiction
-    state: Mapped[str] = mapped_column(String(100), default="Maharashtra")
-    parent_village_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("village.id"))
-    consolidation_status: Mapped[ConsolidationStatus] = mapped_column(
-        pg_enum(ConsolidationStatus, "consolidation_status"),
-        default=ConsolidationStatus.RECOGNISED,
-    )
-
-    parent: Mapped["Village | None"] = relationship(remote_side="Village.id")
-    gram_sabha: Mapped["GramSabha | None"] = relationship(back_populates="village")
+    lgd_code: str | None = None  # unique when present
+    name_mr: str
+    name_en: str
+    gram_panchayat: str
+    taluka: str  # drives the SDLC jurisdiction
+    district: str  # drives the DLC jurisdiction
+    state: str = "Maharashtra"
+    parent_village_id: uuid.UUID | None = None
+    consolidation_status: ConsolidationStatus = ConsolidationStatus.RECOGNISED
 
 
-class GramSabha(IdMixin, TimestampMixin, Base):
-    """The Gram Sabha of a village: owner of the CFR claim [Sec 6(1)]."""
+class GramSabha(TimestampedDoc):
+    """The Gram Sabha of a village: owner of the CFR claim [Sec 6(1)]. One per village."""
 
-    __tablename__ = "gram_sabha"
+    COLLECTION = "gram_sabha"
 
-    village_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("village.id"), unique=True)
-    # Head of this Gram Sabha's hash chain (PROJECT_PLAN rule R8). Set from Stage 2.
-    chain_head_hash: Mapped[str | None] = mapped_column(String(64))
-
-    village: Mapped[Village] = relationship(back_populates="gram_sabha")
-    members: Mapped[list["GsMember"]] = relationship(back_populates="gram_sabha")
+    village_id: uuid.UUID
+    # Head and length of this Gram Sabha's hash chain (PROJECT_PLAN rule R8).
+    chain_head_hash: str | None = None
+    chain_length: int = 0
 
 
-class GsMember(IdMixin, TimestampMixin, Base):
+class GsMember(TimestampedDoc):
     """
     Gram Sabha member. Gender and category feed three legal computations:
     FRC composition [Rule 3(1)], quorum [Rule 4(2)] and the Form C member sheet.
     Whether a member is a claimant is per case (case_claimant, Stage 2).
     """
 
-    __tablename__ = "gs_member"
+    COLLECTION = "gs_member"
 
-    gram_sabha_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("gram_sabha.id"), index=True)
-    name: Mapped[str] = mapped_column(String(200))
-    gender: Mapped[Gender] = mapped_column(pg_enum(Gender, "gender"))
-    category: Mapped[MemberCategory] = mapped_column(pg_enum(MemberCategory, "member_category"))
-    active: Mapped[bool] = mapped_column(Boolean, default=True)
-
-    gram_sabha: Mapped[GramSabha] = relationship(back_populates="members")
+    gram_sabha_id: uuid.UUID
+    name: str
+    gender: Gender
+    category: MemberCategory
+    active: bool = True
 
 
-class AppUser(IdMixin, TimestampMixin, Base):
+class AppUser(TimestampedDoc):
     """A person who logs in. Roles are per village, in user_role."""
 
-    __tablename__ = "app_user"
+    COLLECTION = "app_user"
 
-    phone: Mapped[str] = mapped_column(String(15), unique=True)
-    pin_hash: Mapped[str] = mapped_column(String(255))
-    name: Mapped[str] = mapped_column(String(200))
-    gs_member_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("gs_member.id"))
+    phone: str  # unique
+    pin_hash: str
+    name: str
+    gs_member_id: uuid.UUID | None = None
     # Back-office implementation team only; grants no access to case content.
-    is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-
-    roles: Mapped[list["UserRole"]] = relationship(back_populates="user")
+    is_admin: bool = False
+    is_active: bool = True
+    last_login_at: datetime | None = None
 
 
-class UserRole(IdMixin, Base):
+class UserRole(Doc):
     """
     A role held by a user within a jurisdiction, with validity dates (transfers keep
-    history). Village roles name a village; the SDO a taluka + district; district
-    officers a district.
+    history). Village roles name a village; the SDO a taluka + district.
     """
 
-    __tablename__ = "user_role"
-    __table_args__ = (
-        UniqueConstraint("user_id", "village_id", "role", "valid_from", name="uq_user_role_grant"),
-        CheckConstraint("valid_to IS NULL OR valid_to >= valid_from", name="valid_range"),
-        CheckConstraint(
-            "(role IN ('villager', 'gram_sabha') AND village_id IS NOT NULL)"
-            " OR (role = 'sdo' AND taluka IS NOT NULL AND district IS NOT NULL)"
-            " OR (role IN ('collector', 'dfo', 'tribal_welfare_officer') AND district IS NOT NULL)",
-            name="scope",
-        ),
-    )
+    COLLECTION = "user_role"
 
-    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("app_user.id"), index=True)
-    village_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("village.id"), index=True)
-    taluka: Mapped[str | None] = mapped_column(String(100))
-    district: Mapped[str | None] = mapped_column(String(100))
-    role: Mapped[Role] = mapped_column(pg_enum(Role, "app_role"))
-    valid_from: Mapped[date] = mapped_column(Date, server_default=func.current_date())
-    valid_to: Mapped[date | None] = mapped_column(Date)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-
-    user: Mapped[AppUser] = relationship(back_populates="roles")
-    village: Mapped[Village | None] = relationship()
+    user_id: uuid.UUID
+    village_id: uuid.UUID | None = None
+    taluka: str | None = None
+    district: str | None = None
+    role: Role
+    valid_from: date = Field(default_factory=date.today)
+    valid_to: date | None = None
+    created_at: datetime = Field(default_factory=now_ms)
 
     def is_active_on(self, day: date) -> bool:
         return self.valid_from <= day and (self.valid_to is None or day <= self.valid_to)

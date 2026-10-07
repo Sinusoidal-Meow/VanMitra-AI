@@ -14,7 +14,6 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, status
-from sqlalchemy import select
 
 from ...auth.deps import CurrentPrincipal, CurrentUser, DbSession, require_village_role
 from ...auth.principal import Principal
@@ -49,12 +48,7 @@ router = APIRouter(tags=["evidence"])
 
 
 def claimant_member_ids(db: DbSession, case_id: uuid.UUID) -> set[str]:
-    return {
-        str(i)
-        for i in db.scalars(
-            select(CaseClaimant.gs_member_id).where(CaseClaimant.case_id == case_id)
-        )
-    }
+    return {str(c.gs_member_id) for c in db.find(CaseClaimant, {"case_id": case_id})}
 
 
 def _ensure_can_add(ctx: CaseContext) -> None:
@@ -120,11 +114,12 @@ def _out(db: DbSession, rows: list[Evidence], superseded: set[uuid.UUID]) -> lis
     ids = [r.id for r in rows]
     verifications: dict[uuid.UUID, list[EvidenceVerification]] = {}
     if ids:
-        for v in db.scalars(
-            select(EvidenceVerification)
-            .where(EvidenceVerification.evidence_id.in_(ids))
-            .order_by(EvidenceVerification.created_at)
-        ):
+        v_rows = db.find(
+            EvidenceVerification,
+            {"evidence_id": {"$in": ids}},
+            sort=[("created_at", 1)],
+        )
+        for v in v_rows:
             verifications.setdefault(v.evidence_id, []).append(v)
     return [
         EvidenceOut(
@@ -187,11 +182,7 @@ def list_evidence(
     include_superseded: bool = False,
 ) -> list[EvidenceOut]:
     load_case(db, principal, case_id)
-    rows = list(
-        db.scalars(
-            select(Evidence).where(Evidence.case_id == case_id).order_by(Evidence.created_at)
-        )
-    )
+    rows = db.find(Evidence, {"case_id": case_id}, sort=[("created_at", 1)])
     superseded = {r.supersedes_id for r in rows if r.supersedes_id}
     if not include_superseded:
         rows = [r for r in rows if r.id not in superseded]
@@ -206,7 +197,7 @@ def _evidence_in_case(db: DbSession, case_id: uuid.UUID, evidence_id: uuid.UUID)
 
 
 def _is_superseded(db: DbSession, evidence_id: uuid.UUID) -> bool:
-    return db.scalar(select(Evidence.id).where(Evidence.supersedes_id == evidence_id)) is not None
+    return db.exists(Evidence, {"supersedes_id": evidence_id})
 
 
 @router.post(
@@ -261,10 +252,9 @@ def verify_evidence(
         claimant_member_ids(db, case_id),
     ):
         assert user.gs_member_id is not None
-        if not db.scalar(
-            select(Recusal.id).where(
-                Recusal.case_id == case_id, Recusal.gs_member_id == user.gs_member_id
-            )
+        if not db.exists(
+            Recusal,
+            {"case_id": case_id, "gs_member_id": user.gs_member_id},
         ):
             db.add(
                 Recusal(
@@ -275,11 +265,9 @@ def verify_evidence(
             )
             db.commit()
         raise RuleViolation("VERIFIER_IS_CLAIMANT", "Rule 3(3)", "evidence.verifier_is_claimant")
-    already = db.scalar(
-        select(EvidenceVerification.id).where(
-            EvidenceVerification.evidence_id == row.id,
-            EvidenceVerification.verified_by_user_id == user.id,
-        )
+    already = db.exists(
+        EvidenceVerification,
+        {"evidence_id": row.id, "verified_by_user_id": user.id},
     )
     if already:
         raise ApiError(409, "ALREADY_VERIFIED", "evidence.already_verified")
@@ -340,10 +328,10 @@ def verify_ledger(
     scope: Annotated[tuple[Principal, Village], Depends(require_village_role())],
 ) -> LedgerReportOut:
     """Recompute the Gram Sabha's hash chain and report the first altered or missing record."""
-    gs_id = db.scalar(select(GramSabha.id).where(GramSabha.village_id == scope[1].id))
-    if gs_id is None:
+    gs = db.find_one(GramSabha, {"village_id": scope[1].id})
+    if gs is None:
         raise ApiError(409, "GRAM_SABHA_MISSING", "village.gram_sabha_missing")
-    r = ledger.verify(db, gs_id)
+    r = ledger.verify(db, gs.id)
     return LedgerReportOut(
         ok=r.ok,
         length=r.length,
