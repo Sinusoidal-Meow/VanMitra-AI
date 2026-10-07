@@ -1,7 +1,22 @@
 """Calendar arithmetic for statutory periods."""
 
 import calendar
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
+
+# Indian Standard Time. India has no daylight saving, so a fixed offset is exact. Days
+# counted for villagers (such as the 60 days to resubmit) follow the Indian calendar,
+# whatever time zone the server itself runs in.
+IST = timezone(timedelta(hours=5, minutes=30), "IST")
+
+
+def today_ist() -> date:
+    """Today's date in India."""
+    return datetime.now(IST).date()
+
+
+def ist_date(moment: datetime) -> date:
+    """The Indian calendar date of a recorded moment (stored with its time zone)."""
+    return moment.astimezone(IST).date()
 
 
 def add_months(d: date, months: int) -> date:

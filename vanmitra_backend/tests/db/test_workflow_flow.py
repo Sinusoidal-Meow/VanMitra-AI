@@ -6,7 +6,7 @@ Either reviewer can send the claim back to the villager with remarks; the villag
 """
 
 import uuid
-from datetime import date, timedelta
+from datetime import timedelta
 from typing import Any
 
 import pytest
@@ -14,6 +14,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.domain.dates import today_ist
 from app.models import Role
 
 from .conftest import (
@@ -138,8 +139,8 @@ def test_sdo_sends_the_claim_back_to_the_villager(
     returned = seen["returned"]
     assert returned["by_role"] == "sdo"
     assert returned["remarks"] == "The photo of the field is not clear"
-    assert returned["returned_on"] == date.today().isoformat()
-    assert returned["resubmit_by"] == (date.today() + timedelta(days=60)).isoformat()
+    assert returned["returned_on"] == today_ist().isoformat()
+    assert returned["resubmit_by"] == (today_ist() + timedelta(days=60)).isoformat()
     assert returned["days_left"] == 60
     assert seen["allowed_actions"] == ["submit"]
 

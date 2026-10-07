@@ -18,11 +18,11 @@ from app.services.expiry import expire_overdue
 from .conftest import auth_headers, make_user, make_village, new_case
 
 VILLAGER, GS, GS_2, SDO, OTHER_GS = (
-    "9200000001",
-    "9200000002",
-    "9200000003",
-    "9200000004",
-    "9200000005",
+    "9810000001",
+    "9810000002",
+    "9810000003",
+    "9810000004",
+    "9810000005",
 )
 FORM_A: dict[str, Any] = {
     "claimant_names": ["Ramu Bhoye"],

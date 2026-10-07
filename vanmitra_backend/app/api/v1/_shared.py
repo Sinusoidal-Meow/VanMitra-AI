@@ -1,7 +1,6 @@
 """Response builders shared by the case, form and workflow routers."""
 
-from datetime import date
-
+from ...domain.dates import today_ist
 from ...domain.form_b import Completeness
 from ...domain.workflow import allowed_actions
 from ...models import ClaimCase, ClaimType, Village
@@ -54,7 +53,7 @@ def case_out(ctx: CaseContext) -> CaseOut:
             remarks=back.remarks,
             returned_on=back.returned_on,
             resubmit_by=back.resubmit_by,
-            days_left=max((back.resubmit_by - date.today()).days, 0),
+            days_left=max((back.resubmit_by - today_ist()).days, 0),
         )
         if back
         else None

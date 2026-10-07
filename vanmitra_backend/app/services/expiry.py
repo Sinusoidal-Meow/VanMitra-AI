@@ -12,6 +12,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from ..domain import expiry as rule
+from ..domain.dates import today_ist
 from ..domain.workflow import RESUBMIT_DAYS
 from ..models import (
     AppUser,
@@ -93,7 +94,7 @@ def _expire(db: Session, case: ClaimCase, back: ReturnInfo, today: date) -> None
 
 def expire_overdue(db: Session, today: date | None = None) -> int:
     """Expire every overdue returned claim; returns how many were expired."""
-    today = today or date.today()
+    today = today or today_ist()
     overdue_ids = []
     for case in db.scalars(select(ClaimCase).where(ClaimCase.state == CaseState.DRAFT)):
         back = returned_info(case)

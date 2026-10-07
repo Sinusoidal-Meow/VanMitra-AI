@@ -29,6 +29,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 
 from ..models.enums import CaseState, Role, WorkflowAction
+from .dates import today_ist
 
 MIN_REMARKS_LENGTH = 5
 RESUBMIT_DAYS = 60  # the villager's time to correct and resubmit a returned claim
@@ -108,7 +109,7 @@ def decide(
         filer = roles & {Role.VILLAGER, Role.GRAM_SABHA}
         if not is_creator or not filer:
             raise WorkflowError(403, "ONLY_CLAIMANT_CAN_SUBMIT", "workflow.only_claimant_submits")
-        if resubmit_by is not None and (today or date.today()) > resubmit_by:
+        if resubmit_by is not None and (today or today_ist()) > resubmit_by:
             raise WorkflowError(409, "RESUBMIT_WINDOW_PASSED", "workflow.resubmit_window_passed")
         acting = Role.GRAM_SABHA if Role.GRAM_SABHA in filer else Role.VILLAGER
         return Decision(CaseState.GS_REVIEW, acting)

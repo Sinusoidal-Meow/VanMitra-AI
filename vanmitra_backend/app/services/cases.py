@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from ..auth.deps import village_ref
 from ..auth.principal import Principal
+from ..domain.dates import ist_date
 from ..domain.workflow import can_view, resubmit_deadline
 from ..errors import ApiError
 from ..models import (
@@ -94,7 +95,7 @@ def returned_info(case: ClaimCase) -> ReturnInfo | None:
     last = case.events[-1]  # ordered by created_at
     if last.action is not WorkflowAction.RETURN or last.actor_role is None:
         return None
-    returned_on = last.created_at.date()
+    returned_on = ist_date(last.created_at)
     return ReturnInfo(
         by_role=last.actor_role,
         by_name=last.actor_name,
