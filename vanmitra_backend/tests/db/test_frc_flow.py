@@ -5,24 +5,24 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session, sessionmaker
 
 from app.models import Gender, GramSabha, GsMember, MemberCategory, Role
 
-from .conftest import auth_headers, make_user, make_village, new_case
+from .conftest import StoreMaker, auth_headers, make_user, make_village, new_case
 
 ADMIN, GS, VILLAGER, SDO = "9500000004", "9500000003", "9500000001", "9500000005"
 
 
 @pytest.fixture(scope="module")
-def ctx(session_factory: sessionmaker[Session]) -> dict[str, Any]:
+def ctx(session_factory: StoreMaker) -> dict[str, Any]:
     with session_factory() as db:
         village = make_village(db, "FrcVillage")
         make_user(db, ADMIN, None)
         make_user(db, GS, Role.GRAM_SABHA, village=village)
         make_user(db, VILLAGER, Role.VILLAGER, village=village)
         make_user(db, SDO, Role.SDO, taluka="Jawhar", district="Palghar")
-        gs = db.query(GramSabha).filter_by(village_id=village.id).one()
+        gs = db.find_one(GramSabha, {"village_id": village.id})
+        assert gs is not None
         roster: list[GsMember] = []
         # 6 ST women, 6 ST men, 3 OTFD men, 1 OTHER woman
         for i, (gender, cat) in enumerate(

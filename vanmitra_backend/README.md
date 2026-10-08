@@ -1,8 +1,8 @@
 # VanMitra backend
 
-FastAPI + PostgreSQL/PostGIS API for the **CFR claim module**. Plan and rules: [`../docs/BACKEND_PLAN.md`](../docs/BACKEND_PLAN.md).
+FastAPI + MongoDB (Atlas) API for the **FRA claim module**. Plan and rules: [`../docs/BACKEND_PLAN.md`](../docs/BACKEND_PLAN.md).
 
-**Status:** **Module 3** complete: registration and login for three levels (village user / Gram Sabha · SDO · Collector, DFO, Tribal Welfare Officer), Forms A, B and C, the review workflow and the title draft. Full API: [`../docs/API_MODULE3.md`](../docs/API_MODULE3.md).
+**Status:** villager → Gram Sabha → SDO, then handed to the district website; Forms A, B and C; send-back with remarks and 60 days to resubmit; the full CFR procedure. API: [`../docs/API_MODULE3.md`](../docs/API_MODULE3.md), [`../docs/API_PROCEDURE.md`](../docs/API_PROCEDURE.md).
 
 ## Quick start (Windows, Git Bash)
 
@@ -13,21 +13,18 @@ py -3.12 -m venv venv
 #   or: -r requirements-dev.txt                        # API + tests only, no PyTorch
 cp .env.example .env
 
-docker compose up -d db                              # PostgreSQL 16 + PostGIS 3.4 on host port 5433
-
-# Review, then apply, the schema (you run these, not the app):
-./venv/Scripts/alembic upgrade head --sql            # print the SQL
-./venv/Scripts/alembic upgrade head                  # apply it
+# In .env set VANMITRA_MONGODB_URI to the MongoDB Atlas link (a secret: never commit it).
+# Once per database (you run these, not the app):
+./venv/Scripts/python -m scripts.setup_mongo         # collections and indexes
 ./venv/Scripts/python -m scripts.seed_demo           # Ozhar village + one demo user per role
 
 ./venv/Scripts/uvicorn app.main:app --reload --port 8000
 ```
 
 - API docs: http://localhost:8000/docs
-- Demo logins (development only): phones `9000000001` (facilitator), `9000000002` (FRC member), `9000000003` (GS secretary), `9000000004` (admin), all with PIN `123456`
+- Demo logins (development only), PIN `123456`: `9000000001`, `9000000002` (villagers), `9000000003` (Gram Sabha), `9000000004` (admin), `9000000005` (SDO)
 - Phone over USB: `adb reverse tcp:8000 tcp:8000`, then the app uses `http://localhost:8000`
 
-The reviewed SQL for each migration is kept in `migrations/sql/`.
 
 ## Layout
 
@@ -35,16 +32,16 @@ The reviewed SQL for each migration is kept in `migrations/sql/`.
 app/
   main.py          app factory; mounts /api/v1 and, if enabled, the legacy routes
   config.py        settings (VANMITRA_* env vars / .env)
-  db.py            engine + per-request session
+  mongo.py         MongoDB client, the per-request unit of work (Store), indexes
+  db.py            the request dependency (re-exports from mongo.py)
   errors.py        uniform error body: {error, rule?, message_key, details}
   auth/            PIN hashing, JWT, Principal (role x village), route dependencies
-  models/          SQLAlchemy tables
+  models/          stored records (Pydantic documents)
   schemas/         request/response models
   api/v1/          routers
   legacy/          old Model A endpoints: frozen, removed once the app migrates (B-04)
-migrations/        Alembic (+ sql/ rendered SQL for review)
-scripts/           seed_demo.py
-tests/             unit/ and api/ (no database) · db/ (needs VANMITRA_TEST_DATABASE_URL)
+scripts/           setup_mongo.py (indexes), seed_demo.py
+tests/             unit/ and api/ (no database) · db/ (needs VANMITRA_TEST_MONGODB_URI)
 ```
 
 ## Endpoints
@@ -79,19 +76,21 @@ Errors caused by a legal rule also carry `"rule": "Rule 3(1)"`.
 ## Checks
 
 ```bash
-./venv/Scripts/ruff check app tests scripts migrations
-./venv/Scripts/ruff format --check app tests scripts migrations
+./venv/Scripts/ruff check app tests scripts
+./venv/Scripts/ruff format --check app tests scripts
 ./venv/Scripts/mypy app scripts
 ./venv/Scripts/pytest -q                               # db tests skip without a test database
 ```
 
-To run the database tests, point `VANMITRA_TEST_DATABASE_URL` at a **throwaway** database. The tests migrate it up and back down to empty. CI does this automatically (`.github/workflows/backend-ci.yml`).
+To run the database tests, point `VANMITRA_TEST_MONGODB_URI` at a **throwaway** MongoDB replica set (transactions need one). The tests create the database and drop it afterwards. CI does this automatically (`.github/workflows/backend-ci.yml`).
 
 ## Settings
 
 | Variable | Default | Notes |
 |---|---|---|
-| `VANMITRA_DATABASE_URL` | local compose DB | `postgresql+psycopg://…` |
+| `VANMITRA_MONGODB_URI` | local replica set | The MongoDB Atlas link (`mongodb+srv://…`). Secret: only in `.env` |
+| `VANMITRA_MONGODB_DB` | `vanmitra` | Database name |
+| `VANMITRA_EXPIRY_CHECK_MINUTES` | `60` | How often claims past their 60 days are closed (`0` = off) |
 | `VANMITRA_JWT_SECRET` | dev value | **Must** be set when `VANMITRA_ENV=production` (start-up refuses otherwise) |
 | `VANMITRA_ENABLE_LEGACY_API` | `true` | `false` skips loading the ML models: faster start, no old AI endpoints |
 | `VANMITRA_CORS_ORIGINS` | `["*"]` | JSON list |

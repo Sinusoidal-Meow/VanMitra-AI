@@ -5,11 +5,10 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session, sessionmaker
 
 from app.models import Role
 
-from .conftest import auth_headers, make_user, make_village, new_case
+from .conftest import StoreMaker, auth_headers, make_user, make_village, new_case
 
 VILLAGER, VILLAGER2, GS, OUTSIDER = "9200000001", "9200000002", "9200000003", "9200000004"
 
@@ -32,7 +31,7 @@ FULL_FORM_B: dict[str, Any] = {
 
 
 @pytest.fixture(scope="module")
-def villages(session_factory: sessionmaker[Session]) -> dict[str, uuid.UUID]:
+def villages(session_factory: StoreMaker) -> dict[str, uuid.UUID]:
     with session_factory() as db:
         ozhar = make_village(db, "FormBVillage")
         other = make_village(db, "OtherVillage")

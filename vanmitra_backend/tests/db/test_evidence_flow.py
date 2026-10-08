@@ -10,15 +10,13 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import select, text
-from sqlalchemy.exc import DBAPIError
-from sqlalchemy.orm import Session, sessionmaker
 
 from app.domain.dates import add_months
 from app.models import AppUser, Gender, GramSabha, GsMember, MemberCategory, Role
-from app.models.procedure import Recusal
+from app.models.procedure import Evidence, LedgerEntry, Recusal
+from app.mongo import AppendOnlyError
 
-from .conftest import auth_headers, make_user, make_village, new_case
+from .conftest import StoreMaker, auth_headers, make_user, make_village, new_case
 
 GS, GS_CLAIMANT, VILLAGER, OUTSIDER = "9600000001", "9600000002", "9600000003", "9600000004"
 TODAY = date.today()
@@ -40,7 +38,7 @@ FORM_C: dict[str, Any] = {
 
 
 @pytest.fixture(scope="module")
-def ctx(session_factory: sessionmaker[Session]) -> dict[str, Any]:
+def ctx(session_factory: StoreMaker) -> dict[str, Any]:
     with session_factory() as db:
         village = make_village(db, "EvidenceVillage")
         other = make_village(db, "EvidenceOther")
@@ -48,7 +46,8 @@ def ctx(session_factory: sessionmaker[Session]) -> dict[str, Any]:
         claimant_user = make_user(db, GS_CLAIMANT, Role.GRAM_SABHA, village=village)
         make_user(db, VILLAGER, Role.VILLAGER, village=village)
         make_user(db, OUTSIDER, Role.GRAM_SABHA, village=other)
-        gs = db.query(GramSabha).filter_by(village_id=village.id).one()
+        gs = db.find_one(GramSabha, {"village_id": village.id})
+        assert gs is not None
         elder = GsMember(
             gram_sabha_id=gs.id, name="Elder", gender=Gender.MALE,
             category=MemberCategory.ST, active=True,
@@ -58,7 +57,6 @@ def ctx(session_factory: sessionmaker[Session]) -> dict[str, Any]:
             category=MemberCategory.ST, active=True,
         )  # fmt: skip
         db.add_all([elder, claimant])
-        db.flush()
         claimant_user.gs_member_id = claimant.id
         db.commit()
         return {
@@ -209,7 +207,7 @@ def test_filing_issues_the_acknowledgement(db_client: TestClient, ctx: dict[str,
 
 
 def test_verification_and_recusal(
-    db_client: TestClient, ctx: dict[str, Any], session_factory: sessionmaker[Session]
+    db_client: TestClient, ctx: dict[str, Any], session_factory: StoreMaker
 ) -> None:
     case_id = ctx["case"]
     url = f"/api/v1/cases/{case_id}/evidence"
@@ -227,12 +225,11 @@ def test_verification_and_recusal(
     )
     assert recused.status_code == 409 and recused.json()["rule"] == "Rule 3(3)"
     with session_factory() as db:
-        claimant_user = db.scalars(select(AppUser).where(AppUser.phone == GS_CLAIMANT)).one()
-        assert db.scalar(
-            select(Recusal.id).where(
-                Recusal.case_id == uuid.UUID(case_id),
-                Recusal.gs_member_id == claimant_user.gs_member_id,
-            )
+        claimant_user = db.find_one(AppUser, {"phone": GS_CLAIMANT})
+        assert claimant_user is not None
+        assert db.exists(
+            Recusal,
+            {"case_id": uuid.UUID(case_id), "gs_member_id": claimant_user.gs_member_id},
         )
 
 
@@ -318,7 +315,7 @@ def test_letters_and_readiness(db_client: TestClient, ctx: dict[str, Any]) -> No
 
 
 def test_ledger_chain_and_append_only(
-    db_client: TestClient, ctx: dict[str, Any], session_factory: sessionmaker[Session]
+    db_client: TestClient, ctx: dict[str, Any], session_factory: StoreMaker
 ) -> None:
     url = f"/api/v1/villages/{ctx['village']}/ledger/verify"
     report = db_client.get(url, headers=_gs(db_client)).json()
@@ -326,25 +323,30 @@ def test_ledger_chain_and_append_only(
     assert report["ok"] is True and report["length"] == 13, report
     assert db_client.get(url, headers=auth_headers(db_client, OUTSIDER)).status_code == 403
 
-    eid = ctx["evidence"][0]
-    with session_factory() as db, pytest.raises(DBAPIError, match="append-only"):
-        db.execute(text("UPDATE evidence SET description = 'x' WHERE id = :i"), {"i": eid})
-    with session_factory() as db, pytest.raises(DBAPIError, match="append-only"):
-        db.execute(text("DELETE FROM ledger_entry WHERE gram_sabha_id = :g"), {"g": ctx["gs"]})
-
-    # Even with the trigger switched off, an edit is caught by the chain.
+    eid = uuid.UUID(ctx["evidence"][0])
+    # The server refuses to change or delete protected records.
     with session_factory() as db:
-        db.execute(text("ALTER TABLE evidence DISABLE TRIGGER evidence_append_only"))
-        db.execute(text("UPDATE evidence SET description = 'forged' WHERE id = :i"), {"i": eid})
-        db.commit()
+        item = db.get(Evidence, eid)
+        assert item is not None
+        item.description = "x"
+        with pytest.raises(AppendOnlyError):
+            db.commit()
+    with session_factory() as db:
+        link = db.find_one(LedgerEntry, {"gram_sabha_id": ctx["gs"]})
+        assert link is not None
+        with pytest.raises(AppendOnlyError):
+            db.delete(link)
+
+    # An edit made directly in the database, outside the server, is caught by the chain.
+    with session_factory() as db:
+        db.collection(Evidence).update_one({"_id": eid}, {"$set": {"description": "forged"}})
     try:
         broken = db_client.get(url, headers=_gs(db_client)).json()
         assert broken["ok"] is False
         assert broken["reason"] == "record altered" and broken["broken_entity"] == "evidence"
     finally:
         with session_factory() as db:
-            db.execute(text("UPDATE evidence SET description = '7/12 extract' WHERE id = :i"),
-                       {"i": eid})  # fmt: skip
-            db.execute(text("ALTER TABLE evidence ENABLE TRIGGER evidence_append_only"))
-            db.commit()
+            db.collection(Evidence).update_one(
+                {"_id": eid}, {"$set": {"description": "7/12 extract"}}
+            )
     assert db_client.get(url, headers=_gs(db_client)).json()["ok"] is True

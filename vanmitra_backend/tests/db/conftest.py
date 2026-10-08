@@ -11,11 +11,14 @@ from collections.abc import Iterator
 
 import pytest
 from fastapi.testclient import TestClient
+from pymongo import MongoClient
+from pymongo.database import Database
 
 from app.auth.security import hash_pin
-from app.db import Store, ensure_indexes, get_client, get_db
+from app.db import Store, get_db
 from app.main import create_app
 from app.models import AppUser, GramSabha, Role, UserRole, Village
+from app.mongo import CODEC_OPTIONS, Raw, ensure_indexes
 
 TEST_MONGODB_URI = os.environ.get("VANMITRA_TEST_MONGODB_URI")
 TEST_PIN = "123456"
@@ -29,8 +32,10 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
                 item.add_marker(pytest.mark.skip(reason="VANMITRA_TEST_MONGODB_URI not set"))
 
 
-class _StoreMaker:
-    def __init__(self, database):
+class StoreMaker:
+    """`with session_factory() as db:` gives a unit of work on the test database."""
+
+    def __init__(self, database: Database[Raw]) -> None:
         self._database = database
 
     def __call__(self) -> Store:
@@ -38,25 +43,30 @@ class _StoreMaker:
 
 
 @pytest.fixture(scope="session")
-def mongo_test_db():
+def mongo_test_db() -> Iterator[Database[Raw]]:
+    """A throwaway test database, emptied before and dropped after the run."""
     assert TEST_MONGODB_URI
     db_name = os.environ.get("VANMITRA_TEST_MONGODB_DB", "vanmitra_test")
-    client = get_client()
-    db = client[db_name]
+    client: MongoClient[Raw] = MongoClient(
+        TEST_MONGODB_URI, tz_aware=True, uuidRepresentation="standard"
+    )
+    client.drop_database(db_name)
+    db = client.get_database(db_name, codec_options=CODEC_OPTIONS)
     ensure_indexes(db)
     try:
         yield db
     finally:
         client.drop_database(db_name)
+        client.close()
 
 
 @pytest.fixture(scope="session")
-def session_factory(mongo_test_db):
-    yield _StoreMaker(mongo_test_db)
+def session_factory(mongo_test_db: Database[Raw]) -> Iterator[StoreMaker]:
+    yield StoreMaker(mongo_test_db)
 
 
 @pytest.fixture
-def db_client(mongo_test_db) -> TestClient:
+def db_client(mongo_test_db: Database[Raw]) -> TestClient:
     app = create_app()
 
     def _get_db() -> Iterator[Store]:

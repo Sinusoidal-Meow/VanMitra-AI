@@ -5,12 +5,11 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session, sessionmaker
 
 from app.domain.form_c import DEFAULT_RESOLUTION_STATEMENT
 from app.models import Gender, GramSabha, GsMember, MemberCategory, Role
 
-from .conftest import auth_headers, make_user, make_village, new_case
+from .conftest import StoreMaker, auth_headers, make_user, make_village, new_case
 
 VILLAGER, GS, OUTSIDER = "9300000001", "9300000003", "9300000004"
 
@@ -35,14 +34,15 @@ FULL_FORM_C: dict[str, Any] = {
 
 
 @pytest.fixture(scope="module")
-def villages(session_factory: sessionmaker[Session]) -> dict[str, uuid.UUID]:
+def villages(session_factory: StoreMaker) -> dict[str, uuid.UUID]:
     with session_factory() as db:
         ozar = make_village(db, "FormCVillage")
         other = make_village(db, "FormCOther")
         make_user(db, VILLAGER, Role.VILLAGER, village=ozar)
         make_user(db, GS, Role.GRAM_SABHA, village=ozar)
         make_user(db, OUTSIDER, Role.GRAM_SABHA, village=other)
-        gs = db.query(GramSabha).filter_by(village_id=ozar.id).one()
+        gs = db.find_one(GramSabha, {"village_id": ozar.id})
+        assert gs is not None
         db.add_all(
             [
                 GsMember(

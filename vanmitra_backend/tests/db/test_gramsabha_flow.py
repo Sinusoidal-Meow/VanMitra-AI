@@ -9,11 +9,10 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session, sessionmaker
 
 from app.models import AppUser, Role
 
-from .conftest import auth_headers, make_user, make_village, new_case
+from .conftest import StoreMaker, auth_headers, make_user, make_village, new_case
 
 GS, GS_CLAIMANT = "9800000001", "9800000002"
 TODAY = date.today()
@@ -23,7 +22,7 @@ NO_ONE = "00000000-0000-0000-0000-000000000000"
 
 
 @pytest.fixture(scope="module")
-def ctx(session_factory: sessionmaker[Session]) -> dict[str, Any]:
+def ctx(session_factory: StoreMaker) -> dict[str, Any]:
     with session_factory() as db:
         village = make_village(db, "MeetingVillage")
         make_user(db, GS, Role.GRAM_SABHA, village=village)
@@ -139,7 +138,7 @@ def test_verification_rules(db_client: TestClient, ctx: dict[str, Any]) -> None:
 
 
 def test_claimant_cannot_decide_own_claim(
-    db_client: TestClient, ctx: dict[str, Any], session_factory: sessionmaker[Session]
+    db_client: TestClient, ctx: dict[str, Any], session_factory: StoreMaker
 ) -> None:
     with session_factory() as db:
         user = db.get(AppUser, ctx["claimant_user"])

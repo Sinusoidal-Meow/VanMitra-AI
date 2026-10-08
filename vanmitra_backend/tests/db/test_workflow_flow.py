@@ -11,13 +11,12 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import text
-from sqlalchemy.orm import Session, sessionmaker
 
 from app.domain.dates import today_ist
-from app.models import Role
+from app.models import Role, WorkflowEvent
 
 from .conftest import (
+    StoreMaker,
     auth_headers,
     complete_cfr_prerequisites,
     make_user,
@@ -47,7 +46,7 @@ FORM_A: dict[str, Any] = {
 
 
 @pytest.fixture(scope="module")
-def ids(session_factory: sessionmaker[Session]) -> dict[str, uuid.UUID]:
+def ids(session_factory: StoreMaker) -> dict[str, uuid.UUID]:
     with session_factory() as db:
         ozhar = make_village(db, "FlowVillage", taluka="Jawhar", district="Palghar")
         make_user(db, VILLAGER, Role.VILLAGER, village=ozhar)
@@ -165,23 +164,18 @@ def test_gram_sabha_sends_the_claim_back_to_the_villager(
 
 
 def test_resubmission_after_sixty_days_is_refused(
-    db_client: TestClient, ids: dict[str, uuid.UUID], session_factory: sessionmaker[Session]
+    db_client: TestClient, ids: dict[str, uuid.UUID], session_factory: StoreMaker
 ) -> None:
     case_id = _filed_form_a(db_client, ids["village"])
     _act(db_client, case_id, GS, "return", "Photos are missing")
-    # move this claim's history 61 days into the past (the history is append-only, so the
-    # guard is lifted for this one change in the throwaway test database)
-    with session_factory() as db:
-        db.execute(text("ALTER TABLE workflow_event DISABLE TRIGGER workflow_event_append_only"))
-        db.execute(
-            text(
-                "UPDATE workflow_event SET created_at = created_at - interval '61 days' "
-                "WHERE case_id = :c"
-            ),
-            {"c": case_id},
-        )
-        db.execute(text("ALTER TABLE workflow_event ENABLE TRIGGER workflow_event_append_only"))
-        db.commit()
+    # move this claim's history 61 days into the past (the server never edits history;
+    # this changes it directly in the throwaway test database)
+    with session_factory() as db:  # directly in the database, outside the server
+        db.collection(WorkflowEvent).update_many(
+            {"case_id": uuid.UUID(case_id)},
+            [{"$set": {"created_at": {"$dateSubtract": {
+                "startDate": "$created_at", "unit": "day", "amount": 61}}}}],
+        )  # fmt: skip
     seen = _get(db_client, case_id, VILLAGER).json()
     assert seen["returned"]["days_left"] == 0
     assert seen["allowed_actions"] == []

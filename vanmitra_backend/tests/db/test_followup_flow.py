@@ -10,11 +10,11 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session, sessionmaker
 
 from app.models import CaseState, ClaimCase, Role, WorkflowAction, WorkflowEvent
 
 from .conftest import (
+    StoreMaker,
     auth_headers,
     complete_cfr_prerequisites,
     make_user,
@@ -27,7 +27,7 @@ TODAY = date.today()
 
 
 @pytest.fixture(scope="module")
-def ctx(session_factory: sessionmaker[Session]) -> dict[str, Any]:
+def ctx(session_factory: StoreMaker) -> dict[str, Any]:
     with session_factory() as db:
         village = make_village(db, "FollowupVillage")
         make_user(db, GS, Role.GRAM_SABHA, village=village)
@@ -37,7 +37,7 @@ def ctx(session_factory: sessionmaker[Session]) -> dict[str, Any]:
         return {"village": village.id}
 
 
-def _district_issues_title(session_factory: sessionmaker[Session], case_id: str) -> None:
+def _district_issues_title(session_factory: StoreMaker, case_id: str) -> None:
     """
     Stand-in for the district website, which signs the title outside this backend: the
     case is marked title_issued with the event that records it.
@@ -143,7 +143,7 @@ def test_clocks_after_the_resolution(db_client: TestClient, ctx: dict[str, Any])
 
 
 def test_title_then_record_entry_then_close(
-    db_client: TestClient, ctx: dict[str, Any], session_factory: sessionmaker[Session]
+    db_client: TestClient, ctx: dict[str, Any], session_factory: StoreMaker
 ) -> None:
     case = ctx["case"]
     url = f"/api/v1/cases/{case}/post-title"

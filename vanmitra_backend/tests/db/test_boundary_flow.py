@@ -10,12 +10,10 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import text
-from sqlalchemy.orm import Session, sessionmaker
 
-from app.models import Role
+from app.models import ClaimCase, Role
 
-from .conftest import auth_headers, make_user, make_village, new_case
+from .conftest import StoreMaker, auth_headers, make_user, make_village, new_case
 
 GS_A, GS_B, VILLAGER_A, GS_C = "9700000001", "9700000002", "9700000003", "9700000004"
 TODAY = date.today()
@@ -36,7 +34,7 @@ LANDMARKS = [
 
 
 @pytest.fixture(scope="module")
-def ctx(session_factory: sessionmaker[Session]) -> dict[str, Any]:
+def ctx(session_factory: StoreMaker) -> dict[str, Any]:
     with session_factory() as db:
         a = make_village(db, "BoundaryA")
         b = make_village(db, "BoundaryB")
@@ -217,7 +215,7 @@ def test_new_version_carries_landmarks_over(db_client: TestClient, ctx: dict[str
 
 
 def test_a_claim_that_no_longer_stands_does_not_block_its_neighbour(
-    db_client: TestClient, ctx: dict[str, Any], session_factory: sessionmaker[Session]
+    db_client: TestClient, ctx: dict[str, Any], session_factory: StoreMaker
 ) -> None:
     with session_factory() as db:
         village_c = make_village(db, "BoundaryC")
@@ -239,8 +237,9 @@ def test_a_claim_that_no_longer_stands_does_not_block_its_neighbour(
 
     # C's claim expires (the expiry itself is tested in test_expiry_flow)
     with session_factory() as db:
-        db.execute(text("UPDATE claim_case SET state = 'expired' WHERE id = :c"), {"c": case_c})
-        db.commit()
+        db.collection(ClaimCase).update_one(
+            {"_id": uuid.UUID(case_c)}, {"$set": {"state": "expired"}}
+        )
     assert (
         db_client.get(f"{a_url}/boundary", headers=_h(db_client, GS_A)).json()["open_disputes"] == 0
     )

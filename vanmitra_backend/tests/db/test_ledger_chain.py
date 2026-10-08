@@ -1,15 +1,14 @@
 """The hash chain stays whole when two writers take turns on one Gram Sabha's chain."""
 
-from sqlalchemy import select
-from sqlalchemy.orm import Session, sessionmaker
+import uuid
 
 from app.models import Gender, GramSabha, GsMember, MemberCategory
 from app.services import ledger
 
-from .conftest import make_village
+from .conftest import StoreMaker, make_village
 
 
-def _member(gram_sabha_id: object, name: str) -> GsMember:
+def _member(gram_sabha_id: uuid.UUID, name: str) -> GsMember:
     return GsMember(
         gram_sabha_id=gram_sabha_id,
         name=name,
@@ -20,13 +19,14 @@ def _member(gram_sabha_id: object, name: str) -> GsMember:
 
 
 def test_chain_holds_when_another_writer_appends_in_between(
-    session_factory: sessionmaker[Session],
+    session_factory: StoreMaker,
 ) -> None:
     with session_factory() as db:
         village = make_village(db, "LedgerVillage")
         db.commit()
-        gs_id = db.scalar(select(GramSabha.id).where(GramSabha.village_id == village.id))
-    assert gs_id is not None
+        gs = db.find_one(GramSabha, {"village_id": village.id})
+    assert gs is not None
+    gs_id = gs.id
 
     # the first writer keeps its session (and the Gram Sabha in it) across commits
     with session_factory() as first, session_factory() as second:

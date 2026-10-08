@@ -1,8 +1,8 @@
 """
 Test settings are set here, before any `app` import reads them.
 
-The default suite needs no database: the configured URL points at a closed port.
-Database tests (marked `db`) use VANMITRA_TEST_DATABASE_URL and are skipped without it.
+The default suite needs no database: the configured MongoDB address is a closed port.
+Database tests (marked `db`) use VANMITRA_TEST_MONGODB_URI and are skipped without it.
 """
 
 import os

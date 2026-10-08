@@ -9,13 +9,11 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import text
-from sqlalchemy.orm import Session, sessionmaker
 
-from app.models import Role
+from app.models import Role, WorkflowEvent
 from app.services.expiry import expire_overdue
 
-from .conftest import auth_headers, make_user, make_village, new_case
+from .conftest import StoreMaker, auth_headers, make_user, make_village, new_case
 
 VILLAGER, GS, GS_2, SDO, OTHER_GS = (
     "9810000001",
@@ -32,7 +30,7 @@ FORM_A: dict[str, Any] = {
 
 
 @pytest.fixture(scope="module")
-def ctx(session_factory: sessionmaker[Session]) -> dict[str, Any]:
+def ctx(session_factory: StoreMaker) -> dict[str, Any]:
     with session_factory() as db:
         village = make_village(db, "ExpiryVillage")
         other = make_village(db, "ExpiryOther")
@@ -65,20 +63,15 @@ def _sent_back(client: TestClient, village_id: uuid.UUID) -> str:
     return case_id
 
 
-def _age(session_factory: sessionmaker[Session], case_id: str, days: int) -> None:
-    """Move a claim's history `days` into the past (the history is append-only, so the
-    guard is lifted for this one change in the throwaway test database)."""
+def _age(session_factory: StoreMaker, case_id: str, days: int) -> None:
+    """Move a claim's history `days` into the past (the server never edits history; this
+    changes it directly in the throwaway test database)."""
     with session_factory() as db:
-        db.execute(text("ALTER TABLE workflow_event DISABLE TRIGGER workflow_event_append_only"))
-        db.execute(
-            text(
-                "UPDATE workflow_event SET created_at = created_at - make_interval(days => :d) "
-                "WHERE case_id = :c"
-            ),
-            {"d": days, "c": case_id},
-        )
-        db.execute(text("ALTER TABLE workflow_event ENABLE TRIGGER workflow_event_append_only"))
-        db.commit()
+        db.collection(WorkflowEvent).update_many(
+            {"case_id": uuid.UUID(case_id)},
+            [{"$set": {"created_at": {"$dateSubtract": {
+                "startDate": "$created_at", "unit": "day", "amount": days}}}}],
+        )  # fmt: skip
 
 
 def _inbox(client: TestClient, phone: str) -> Any:
@@ -88,7 +81,7 @@ def _inbox(client: TestClient, phone: str) -> Any:
 
 
 def test_claim_expires_after_sixty_days(
-    db_client: TestClient, ctx: dict[str, Any], session_factory: sessionmaker[Session]
+    db_client: TestClient, ctx: dict[str, Any], session_factory: StoreMaker
 ) -> None:
     late = _sent_back(db_client, ctx["village"])
     in_time = _sent_back(db_client, ctx["village"])
@@ -143,7 +136,7 @@ def test_reading_notifications(db_client: TestClient, ctx: dict[str, Any]) -> No
 
 
 def test_gram_sabha_that_filed_its_own_claim_is_told_once(
-    db_client: TestClient, ctx: dict[str, Any], session_factory: sessionmaker[Session]
+    db_client: TestClient, ctx: dict[str, Any], session_factory: StoreMaker
 ) -> None:
     case_id = new_case(db_client, ctx["village"], GS, "cr")
     form_b = {"claimant_names": ["Ozhar community"], "rights": {"nistar": {"details": "Firewood"}}}

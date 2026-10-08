@@ -1,40 +1,11 @@
-# Local development: PostgreSQL + PostGIS, and optionally the API in a container.
+# Optional: run the API in a container. The database is MongoDB Atlas (online); its link
+# is read from .env (VANMITRA_MONGODB_URI), so no database runs here.
 #
-#   docker compose up -d db                          # database only (run the API from venv)
-#   docker compose --profile api up -d --build       # database + API container
-#
-# Migrations are applied explicitly, never on start-up:
-#   alembic upgrade head                             # from the venv, or:
-#   docker compose --profile api run --rm api alembic upgrade head
+#   docker compose up -d --build
 
 services:
-  db:
-    image: postgis/postgis:16-3.4
-    environment:
-      POSTGRES_DB: vanmitra
-      POSTGRES_USER: vanmitra
-      POSTGRES_PASSWORD: vanmitra  # local development only
-    ports:
-      - "${VANMITRA_DB_PORT:-5433}:5432"  # host 5433 avoids a locally installed PostgreSQL
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U vanmitra -d vanmitra"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
-
   api:
-    profiles: ["api"]
     build: .
     env_file: .env
-    environment:
-      VANMITRA_DATABASE_URL: postgresql+psycopg://vanmitra:vanmitra@db:5432/vanmitra
     ports:
       - "8000:8000"
-    depends_on:
-      db:
-        condition: service_healthy
-
-volumes:
-  pgdata:

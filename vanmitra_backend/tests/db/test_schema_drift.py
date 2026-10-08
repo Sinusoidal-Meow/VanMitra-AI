@@ -9,6 +9,7 @@ from app.models import (
     ClaimCase,
     Correspondence,
     Dispute,
+    Doc,
     Evidence,
     EvidenceVerification,
     Frc,
@@ -30,7 +31,7 @@ from app.mongo import INDEXES
 
 
 def test_models_have_indexes() -> None:
-    models = [
+    models: list[type[Doc]] = [
         Village,
         GramSabha,
         GsMember,

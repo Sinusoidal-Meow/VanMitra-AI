@@ -5,16 +5,15 @@ from datetime import date, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session, sessionmaker
 
 from app.auth.security import hash_pin
 from app.models import AppUser, Role, UserRole
 
-from .conftest import TEST_PIN, auth_headers, make_user, make_village
+from .conftest import TEST_PIN, StoreMaker, auth_headers, make_user, make_village
 
 
 @pytest.fixture(scope="module")
-def seeded(session_factory: sessionmaker[Session]) -> dict[str, uuid.UUID]:
+def seeded(session_factory: StoreMaker) -> dict[str, uuid.UUID]:
     with session_factory() as db:
         village = make_village(db, "AuthVillage")
         user = AppUser(phone="9100000002", name="GS Test", pin_hash=hash_pin(TEST_PIN))
@@ -22,7 +21,6 @@ def seeded(session_factory: sessionmaker[Session]) -> dict[str, uuid.UUID]:
             phone="9100000009", name="Gone", pin_hash=hash_pin(TEST_PIN), is_active=False
         )
         db.add_all([user, inactive])
-        db.flush()
         db.add_all(
             [
                 UserRole(user_id=user.id, village_id=village.id, role=Role.GRAM_SABHA),
