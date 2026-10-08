@@ -433,6 +433,10 @@ INDEXES: dict[str, list[IndexModel]] = {
         ),
         IndexModel([("neighbour_case_id", ASCENDING)], name="neighbour"),
     ],
+    "device_token": [
+        IndexModel([("token", ASCENDING)], name="token_unique", unique=True),
+        IndexModel([("user_id", ASCENDING)], name="user"),
+    ],
     "notification": [
         IndexModel([("user_id", ASCENDING), ("created_at", DESCENDING)], name="inbox"),
     ],

@@ -33,6 +33,10 @@ class Settings(BaseSettings):
     # Check for claims whose time to resubmit has passed, every N minutes (0 = off).
     expiry_check_minutes: int = 60
 
+    # Phone push messages (Firebase Cloud Messaging). Path to the Firebase service-account
+    # key file (a secret: keep it out of git). Not set = messages are shown in the app only.
+    fcm_credentials_file: str | None = None
+
     # Old "Model A" AI endpoints, kept until the app migrates (BACKEND_PLAN B-04).
     enable_legacy_api: bool = True
 

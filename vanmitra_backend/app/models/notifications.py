@@ -24,3 +24,19 @@ class Notification(Doc):
     body_mr: str
     created_at: datetime = Field(default_factory=now_ms)
     read_at: datetime | None = None
+
+
+class DeviceToken(Doc):
+    """
+    A phone that may receive push messages for a user (Firebase Cloud Messaging token).
+    A token belongs to one user at a time; it moves if another user signs in on it.
+    """
+
+    COLLECTION = "device_token"
+
+    user_id: uuid.UUID
+    token: str  # unique
+    platform: str = "android"  # android | ios | web
+    language: str = "mr"  # which text the push messages are sent in: mr | en
+    created_at: datetime = Field(default_factory=now_ms)
+    updated_at: datetime = Field(default_factory=now_ms)

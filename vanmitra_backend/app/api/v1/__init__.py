@@ -6,6 +6,7 @@ from . import (
     boundary,
     cases,
     claim_calls,
+    devices,
     documents,
     evidence,
     followup,
@@ -40,3 +41,4 @@ router.include_router(gramsabha.router)
 router.include_router(documents.router)
 router.include_router(followup.router)
 router.include_router(notifications.router)
+router.include_router(devices.router)

@@ -41,7 +41,7 @@ from .enums import (
     UseZoneType,
     WorkflowAction,
 )
-from .notifications import Notification
+from .notifications import DeviceToken, Notification
 from .people import AppUser, GramSabha, GsMember, UserRole, Village
 from .procedure import (
     Attendance,
@@ -90,6 +90,7 @@ DOC_TYPES: dict[str, type[Doc]] = {
         BoundaryWalk,
         Dispute,
         Notification,
+        DeviceToken,
     )
 }
 
@@ -111,6 +112,7 @@ __all__ = [
     "ClaimType",
     "ConsolidationStatus",
     "Correspondence",
+    "DeviceToken",
     "Dispute",
     "DisputeOutcome",
     "Doc",

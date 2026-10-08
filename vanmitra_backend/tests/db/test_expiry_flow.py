@@ -10,7 +10,8 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from app.models import Role, WorkflowEvent
+from app.models import AppUser, DeviceToken, Role, WorkflowEvent
+from app.services import push
 from app.services.expiry import expire_overdue
 
 from .conftest import StoreMaker, auth_headers, make_user, make_village, new_case
@@ -155,3 +156,51 @@ def test_gram_sabha_that_filed_its_own_claim_is_told_once(
     with session_factory() as db:
         assert expire_overdue(db) >= 1  # other modules may leave old returned claims too
     assert len(_inbox(db_client, GS)["items"]) == before + 1
+
+
+def test_phones_register_and_get_the_push_in_their_language(
+    db_client: TestClient,
+    ctx: dict[str, Any],
+    session_factory: StoreMaker,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    villager_phone, gs_phone = "v" * 40, "g" * 40
+    res = db_client.post(
+        "/api/v1/devices",
+        json={"token": villager_phone, "language": "en"},
+        headers=_h(db_client, VILLAGER),
+    )
+    assert res.status_code == 200, res.text
+    db_client.post("/api/v1/devices", json={"token": gs_phone}, headers=_h(db_client, GS))
+    # the same phone signed in by another user moves to that user
+    moved = db_client.post("/api/v1/devices", json={"token": "m" * 40}, headers=_h(db_client, SDO))
+    assert moved.status_code == 200
+    again = db_client.post("/api/v1/devices", json={"token": "m" * 40}, headers=_h(db_client, GS_2))
+    assert again.status_code == 200
+    with session_factory() as db:
+        [device] = db.find(DeviceToken, {"token": "m" * 40})
+        assert device.user_id != db.find_one(AppUser, {"phone": SDO}).id  # type: ignore[union-attr]
+
+    sent: list[push.PushMessage] = []
+
+    def fake_send(msg: push.PushMessage) -> str:
+        sent.append(msg)
+        return "gone" if msg.token == "m" * 40 else "sent"
+
+    monkeypatch.setattr(push, "send", fake_send)
+    monkeypatch.setattr(push, "enabled", lambda: True)
+
+    case_id = _sent_back(db_client, ctx["village"])
+    _age(session_factory, case_id, 61)
+    with session_factory() as db:
+        assert expire_overdue(db) >= 1
+
+    by_token = {m.token: m for m in sent if m.data["case_id"] == case_id}
+    assert "file a new claim" in by_token[villager_phone].body  # English, as the phone asked
+    assert "काहीही केले नाही" in by_token[gs_phone].body  # Marathi by default
+    assert by_token[villager_phone].data["kind"] == "claim_expired"
+    with session_factory() as db:  # Firebase no longer knows this phone: forgotten
+        assert not db.exists(DeviceToken, {"token": "m" * 40})
+
+    removed = db_client.delete(f"/api/v1/devices/{villager_phone}", headers=_h(db_client, VILLAGER))
+    assert removed.status_code == 204

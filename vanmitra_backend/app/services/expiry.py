@@ -23,7 +23,7 @@ from ..models import (
     WorkflowEvent,
 )
 from ..models.notifications import Notification
-from . import ledger
+from . import ledger, push
 from .cases import ReturnInfo, returned_info
 
 log = logging.getLogger(__name__)
@@ -49,7 +49,7 @@ def _gram_sabha_users(db: Store, case: ClaimCase, today: date) -> list[AppUser]:
     return [u for uid in user_ids if (u := db.get(AppUser, uid)) is not None]
 
 
-def _expire(db: Store, case: ClaimCase, back: ReturnInfo, today: date) -> None:
+def _expire(db: Store, case: ClaimCase, back: ReturnInfo, today: date) -> list[Notification]:
     event = WorkflowEvent(
         case_id=case.id,
         action=WorkflowAction.EXPIRE,
@@ -72,6 +72,7 @@ def _expire(db: Store, case: ClaimCase, back: ReturnInfo, today: date) -> None:
     to_filer = rule.to_villager(case.claim_type, back.returned_on)
     to_gs = rule.to_gram_sabha(case.claim_type, claimant, back.returned_on)
     sent: set[object] = set()
+    notes: list[Notification] = []
     for user_id, msg in [
         (case.created_by_user_id, to_filer),
         *[(u.id, to_gs) for u in _gram_sabha_users(db, case, today)],
@@ -79,7 +80,7 @@ def _expire(db: Store, case: ClaimCase, back: ReturnInfo, today: date) -> None:
         if user_id in sent:  # a Gram Sabha that filed its own Form C is told once
             continue
         sent.add(user_id)
-        db.add(
+        note = db.add(
             Notification(
                 user_id=user_id,
                 case_id=case.id,
@@ -90,6 +91,8 @@ def _expire(db: Store, case: ClaimCase, back: ReturnInfo, today: date) -> None:
                 body_mr=msg.body_mr,
             )
         )
+        notes.append(note)
+    return notes
 
 
 def expire_overdue(db: Store, today: date | None = None) -> int:
@@ -97,12 +100,14 @@ def expire_overdue(db: Store, today: date | None = None) -> int:
     today = today or today_ist()
     draft_cases = db.find(ClaimCase, {"state": CaseState.DRAFT.value})
     expired = 0
+    notes: list[Notification] = []
     for case in draft_cases:
         back = returned_info(db, case)
         if back is not None and rule.is_overdue(back.resubmit_by, today):
-            _expire(db, case, back, today)
+            notes += _expire(db, case, back, today)
             expired += 1
     if expired:
         db.commit()
         log.info("expired %d claim(s) not resubmitted within %d days", expired, RESUBMIT_DAYS)
+        push.deliver(db, notes)  # phone push messages, after the notifications are saved
     return expired
