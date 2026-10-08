@@ -3,9 +3,10 @@ import 'package:hive_flutter/hive_flutter.dart';
 import '../data/local/hive_database.dart';
 import '../models/user.dart';
 import '../models/user_role.dart';
-import '../services/firebase_auth_service.dart';
+import '../services/api_auth_service.dart';
 import '../services/firestore_initialization_service.dart';
 import '../services/cloud_sync_service.dart';
+import '../core/auth/auth_storage.dart';
 
 // ─── Auth State ────────────────────────────────────────────────────────────
 
@@ -41,11 +42,12 @@ class AuthState {
 
 // ─── Auth Notifier ─────────────────────────────────────────────────────────
 
-/// Manages authentication state using Firebase Email/Password & Demo Roles.
+/// Manages authentication state using FastAPI endpoints
 class AuthNotifier extends StateNotifier<AuthState> {
   AuthNotifier() : super(const AuthState());
 
-  final FirebaseAuthService _firebaseAuth = FirebaseAuthService();
+  final ApiAuthService _apiAuth = ApiAuthService();
+  final AuthStorage _authStorage = AuthStorage();
 
   // ─── Step 1: Check existing session on app start ──────────────────────
 
@@ -54,6 +56,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = state.copyWith(isLoading: true);
 
     try {
+      final token = await _authStorage.getAccessToken();
+      if (token == null) {
+        state = const AuthState(isLoading: false);
+        return;
+      }
+
       // Try reading from Hive first (fast path, already persisted)
       final box = Hive.box<Map>(HiveDatabase.userBox);
       if (box.isNotEmpty) {
@@ -65,24 +73,20 @@ class AuthNotifier extends StateNotifier<AuthState> {
             isAuthenticated: true,
             isLoading: false,
           );
+          
+          // Background fetch to ensure user is up to date
+          _apiAuth.getMe().then((apiUser) {
+             _persistToHive(apiUser);
+             if (mounted) {
+               state = state.copyWith(currentUser: apiUser);
+             }
+          }).catchError((_) {});
           return;
         }
       }
 
-      final fbUser = _firebaseAuth.currentUser;
-      if (fbUser == null) {
-        state = const AuthState(isLoading: false);
-        return;
-      }
-
-      // Hive empty → fetch fresh from Firestore
-      var fsUser = await _firebaseAuth.getFirestoreUser(fbUser.uid);
-      fsUser ??= await _firebaseAuth.ensureUserProfile(
-        uid: fbUser.uid,
-        email: fbUser.email ?? '',
-      );
-
-      final user = _buildUserFromFirestore(fbUser.uid, fsUser);
+      // Hive empty, but we have token → fetch fresh from API
+      final user = await _apiAuth.getMe();
       await _persistToHive(user);
       state = AuthState(
         currentUser: user,
@@ -100,28 +104,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
   // ─── Step 2: Login ───────────────────────────────────────────────────
 
   /// Logs in a user. Returns role string on success for navigation.
-  Future<String?> login(String email, String password) async {
+  Future<String?> login(String phone, String pin) async {
     state = state.copyWith(isLoading: true, clearError: true);
 
     try {
-      final credential = await _firebaseAuth.loginWithEmail(email, password);
-      final fbUser = credential.user;
-
-      if (fbUser == null) {
-        state = state.copyWith(
-          isLoading: false,
-          errorMessage: 'Sign-in failed. Please try again.',
-        );
-        return null;
-      }
-
-      var fsUser = await _firebaseAuth.getFirestoreUser(fbUser.uid);
-      fsUser ??= await _firebaseAuth.ensureUserProfile(
-        uid: fbUser.uid,
-        email: fbUser.email ?? email,
-      );
-
-      final user = _buildUserFromFirestore(fbUser.uid, fsUser);
+      final user = await _apiAuth.login(phone, pin);
       await _persistToHive(user);
 
       state = AuthState(
@@ -174,8 +161,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   /// Registers a new user. Returns role string on success for navigation.
   Future<String?> register(
-    String email,
-    String password,
+    String phone,
+    String pin,
     String name,
     String role,
     String villageId,
@@ -183,21 +170,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = state.copyWith(isLoading: true, clearError: true);
 
     try {
-      final credential = await _firebaseAuth.registerWithEmail(
-        email: email,
-        password: password,
+      final user = await _apiAuth.register(
+        phone: phone,
+        pin: pin,
         name: name,
         role: role,
         villageId: villageId,
       );
-
-      final fbUser = credential.user;
-      if (fbUser == null) throw Exception('Registration returned null user.');
-
-      final fsUser = await _firebaseAuth.getFirestoreUser(fbUser.uid);
-      if (fsUser == null) throw Exception('Profile creation failed.');
-
-      final user = _buildUserFromFirestore(fbUser.uid, fsUser);
+      
       await _persistToHive(user);
 
       state = AuthState(
@@ -231,36 +211,13 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<void> logout() async {
-    await _firebaseAuth.signOut();
+    await _apiAuth.logout();
     final box = Hive.box<Map>(HiveDatabase.userBox);
     await box.clear();
     state = const AuthState();
   }
 
   // ─── Private Helpers ─────────────────────────────────────────────────
-
-  User _buildUserFromFirestore(
-    String uid,
-    Map<String, dynamic> fsData,
-  ) {
-    final roleStr = fsData['role'] as String? ?? 'villager';
-    final role = UserRoleExtension.parse(roleStr);
-
-    return User(
-      id: uid,
-      email: fsData['email'] as String? ?? '',
-      name: fsData['name'] as String? ?? '',
-      role: role,
-      villageId: fsData['villageId'] as String? ?? 'ozhar_jawhar_palghar',
-      tehsil: fsData['tehsil'] as String? ?? 'Jawhar',
-      district: fsData['district'] as String? ?? 'Palghar',
-      state: fsData['state'] as String? ?? 'Maharashtra',
-      preferredLanguage: fsData['preferredLanguage'] as String? ?? 'mr',
-      createdAt: fsData['createdAt'] != null
-          ? (fsData['createdAt'] as dynamic).toDate()
-          : DateTime.now(),
-    );
-  }
 
   Future<void> _persistToHive(User user) async {
     final box = Hive.box<Map>(HiveDatabase.userBox);

@@ -24,7 +24,7 @@ import 'screens/claims/claim_type_selection_screen.dart';
 import 'screens/claims/claim_form_screen.dart';
 import 'screens/claims/evidence_checklist_screen.dart';
 import 'screens/claims/draft_preview_screen.dart';
-import 'screens/claims/my_claims_screen.dart';
+import 'features/case_hub/cases_list_screen.dart';
 import 'screens/claims/rejection_analysis_screen.dart';
 import 'screens/claims/appeal_draft_screen.dart';
 import 'screens/claims/rule_13_info_screen.dart';
@@ -111,7 +111,7 @@ class VanMitraApp extends ConsumerWidget {
         AppRouter.claimForm: (_) => const ClaimFormScreen(),
         AppRouter.evidenceChecklist: (_) => const EvidenceChecklistScreen(),
         AppRouter.claimDraft: (_) => const DraftPreviewScreen(),
-        AppRouter.myClaims: (_) => const MyClaimsScreen(),
+        AppRouter.myClaims: (_) => const CasesListScreen(),
         AppRouter.rejectionCheck: (_) => const RejectionAnalysisScreen(),
         AppRouter.appealDraft: (_) => const AppealDraftScreen(),
         AppRouter.rule13Evidence: (_) => const Rule13InfoScreen(),

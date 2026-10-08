@@ -13,7 +13,7 @@ import '../../widgets/common/app_components.dart';
 import '../../widgets/common/animated_bottom_nav_bar.dart';
 import '../../widgets/common/vanmitra_background_watermark.dart';
 import '../../widgets/portal_frame_scaffold.dart';
-import '../claims/my_claims_screen.dart';
+import '../../features/case_hub/cases_list_screen.dart';
 import '../gram_sabha/gram_sabha_dashboard.dart';
 import '../profile/profile_screen.dart';
 import 'alert_detail_screen.dart';
@@ -42,7 +42,7 @@ class _VillagerHomeScreenState extends ConsumerState<VillagerHomeScreen> {
       index: _currentTab,
       children: [
         _HomeTab(bottomNavigationBar: navBar, onSwitchTab: (index) => setState(() => _currentTab = index)),
-        MyClaimsScreen(bottomNavigationBar: navBar),
+        CasesListScreen(bottomNavigationBar: navBar),
         _ProfileTab(bottomNavigationBar: navBar),
         _GramSabhaTab(bottomNavigationBar: navBar),
         _MapTab(bottomNavigationBar: navBar),
