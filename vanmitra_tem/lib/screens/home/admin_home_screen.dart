@@ -11,7 +11,7 @@ import '../../services/localization_service.dart';
 import '../../widgets/common/app_components.dart';
 import '../../widgets/common/vanmitra_background_watermark.dart';
 import '../../widgets/portal_frame_scaffold.dart';
-import '../../features/case_hub/cases_list_screen.dart';
+import '../claims/my_claims_screen.dart';
 import '../gram_sabha/gram_sabha_dashboard.dart';
 import '../profile/profile_screen.dart';
 import 'boundary_map_screen.dart';
@@ -45,7 +45,7 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen> {
       index: _currentTab,
       children: [
         _AdminDashboard(bottomNavigationBar: navBar, onSwitchTab: (index) => setState(() => _currentTab = index)),
-        CasesListScreen(bottomNavigationBar: navBar),
+        MyClaimsScreen(bottomNavigationBar: navBar),
         _AdminProfileTab(bottomNavigationBar: navBar),
         _AdminGramSabhaTab(bottomNavigationBar: navBar),
         _AdminMapTab(bottomNavigationBar: navBar),

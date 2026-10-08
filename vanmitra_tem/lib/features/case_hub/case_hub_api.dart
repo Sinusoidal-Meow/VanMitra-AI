@@ -32,4 +32,31 @@ class CaseHubApi {
     final res = await _api.get(ApiEndpoints.caseDetails(caseId));
     return res as Map<String, dynamic>;
   }
+
+  Future<Map<String, dynamic>> submitCase(String caseId) async {
+    final res = await _api.post(ApiEndpoints.submitCase(caseId));
+    return res as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> approveCase(String caseId) async {
+    final res = await _api.post(ApiEndpoints.approveCase(caseId));
+    return res as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> returnCase(String caseId, String remarks) async {
+    final res = await _api.post(
+      ApiEndpoints.returnCase(caseId),
+      body: {'remarks': remarks},
+    );
+    return res as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> rejectCase(String caseId, String remarks) async {
+    final res = await _api.post(
+      ApiEndpoints.rejectCase(caseId),
+      body: {'remarks': remarks},
+    );
+    return res as Map<String, dynamic>;
+  }
 }
+

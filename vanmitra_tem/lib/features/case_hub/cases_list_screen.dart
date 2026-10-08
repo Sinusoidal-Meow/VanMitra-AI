@@ -4,6 +4,7 @@ import '../../core/theme/app_colors.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/portal_frame_scaffold.dart';
 import 'case_hub_api.dart';
+import 'case_home_screen.dart';
 import 'dart:async';
 import '../../core/routes/app_router.dart';
 import '../../models/user_role.dart';
@@ -96,9 +97,14 @@ class _CasesListScreenState extends ConsumerState<CasesListScreen> with SingleTi
       _loadData(); // refresh list
       
       if (mounted) {
-        // Navigate to Case Home (stepper)
-        // Using existing AppRouter if case details exist or create one
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Case created successfully!')));
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => CaseHomeScreen(
+              caseId: newCase['id'],
+              initialClaimType: type,
+            ),
+          ),
+        ).then((_) => _loadData());
       }
     } catch (e) {
       if (mounted) {
@@ -172,25 +178,73 @@ class _CasesListScreenState extends ConsumerState<CasesListScreen> with SingleTi
   
   Widget _buildList(List<dynamic> items) {
     if (items.isEmpty) {
-      return const Center(child: Text('No cases found', style: TextStyle(color: Colors.grey)));
+      return const Center(child: Text('No cases found / कोणतेही दावे आढळले नाहीत', style: TextStyle(color: Colors.grey)));
     }
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: items.length,
       itemBuilder: (ctx, i) {
         final item = items[i];
+        final claimType = (item['claim_type'] as String? ?? 'ifr').toUpperCase();
+        final formLetter = item['form'] as String? ?? (claimType == 'IFR' ? 'A' : (claimType == 'CR' ? 'B' : 'C'));
+        final state = item['state'] as String? ?? item['status'] as String? ?? 'draft';
+        final claimant = item['claimant_label'] as String? ?? 'Claimant';
+        final village = item['village_name_mr'] ?? item['village_name_en'] ?? '';
+
         return Card(
+          elevation: 1.5,
           margin: const EdgeInsets.only(bottom: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           child: ListTile(
-            title: Text(item['claim_type']?.toString().toUpperCase() ?? 'Unknown Claim'),
-            subtitle: Text('Status: ${item['status'] ?? 'DRAFT'}'),
-            trailing: const Icon(Icons.chevron_right),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            leading: CircleAvatar(
+              backgroundColor: AppColors.primary.withOpacity(0.12),
+              child: Text(
+                formLetter,
+                style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary),
+              ),
+            ),
+            title: Text(
+              claimant,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+            ),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 4),
+                Text('Form $formLetter · $claimType ${village.isNotEmpty ? "· $village" : ""}'),
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: state == 'draft' ? Colors.orange.shade100 : Colors.blue.shade100,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    state.toUpperCase(),
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: state == 'draft' ? Colors.orange.shade900 : Colors.blue.shade900,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            trailing: const Icon(Icons.chevron_right, color: Colors.grey),
             onTap: () {
-               // navigate to Case Details (Stepper)
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => CaseHomeScreen(
+                    caseId: item['id'],
+                    initialClaimType: item['claim_type'],
+                  ),
+                ),
+              ).then((_) => _loadData());
             },
           ),
         );
-      }
+      },
     );
   }
 }

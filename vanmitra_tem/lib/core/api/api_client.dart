@@ -10,6 +10,8 @@ class ApiException implements Exception {
   final String? rule;
   final Map<String, dynamic>? details;
 
+  int get status => statusCode;
+
   ApiException({
     required this.statusCode,
     required this.error,
@@ -93,6 +95,16 @@ class ApiClient {
   Future<dynamic> put(String path, {Map<String, dynamic>? body, bool requireAuth = true}) async {
     final headers = await _getHeaders(requireAuth: requireAuth);
     final response = await http.put(
+      Uri.parse('${ApiEndpoints.baseUrl}$path'),
+      headers: headers,
+      body: body != null ? jsonEncode(body) : null,
+    );
+    return _handleResponse(response);
+  }
+
+  Future<dynamic> patch(String path, {Map<String, dynamic>? body, bool requireAuth = true}) async {
+    final headers = await _getHeaders(requireAuth: requireAuth);
+    final response = await http.patch(
       Uri.parse('${ApiEndpoints.baseUrl}$path'),
       headers: headers,
       body: body != null ? jsonEncode(body) : null,

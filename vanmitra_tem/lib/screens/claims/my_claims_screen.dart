@@ -11,6 +11,9 @@ import '../../widgets/common/app_components.dart';
 import '../../widgets/portal_frame_scaffold.dart';
 import '../../widgets/status_timeline_widget.dart';
 import '../home/alert_detail_screen.dart';
+import '../../features/case_hub/case_hub_api.dart';
+import '../../features/case_hub/case_home_screen.dart';
+import '../../providers/auth_provider.dart';
 
 /// Renovated My Claims List — FRA Citizen Application directory built on Forest Canopy tokens,
 /// StatusBadge tracking tags, floating card hierarchy, and standardized empty state representation.
@@ -26,6 +29,57 @@ class _MyClaimsScreenState extends ConsumerState<MyClaimsScreen> {
   final _searchCtrl = TextEditingController();
   ClaimStatus? _filterStatus;
   String _searchQuery = '';
+  final CaseHubApi _api = CaseHubApi();
+
+  void _openNewClaim() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Open New Claim', style: TextStyle(fontFamily: 'NotoSansDevanagari')),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: const Text('Form A — IFR'),
+              onTap: () => _createAndNavigate('ifr', ctx),
+            ),
+            ListTile(
+              title: const Text('Form B — Community Rights'),
+              onTap: () => _createAndNavigate('cr', ctx),
+            ),
+            ListTile(
+              title: const Text('Form C — CFR'),
+              onTap: () => _createAndNavigate('cfr', ctx),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _createAndNavigate(String type, BuildContext dialogCtx) async {
+    Navigator.pop(dialogCtx);
+    try {
+      final authState = ref.read(authProvider);
+      final villageId = authState.currentUser?.villageId ?? '';
+      final newCase = await _api.createCase(villageId, type);
+      
+      if (mounted) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => CaseHomeScreen(
+              caseId: newCase['id'],
+              initialClaimType: type,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to create case: $e')));
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -74,7 +128,7 @@ class _MyClaimsScreenState extends ConsumerState<MyClaimsScreen> {
       floatingActionButton: Container(
         margin: const EdgeInsets.only(bottom: 12),
         child: FloatingActionButton.extended(
-          onPressed: () => Navigator.pushNamed(context, AppRouter.claimType),
+          onPressed: _openNewClaim,
           backgroundColor: AppColors.saffron,
           foregroundColor: Colors.white,
           elevation: 6,
