@@ -7,6 +7,10 @@ class User {
   final String name;
   final UserRole role;
   final String villageId;
+
+  /// The village's id on the VanMitra backend (MongoDB). `villageId` stays the older
+  /// key the Firebase screens use; claims on the backend need this one.
+  final String? backendVillageId;
   final String? tehsil;
   final String? district;
   final String? state;
@@ -21,6 +25,7 @@ class User {
     required this.name,
     required this.role,
     required this.villageId,
+    this.backendVillageId,
     this.tehsil = 'Jawhar',
     this.district = 'Palghar',
     this.state = 'Maharashtra',
@@ -34,6 +39,7 @@ class User {
     String? name,
     UserRole? role,
     String? villageId,
+    String? backendVillageId,
     String? tehsil,
     String? district,
     String? state,
@@ -47,6 +53,7 @@ class User {
       name: name ?? this.name,
       role: role ?? this.role,
       villageId: villageId ?? this.villageId,
+      backendVillageId: backendVillageId ?? this.backendVillageId,
       tehsil: tehsil ?? this.tehsil,
       district: district ?? this.district,
       state: state ?? this.state,
@@ -63,6 +70,7 @@ class User {
         'name': name,
         'role': role.name,
         'villageId': villageId,
+        'backendVillageId': backendVillageId,
         'tehsil': tehsil,
         'district': district,
         'state': state,
@@ -78,6 +86,7 @@ class User {
         name: json['name'] as String? ?? '',
         role: UserRoleExtension.parse(json['role'] as String?),
         villageId: json['villageId'] as String? ?? 'ozhar_jawhar_palghar',
+        backendVillageId: json['backendVillageId'] as String?,
         tehsil: json['tehsil'] as String? ?? 'Jawhar',
         district: json['district'] as String? ?? 'Palghar',
         state: json['state'] as String? ?? 'Maharashtra',

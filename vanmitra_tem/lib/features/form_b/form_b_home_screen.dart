@@ -72,12 +72,12 @@ class _FormBHomeScreenState extends State<FormBHomeScreen> {
       final messaging = FirebaseMessaging.instance;
       await messaging.requestPermission();
       final token = await messaging.getToken();
-      if (token != null && formBApi.isLoggedIn) {
+      if (token != null && await formBApi.isLoggedIn()) {
         await formBApi.registerDevice(token, language: _lang);
         _pushToken = token;
       }
       _onTokenRefresh ??= messaging.onTokenRefresh.listen((t) async {
-        if (!formBApi.isLoggedIn) return;
+        if (!await formBApi.isLoggedIn()) return;
         try {
           await formBApi.registerDevice(t, language: _lang);
           _pushToken = t;

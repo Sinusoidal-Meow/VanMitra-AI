@@ -1,6 +1,5 @@
 import 'package:vanmitra_ai/core/api/api_client.dart';
 import 'package:vanmitra_ai/core/api/api_endpoints.dart';
-import 'package:vanmitra_ai/models/claim.dart';
 
 class CaseHubApi {
   final ApiClient _api = ApiClient();
@@ -20,7 +19,8 @@ class CaseHubApi {
     return res as List<dynamic>? ?? [];
   }
 
-  Future<Map<String, dynamic>> createCase(String villageId, String claimType) async {
+  Future<Map<String, dynamic>> createCase(
+      String villageId, String claimType) async {
     final res = await _api.post(
       ApiEndpoints.villageCases(villageId),
       body: {'claim_type': claimType},
@@ -59,4 +59,3 @@ class CaseHubApi {
     return res as Map<String, dynamic>;
   }
 }
-

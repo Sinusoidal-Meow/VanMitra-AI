@@ -35,7 +35,8 @@ class _MyClaimsScreenState extends ConsumerState<MyClaimsScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Open New Claim', style: TextStyle(fontFamily: 'NotoSansDevanagari')),
+        title: Text('Open New Claim',
+            style: TextStyle(fontFamily: 'NotoSansDevanagari', color: context.colors.textPrimary)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -61,7 +62,7 @@ class _MyClaimsScreenState extends ConsumerState<MyClaimsScreen> {
     Navigator.pop(dialogCtx);
     try {
       final authState = ref.read(authProvider);
-      final villageId = authState.currentUser?.villageId ?? '';
+      final villageId = authState.currentUser?.backendVillageId ?? authState.currentUser?.villageId ?? '';
       final newCase = await _api.createCase(villageId, type);
       
       if (mounted) {

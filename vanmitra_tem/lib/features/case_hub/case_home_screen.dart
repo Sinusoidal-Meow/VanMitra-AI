@@ -60,7 +60,8 @@ class _CaseHomeScreenState extends State<CaseHomeScreen> {
 
   void _openClaimForm() async {
     if (_caseData == null) return;
-    final claimType = _caseData!['claim_type'] as String? ?? widget.initialClaimType ?? 'ifr';
+    final claimType =
+        _caseData!['claim_type'] as String? ?? widget.initialClaimType ?? 'ifr';
     final state = _caseData!['state'] as String? ?? 'draft';
     final isEditable = state == 'draft';
 
@@ -90,9 +91,13 @@ class _CaseHomeScreenState extends State<CaseHomeScreen> {
           'Are you sure you want to submit this claim to the Gram Sabha? The form will be locked for review.\n\nतुम्ही हा दावा ग्रामसभेकडे दाखल करू इच्छिता का?',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Submit / दाखल करा'),
           ),
@@ -107,7 +112,9 @@ class _CaseHomeScreenState extends State<CaseHomeScreen> {
       await _api.submitCase(widget.caseId);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Claim submitted to Gram Sabha successfully!'), backgroundColor: Colors.green),
+          const SnackBar(
+              content: Text('Claim submitted to Gram Sabha successfully!'),
+              backgroundColor: Colors.green),
         );
       }
       _loadCase();
@@ -115,14 +122,16 @@ class _CaseHomeScreenState extends State<CaseHomeScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${e.error}: ${e.messageKey} ${e.rule != null ? "[${e.rule}]" : ""}'),
+            content: Text(
+                '${e.error}: ${e.messageKey} ${e.rule != null ? "[${e.rule}]" : ""}'),
             backgroundColor: Colors.red.shade800,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
       }
     } finally {
       if (mounted) setState(() => _actionInProgress = false);
@@ -138,9 +147,12 @@ class _CaseHomeScreenState extends State<CaseHomeScreen> {
           'Approve this claim and forward to the next statutory stage?\n\nहा दावा मंजूर करून पुढील स्तरावर पाठवायचा का?',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green, foregroundColor: Colors.white),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Approve / मंजूर करा'),
           ),
@@ -155,7 +167,9 @@ class _CaseHomeScreenState extends State<CaseHomeScreen> {
       await _api.approveCase(widget.caseId);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Claim approved successfully!'), backgroundColor: Colors.green),
+          const SnackBar(
+              content: Text('Claim approved successfully!'),
+              backgroundColor: Colors.green),
         );
       }
       _loadCase();
@@ -163,14 +177,16 @@ class _CaseHomeScreenState extends State<CaseHomeScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${e.error}: ${e.messageKey} ${e.rule != null ? "[${e.rule}]" : ""}'),
+            content: Text(
+                '${e.error}: ${e.messageKey} ${e.rule != null ? "[${e.rule}]" : ""}'),
             backgroundColor: Colors.red.shade800,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
       }
     } finally {
       if (mounted) setState(() => _actionInProgress = false);
@@ -204,9 +220,13 @@ class _CaseHomeScreenState extends State<CaseHomeScreen> {
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.amber.shade800, foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.amber.shade800,
+                foregroundColor: Colors.white),
             onPressed: () {
               if (remarksCtrl.text.trim().length >= 5) {
                 Navigator.pop(ctx, true);
@@ -225,7 +245,9 @@ class _CaseHomeScreenState extends State<CaseHomeScreen> {
       await _api.returnCase(widget.caseId, remarksCtrl.text.trim());
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Claim returned with remarks.'), backgroundColor: Colors.amber),
+          const SnackBar(
+              content: Text('Claim returned with remarks.'),
+              backgroundColor: Colors.amber),
         );
       }
       _loadCase();
@@ -240,7 +262,8 @@ class _CaseHomeScreenState extends State<CaseHomeScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
       }
     } finally {
       if (mounted) setState(() => _actionInProgress = false);
@@ -274,9 +297,13 @@ class _CaseHomeScreenState extends State<CaseHomeScreen> {
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade800, foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red.shade800,
+                foregroundColor: Colors.white),
             onPressed: () {
               if (remarksCtrl.text.trim().length >= 10) {
                 Navigator.pop(ctx, true);
@@ -295,7 +322,9 @@ class _CaseHomeScreenState extends State<CaseHomeScreen> {
       await _api.rejectCase(widget.caseId, remarksCtrl.text.trim());
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Claim marked rejected with statutory reasons.'), backgroundColor: Colors.red),
+          const SnackBar(
+              content: Text('Claim marked rejected with statutory reasons.'),
+              backgroundColor: Colors.red),
         );
       }
       _loadCase();
@@ -310,7 +339,8 @@ class _CaseHomeScreenState extends State<CaseHomeScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
       }
     } finally {
       if (mounted) setState(() => _actionInProgress = false);
@@ -333,7 +363,8 @@ class _CaseHomeScreenState extends State<CaseHomeScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text('Error loading case: $_error', style: const TextStyle(color: Colors.red)),
+              Text('Error loading case: $_error',
+                  style: const TextStyle(color: Colors.red)),
               const SizedBox(height: 12),
               ElevatedButton(onPressed: _loadCase, child: const Text('Retry')),
             ],
@@ -344,12 +375,14 @@ class _CaseHomeScreenState extends State<CaseHomeScreen> {
 
     final data = _caseData!;
     final claimType = (data['claim_type'] as String? ?? 'ifr').toUpperCase();
-    final formLetter = data['form'] as String? ?? (claimType == 'IFR' ? 'A' : (claimType == 'CR' ? 'B' : 'C'));
+    final formLetter = data['form'] as String? ??
+        (claimType == 'IFR' ? 'A' : (claimType == 'CR' ? 'B' : 'C'));
     final state = data['state'] as String? ?? 'draft';
     final claimantLabel = data['claimant_label'] as String? ?? 'Claimant';
     final village = data['village_name_mr'] ?? data['village_name_en'] ?? '';
     final taluka = data['taluka'] ?? '';
-    final allowedActions = (data['allowed_actions'] as List<dynamic>? ?? []).cast<String>();
+    final allowedActions =
+        (data['allowed_actions'] as List<dynamic>? ?? []).cast<String>();
     final returned = data['returned'] as Map<String, dynamic>?;
 
     return Scaffold(
@@ -368,7 +401,8 @@ class _CaseHomeScreenState extends State<CaseHomeScreen> {
           // Case Overview Card
           Card(
             elevation: 2,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -378,25 +412,33 @@ class _CaseHomeScreenState extends State<CaseHomeScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
                           color: AppColors.primary.withOpacity(0.12),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
                           'Form $formLetter · $claimType',
-                          style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary, fontSize: 12),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.primary,
+                              fontSize: 12),
                         ),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
                           color: _getStateColor(state),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
                           _formatStateLabel(state),
-                          style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold),
                         ),
                       ),
                     ],
@@ -404,7 +446,8 @@ class _CaseHomeScreenState extends State<CaseHomeScreen> {
                   const SizedBox(height: 10),
                   Text(
                     claimantLabel,
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -438,8 +481,10 @@ class _CaseHomeScreenState extends State<CaseHomeScreen> {
           StepCard(
             stepNumber: 1,
             title: 'दावा अर्ज / Form $formLetter Claim Details',
-            subtitle: 'Statutory claim form, personal details, claims and family members',
-            status: state == 'draft' ? StepStatus.inProgress : StepStatus.completed,
+            subtitle:
+                'Statutory claim form, personal details, claims and family members',
+            status:
+                state == 'draft' ? StepStatus.inProgress : StepStatus.completed,
             onTap: _openClaimForm,
           ),
 
@@ -448,10 +493,13 @@ class _CaseHomeScreenState extends State<CaseHomeScreen> {
             stepNumber: 2,
             title: 'पुरावा संच / Evidence Pool (Rule 13)',
             subtitle: 'Photos, PDFs, and Elder Voice Recordings',
-            status: state == 'draft' ? StepStatus.pending : StepStatus.inProgress,
+            status:
+                state == 'draft' ? StepStatus.pending : StepStatus.inProgress,
             onTap: () {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Module 5 (Evidence Pool) integration available in Evidence step')),
+                const SnackBar(
+                    content: Text(
+                        'Module 5 (Evidence Pool) integration available in Evidence step')),
               );
             },
           ),
@@ -460,7 +508,8 @@ class _CaseHomeScreenState extends State<CaseHomeScreen> {
           StepCard(
             stepNumber: 3,
             title: 'सीमांकन आणि चतुःसीमा / Boundary & Mapping',
-            subtitle: 'GPS perimeter walk, landmarks, and traditional use zones',
+            subtitle:
+                'GPS perimeter walk, landmarks, and traditional use zones',
             status: StepStatus.pending,
             onTap: () {},
           ),
@@ -488,7 +537,9 @@ class _CaseHomeScreenState extends State<CaseHomeScreen> {
             stepNumber: 6,
             title: 'अंतिम सनद / Title Certificate & Orders',
             subtitle: 'SDO / DLC approval and statutory Annexure title draft',
-            status: state == 'title_issued' ? StepStatus.completed : StepStatus.pending,
+            status: state == 'title_issued'
+                ? StepStatus.completed
+                : StepStatus.pending,
             onTap: () {},
           ),
           const SizedBox(height: 80),
@@ -542,7 +593,8 @@ class _CaseHomeScreenState extends State<CaseHomeScreen> {
                 child: ElevatedButton.icon(
                   onPressed: _actionInProgress ? null : _handleSubmit,
                   icon: const Icon(Icons.send),
-                  label: const Text('दाखल करा / Submit Claim', style: TextStyle(fontWeight: FontWeight.bold)),
+                  label: const Text('दाखल करा / Submit Claim',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
@@ -556,7 +608,8 @@ class _CaseHomeScreenState extends State<CaseHomeScreen> {
                 child: ElevatedButton.icon(
                   onPressed: _actionInProgress ? null : _handleApprove,
                   icon: const Icon(Icons.check),
-                  label: const Text('मंजूर करा / Approve & Forward', style: TextStyle(fontWeight: FontWeight.bold)),
+                  label: const Text('मंजूर करा / Approve & Forward',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green.shade700,
                     foregroundColor: Colors.white,

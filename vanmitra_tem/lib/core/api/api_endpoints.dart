@@ -1,9 +1,16 @@
 class ApiEndpoints {
-  // Base URL provided via dart-define, fallback to localhost for emulator
-  static const String baseUrl = String.fromEnvironment(
+  // Server address from --dart-define=VANMITRA_API_BASE_URL (the same value the rest of
+  // the app uses, e.g. http://127.0.0.1:8000 for a phone over USB). Accepted with or
+  // without the trailing /api/v1. Default: the Android emulator's view of this PC.
+  static const String _server = String.fromEnvironment(
     'VANMITRA_API_BASE_URL',
-    defaultValue: 'http://10.0.2.2:8010/api/v1',
+    defaultValue: 'http://10.0.2.2:8000',
   );
+
+  static String get baseUrl {
+    final root = _server.endsWith('/') ? _server.substring(0, _server.length - 1) : _server;
+    return root.endsWith('/api/v1') ? root : '$root/api/v1';
+  }
 
   // Health
   static const String health = '/health';

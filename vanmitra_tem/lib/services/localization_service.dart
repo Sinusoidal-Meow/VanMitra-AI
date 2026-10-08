@@ -125,6 +125,7 @@ class AppLocalizations {
       'step_decision': 'Decision',
       'no_claims_filter': 'No claims match this filter.',
       'no_claims_yet': 'No claims submitted yet.',
+      'search_placeholder': 'Search by application ID or claimant',
       'error_loading_claims': 'Unable to load claims. Please check your connection and try again.',
       // Claim Type Screen
       'claim_type': 'Claim Type',
@@ -339,6 +340,7 @@ class AppLocalizations {
       'step_decision': 'निर्णय',
       'no_claims_filter': 'या फिल्टरसाठी कोणतेही दावे नाहीत.',
       'no_claims_yet': 'अद्याप कोणताही दावा दाखल नाही.',
+      'search_placeholder': 'अर्ज क्रमांक किंवा दावेदाराने शोधा',
       'error_loading_claims': 'दावे लोड करता आले नाहीत. कृपया आपले कनेक्शन तपासा.',
       // Claim Type Screen
       'claim_type': 'दावा प्रकार',
@@ -553,6 +555,7 @@ class AppLocalizations {
       'step_decision': 'निर्णय',
       'no_claims_filter': 'इस फ़िल्टर से कोई दावा मेल नहीं खाता।',
       'no_claims_yet': 'अभी तक कोई दावा दर्ज नहीं किया गया है।',
+      'search_placeholder': 'आवेदन संख्या या दावेदार से खोजें',
       'error_loading_claims': 'दावे लोड नहीं हो सके। कृपया अपना कनेक्शन जांचें।',
       // Claim Type Screen
       'claim_type': 'दावा का प्रकार',

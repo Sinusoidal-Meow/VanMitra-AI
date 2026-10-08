@@ -59,11 +59,13 @@ class ApiClient {
 
   dynamic _handleResponse(http.Response response) {
     if (response.statusCode >= 200 && response.statusCode < 300) {
-      if (response.body.isEmpty) return null;
-      return jsonDecode(response.body);
+      if (response.bodyBytes.isEmpty) return null;
+      // Always UTF-8: the server sends Marathi text, and without a charset in the
+      // reply the http package would read it as Latin-1.
+      return jsonDecode(utf8.decode(response.bodyBytes));
     } else {
       try {
-        final body = jsonDecode(response.body);
+        final body = jsonDecode(utf8.decode(response.bodyBytes));
         throw ApiException.fromJson(response.statusCode, body);
       } catch (e) {
         if (e is ApiException) rethrow;
@@ -99,6 +101,12 @@ class ApiClient {
       headers: headers,
       body: body != null ? jsonEncode(body) : null,
     );
+    return _handleResponse(response);
+  }
+
+  Future<dynamic> delete(String path, {bool requireAuth = true}) async {
+    final headers = await _getHeaders(requireAuth: requireAuth);
+    final response = await http.delete(Uri.parse('${ApiEndpoints.baseUrl}$path'), headers: headers);
     return _handleResponse(response);
   }
 

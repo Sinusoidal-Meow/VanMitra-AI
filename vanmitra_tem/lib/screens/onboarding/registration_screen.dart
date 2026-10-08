@@ -110,6 +110,12 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
 
     if (!mounted) return;
 
+    if (role == null) {
+      // Say why instead of doing nothing (wrong PIN, server not reachable, ...).
+      _showError(ref.read(authProvider).errorMessage ?? 'Could not sign in. Please try again.');
+      return;
+    }
+
     if (role == 'admin') {
       Navigator.pushReplacementNamed(context, AppRouter.adminHome);
     } else if (role == 'villager') {
@@ -535,8 +541,9 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
   }
 
   Widget _demoLoginBtn(String label, String phone) {
+    final c = context.colors;
     return ActionChip(
-      label: Text(label, style: const TextStyle(fontSize: 12)),
+      label: Text(label, style: TextStyle(fontSize: 12, color: c.textPrimary, fontWeight: FontWeight.w600)),
       onPressed: () {
         _phoneController.text = phone;
         _pinController.text = '123456';

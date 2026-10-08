@@ -1,4 +1,7 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
+import '../../widgets/illustrations/vanmitra_illustrations.dart';
+import 'villager_dashboard/dashboard_cards.dart';
+import 'villager_dashboard/villager_hero_section.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/routes/app_router.dart';
 import '../../models/boundary_alert.dart';
@@ -13,7 +16,8 @@ import '../../widgets/common/app_components.dart';
 import '../../widgets/common/animated_bottom_nav_bar.dart';
 import '../../widgets/common/vanmitra_background_watermark.dart';
 import '../../widgets/portal_frame_scaffold.dart';
-import '../claims/my_claims_screen.dart';
+import '../../features/case_hub/cases_list_screen.dart';
+import '../../features/case_hub/new_claim.dart';
 import '../gram_sabha/gram_sabha_dashboard.dart';
 import '../profile/profile_screen.dart';
 import 'alert_detail_screen.dart';
@@ -41,8 +45,10 @@ class _VillagerHomeScreenState extends ConsumerState<VillagerHomeScreen> {
     return IndexedStack(
       index: _currentTab,
       children: [
-        _HomeTab(bottomNavigationBar: navBar, onSwitchTab: (index) => setState(() => _currentTab = index)),
-        MyClaimsScreen(bottomNavigationBar: navBar),
+        _HomeTab(
+            bottomNavigationBar: navBar,
+            onSwitchTab: (index) => setState(() => _currentTab = index)),
+        CasesListScreen(bottomNavigationBar: navBar),
         _ProfileTab(bottomNavigationBar: navBar),
         _GramSabhaTab(bottomNavigationBar: navBar),
         _MapTab(bottomNavigationBar: navBar),
@@ -62,13 +68,14 @@ class _HomeTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final auth = ref.watch(authProvider);
     final village = ref.watch(villageProvider);
-    
+
     final villageId = village?.id ?? '';
     final claimsAsync = ref.watch(claimsStreamProvider(villageId));
     final meetingsAsync = ref.watch(meetingsStreamProvider(villageId));
 
     final approvedClaimsCount = claimsAsync.maybeWhen(
-      data: (list) => list.where((c) => c.status.name == 'approved').length.toString(),
+      data: (list) =>
+          list.where((c) => c.status.name == 'approved').length.toString(),
       orElse: () => '0',
     );
 
@@ -83,7 +90,8 @@ class _HomeTab extends ConsumerWidget {
     );
 
     final pastMeetingsCount = meetingsAsync.maybeWhen(
-      data: (list) => list.where((m) => m.status.name == 'completed').length.toString(),
+      data: (list) =>
+          list.where((m) => m.status.name == 'completed').length.toString(),
       orElse: () => '0',
     );
 
@@ -95,7 +103,8 @@ class _HomeTab extends ConsumerWidget {
     // Identify active today meeting for quick attendance checking
     GramSabhaMeeting? todayMeeting;
     try {
-      todayMeeting = allMeetings.firstWhere((m) => m.isToday && m.isAcceptingAttendance);
+      todayMeeting =
+          allMeetings.firstWhere((m) => m.isToday && m.isAcceptingAttendance);
     } catch (_) {}
 
     return PortalFrameScaffold(
@@ -103,200 +112,209 @@ class _HomeTab extends ConsumerWidget {
       bottomNavigationBar: bottomNavigationBar,
       body: Stack(
         children: [
-          const Positioned.fill(
-            child: VanMitraBackgroundWatermark(),
-          ),
+          // 14 · VanMitra watermark, behind everything, unchanged.
+          const Positioned.fill(child: VanMitraBackgroundWatermark()),
           CustomScrollView(
-        physics: const BouncingScrollPhysics(),
-        slivers: [
-          SliverPadding(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            sliver: SliverList(
-              delegate: SliverChildListDelegate([
-                // 1. Forest Canopy Greeting Hero
-                if (auth.currentUser != null)
-                  GreetingHero(
-                    userName: auth.currentUser!.name,
-                    role: context.tr('villager'),
-                    villageName: village?.nameMarathi ?? auth.currentUser!.villageId,
-                    onProfileTap: () => onSwitchTab?.call(AppTab.profile.index),
+            physics: const BouncingScrollPhysics(),
+            slivers: [
+              SliverToBoxAdapter(
+                // 04–07 · green hero, nature layers, glass card and S-curve; the rest of
+                // the dashboard sits in front of the light area below the curve.
+                child: VillagerHeroSection(
+                  child: Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const SizedBox(height: HeroGeometry.cardTop),
+                        if (auth.currentUser != null)
+                          VillagerGlassProfileCard(
+                            userName: auth.currentUser!.name,
+                            roleLabel: context.tr('villager'),
+                            place: village?.nameMarathi ??
+                                auth.currentUser!.villageId,
+                            onProfileTap: () =>
+                                onSwitchTab?.call(AppTab.profile.index),
+                            onEmblemTap: () => Navigator.pushNamed(
+                                context, AppRouter.fraRightsInfo),
+                          )
+                        else
+                          const SizedBox(height: HeroGeometry.cardHeight),
+                        const SizedBox(
+                          height: HeroGeometry.contentTop -
+                              HeroGeometry.cardTop -
+                              HeroGeometry.cardHeight,
+                        ),
+                        _buildNextMeetingCard(
+                            context, allMeetings, todayMeeting),
+                        const SizedBox(height: AppSpacing.md),
+                        DashboardStatsRow(
+                          cards: [
+                            StatCardData(
+                              value: approvedClaimsCount,
+                              label: context.tr('approved_claims'),
+                              icon: Icons.check_circle_outline_rounded,
+                              accent: DashTones.green,
+                              iconBg: DashTones.greenIconBg,
+                              art: CardArt.documents,
+                              onTap: () =>
+                                  onSwitchTab?.call(AppTab.claims.index),
+                            ),
+                            StatCardData(
+                              value: approvedAreaStr,
+                              label: context.tr('hectares'),
+                              icon: Icons.landscape_rounded,
+                              accent: DashTones.blue,
+                              iconBg: DashTones.blueIconBg,
+                              art: CardArt.hills,
+                              onTap: () => onSwitchTab?.call(AppTab.map.index),
+                            ),
+                            StatCardData(
+                              value: pastMeetingsCount,
+                              label: context.tr('meeting_records'),
+                              icon: Icons.groups_rounded,
+                              accent: DashTones.orange,
+                              iconBg: DashTones.orangeIconBg,
+                              art: CardArt.people,
+                              onTap: () =>
+                                  onSwitchTab?.call(AppTab.sabha.index),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
+                        ClaimsSectionHeader(
+                          title: context.tr('claims'),
+                          label: 'Quick Actions',
+                          onLabelTap: () =>
+                              onSwitchTab?.call(AppTab.claims.index),
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        ClaimActionCard(
+                          icon: Icons.note_add_rounded,
+                          title: context.tr('action_new_claim'),
+                          subtitle: context.tr('action_new_claim_sub'),
+                          accent: DashTones.orange,
+                          iconBg: DashTones.orangeIconBg,
+                          art: CardArt.fileClaim,
+                          onTap: () => startNewBackendClaim(context, ref),
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        ClaimActionCard(
+                          icon: Icons.groups_2_rounded,
+                          title: 'Form B / C · Community claims',
+                          subtitle: 'सामूहिक हक्क व सामूहिक वन संसाधन दावा',
+                          accent: DashTones.green,
+                          iconBg: DashTones.greenIconBg,
+                          art: CardArt.community,
+                          onTap: () =>
+                              Navigator.pushNamed(context, AppRouter.formB),
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        ClaimActionCard(
+                          icon: Icons.folder_rounded,
+                          title: context.tr('action_evidence_checklist'),
+                          subtitle: context.tr('action_evidence_checklist_sub'),
+                          accent: DashTones.amber,
+                          iconBg: DashTones.amberIconBg,
+                          art: CardArt.checklist,
+                          onTap: () => Navigator.pushNamed(
+                              context, AppRouter.rule13Evidence),
+                        ),
+                        const SizedBox(height: AppSpacing.xl),
+                        // 5. Gram Sabha & Governance Actions
+                        Text(
+                          context.tr('gram_sabha') /* Gram Sabha & Records */,
+                          style: AppTypography.title
+                              .copyWith(color: context.colors.textPrimary),
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        ActionListItem(
+                          icon: Icons.groups_rounded,
+                          title: context.tr('action_view_records'),
+                          subtitle: context.tr('action_view_records_sub'),
+                          iconColor: AppColors.forestSage,
+                          onTap: () => onSwitchTab?.call(AppTab.sabha.index),
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        ActionListItem(
+                          icon: Icons.how_to_reg_rounded,
+                          title: context.tr('action_self_checkin'),
+                          subtitle: context.tr('action_self_checkin_sub'),
+                          iconColor: AppColors.successGreen,
+                          onTap: () {
+                            if (todayMeeting != null) {
+                              Navigator.pushNamed(
+                                  context, AppRouter.selfCheckin,
+                                  arguments: todayMeeting.id);
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                    content: Text(context
+                                        .tr('select_active_meeting_first'))),
+                              );
+                            }
+                          },
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        ActionListItem(
+                          icon: Icons.map_outlined,
+                          title: context.tr('action_map'),
+                          subtitle: context.tr('action_map_sub'),
+                          iconColor: AppColors.forestCanopy,
+                          onTap: () => onSwitchTab?.call(AppTab.map.index),
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        ActionListItem(
+                          icon: Icons.menu_book_rounded,
+                          title: context.tr('action_know_rights'),
+                          subtitle: context.tr('action_know_rights_sub'),
+                          iconColor: AppColors.womenQuorum,
+                          onTap: () => Navigator.pushNamed(
+                              context, AppRouter.fraRightsInfo),
+                        ),
+                        const SizedBox(height: AppSpacing.xl),
+
+                        // 6. Satellite Parcel Status Card (Module B)
+                        Text(
+                          'Satellite Monitoring',
+                          style: AppTypography.title
+                              .copyWith(color: context.colors.textPrimary),
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        _ParcelStatusCard(
+                          landownerId:
+                              int.tryParse(auth.currentUser?.id ?? '') ?? 6976,
+                          onViewHistory: () => Navigator.pushNamed(
+                              context, AppRouter.alertHistory),
+                        ),
+                        // Room for the raised bottom navigation, so nothing is hidden.
+                        const SizedBox(height: 120),
+                      ],
+                    ),
                   ),
-                const SizedBox(height: AppSpacing.lg),
-
-                // 2. Next Gram Sabha Meeting Announcement Card
-                _buildNextMeetingCard(context, allMeetings, todayMeeting),
-                const SizedBox(height: AppSpacing.lg),
-
-                // 3. Quantitative Village Metrics (Standardized StatTile Scale)
-                Row(
-                  children: [
-                    Expanded(
-                      child: StatTile(
-                        value: approvedClaimsCount,
-                        label: context.tr('approved_claims'),
-                        icon: Icons.check_circle_outline_rounded,
-                        iconColor: AppColors.successGreen,
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.md),
-                    Expanded(
-                      child: StatTile(
-                        value: approvedAreaStr,
-                        label: context.tr('hectares'),
-                        icon: Icons.landscape_rounded,
-                        iconColor: AppColors.forestSage,
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.md),
-                    Expanded(
-                      child: StatTile(
-                        value: pastMeetingsCount,
-                        label: context.tr('meeting_records'),
-                        icon: Icons.groups_rounded,
-                        iconColor: AppColors.saffron,
-                      ),
-                    ),
-                  ],
                 ),
-                const SizedBox(height: AppSpacing.xl),
-
-                // 4. FRA Claims Action Module
-                Text(
-                  context.tr('claims') /* Claims Management */,
-                  style: AppTypography.title.copyWith(color: context.colors.textPrimary),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                ActionListItem(
-                  icon: Icons.upload_file_rounded,
-                  title: context.tr('action_new_claim'),
-                  subtitle: context.tr('action_new_claim_sub'),
-                  iconColor: AppColors.saffron,
-                  onTap: () => Navigator.pushNamed(context, AppRouter.claimType),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                ActionListItem(
-                  icon: Icons.groups_2_rounded,
-                  title: 'Form B / C Â· Community claims',
-                  subtitle: 'à¤¸à¤¾à¤®à¥‚à¤¹à¤¿à¤• à¤¹à¤•à¥à¤• à¤µ à¤¸à¤¾à¤®à¥‚à¤¹à¤¿à¤• à¤µà¤¨ à¤¸à¤‚à¤¸à¤¾à¤§à¤¨ à¤¦à¤¾à¤µà¤¾',
-                  iconColor: AppColors.forestCanopy,
-                  onTap: () => Navigator.pushNamed(context, AppRouter.formB),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                ActionListItem(
-                  icon: Icons.checklist_rtl_rounded,
-                  title: context.tr('action_evidence_checklist'),
-                  subtitle: context.tr('action_evidence_checklist_sub'),
-                  iconColor: AppColors.warningAmber,
-                  onTap: () => Navigator.pushNamed(context, AppRouter.rule13Evidence),
-                ),
-                const SizedBox(height: AppSpacing.xl),
-
-                // 5. Gram Sabha & Governance Actions
-                Text(
-                  context.tr('gram_sabha') /* Gram Sabha & Records */,
-                  style: AppTypography.title.copyWith(color: context.colors.textPrimary),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                ActionListItem(
-                  icon: Icons.groups_rounded,
-                  title: context.tr('action_view_records'),
-                  subtitle: context.tr('action_view_records_sub'),
-                  iconColor: AppColors.forestSage,
-                  onTap: () => onSwitchTab?.call(AppTab.sabha.index),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                ActionListItem(
-                  icon: Icons.how_to_reg_rounded,
-                  title: context.tr('action_self_checkin'),
-                  subtitle: context.tr('action_self_checkin_sub'),
-                  iconColor: AppColors.successGreen,
-                  onTap: () {
-                    if (todayMeeting != null) {
-                      Navigator.pushNamed(context, AppRouter.selfCheckin, arguments: todayMeeting.id);
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(context.tr('select_active_meeting_first'))),
-                      );
-                    }
-                  },
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                ActionListItem(
-                  icon: Icons.map_outlined,
-                  title: context.tr('action_map'),
-                  subtitle: context.tr('action_map_sub'),
-                  iconColor: AppColors.forestCanopy,
-                  onTap: () => onSwitchTab?.call(AppTab.map.index),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                ActionListItem(
-                  icon: Icons.menu_book_rounded,
-                  title: context.tr('action_know_rights'),
-                  subtitle: context.tr('action_know_rights_sub'),
-                  iconColor: AppColors.womenQuorum,
-                  onTap: () => Navigator.pushNamed(context, AppRouter.fraRightsInfo),
-                ),
-                const SizedBox(height: AppSpacing.xl),
-
-                // 6. Satellite Parcel Status Card (Module B)
-                Text(
-                  'Satellite Monitoring',
-                  style: AppTypography.title.copyWith(color: context.colors.textPrimary),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                _ParcelStatusCard(
-                  landownerId: int.tryParse(auth.currentUser?.id ?? '') ?? 6976,
-                  onViewHistory: () => Navigator.pushNamed(context, AppRouter.alertHistory),
-                ),
-                const SizedBox(height: AppSpacing.xxl),
-              ]),
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
         ],
       ),
     );
   }
 
-  Widget _buildNextMeetingCard(BuildContext context, List<GramSabhaMeeting> allMeetings, GramSabhaMeeting? todayMeeting) {
+  Widget _buildNextMeetingCard(BuildContext context,
+      List<GramSabhaMeeting> allMeetings, GramSabhaMeeting? todayMeeting) {
     final upcoming = allMeetings.where((m) => m.isUpcoming).toList()
       ..sort((a, b) => a.scheduledDate.compareTo(b.scheduledDate));
-    
+
     final nextMeeting = upcoming.isNotEmpty ? upcoming.first : null;
     final meeting = todayMeeting ?? nextMeeting;
 
     if (meeting == null) {
-      return AppCard(
-        elevation: AppElevation.flat,
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(AppSpacing.md),
-              decoration: BoxDecoration(
-                color: AppColors.textTertiary.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.event_busy_rounded, color: AppColors.textSecondary, size: 24),
-            ),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    context.tr('next_meeting') /* Next Meeting */,
-                    style: AppTypography.subtitle.copyWith(color: context.colors.textPrimary),
-                  ),
-                  Text(
-                    context.tr('no_meeting_scheduled'),
-                    style: AppTypography.caption.copyWith(color: context.colors.textSecondary),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+      return NextMeetingCard(
+        title: context.tr('next_meeting'),
+        subtitle: context.tr('no_meeting_scheduled'),
+        onTap: () => onSwitchTab?.call(AppTab.sabha.index),
       );
     }
 
@@ -317,7 +335,9 @@ class _HomeTab extends ConsumerWidget {
               ),
               const SizedBox(width: AppSpacing.sm),
               Text(
-                isToday ? context.tr('todays_meeting') : context.tr('next_meeting'),
+                isToday
+                    ? context.tr('todays_meeting')
+                    : context.tr('next_meeting'),
                 style: AppTypography.subtitle.copyWith(
                   color: isToday ? AppColors.saffron : AppColors.forestSage,
                   fontWeight: FontWeight.w700,
@@ -333,17 +353,20 @@ class _HomeTab extends ConsumerWidget {
           const SizedBox(height: AppSpacing.md),
           Text(
             meeting.type.displayNameMr,
-            style: AppTypography.title.copyWith(fontSize: 17, color: context.colors.textPrimary),
+            style: AppTypography.title
+                .copyWith(fontSize: 17, color: context.colors.textPrimary),
           ),
           const SizedBox(height: AppSpacing.xs),
           Row(
             children: [
-              Icon(Icons.location_on_outlined, size: 15, color: context.colors.textSecondary),
+              Icon(Icons.location_on_outlined,
+                  size: 15, color: context.colors.textSecondary),
               const SizedBox(width: 4),
               Expanded(
                 child: Text(
                   '${context.tr('venue')}: ${meeting.venue}',
-                  style: AppTypography.body.copyWith(fontSize: 13, color: context.colors.textSecondary),
+                  style: AppTypography.body.copyWith(
+                      fontSize: 13, color: context.colors.textSecondary),
                 ),
               ),
             ],
@@ -353,7 +376,9 @@ class _HomeTab extends ConsumerWidget {
             PrimaryButton(
               label: context.tr('mark_attendance'),
               icon: Icons.how_to_reg_rounded,
-              onPressed: () => Navigator.pushNamed(context, AppRouter.selfCheckin, arguments: meeting.id),
+              onPressed: () => Navigator.pushNamed(
+                  context, AppRouter.selfCheckin,
+                  arguments: meeting.id),
             ),
           ],
         ],
@@ -367,7 +392,8 @@ class _GramSabhaTab extends StatelessWidget {
   const _GramSabhaTab({required this.bottomNavigationBar});
 
   @override
-  Widget build(BuildContext context) => GramSabhaDashboard(bottomNavigationBar: bottomNavigationBar);
+  Widget build(BuildContext context) =>
+      GramSabhaDashboard(bottomNavigationBar: bottomNavigationBar);
 }
 
 class _MapTab extends StatelessWidget {
@@ -375,7 +401,8 @@ class _MapTab extends StatelessWidget {
   const _MapTab({required this.bottomNavigationBar});
 
   @override
-  Widget build(BuildContext context) => BoundaryMapScreen(bottomNavigationBar: bottomNavigationBar);
+  Widget build(BuildContext context) =>
+      BoundaryMapScreen(bottomNavigationBar: bottomNavigationBar);
 }
 
 class _ProfileTab extends StatelessWidget {
@@ -383,7 +410,8 @@ class _ProfileTab extends StatelessWidget {
   const _ProfileTab({required this.bottomNavigationBar});
 
   @override
-  Widget build(BuildContext context) => ProfileScreen(bottomNavigationBar: bottomNavigationBar);
+  Widget build(BuildContext context) =>
+      ProfileScreen(bottomNavigationBar: bottomNavigationBar);
 }
 
 // â”€â”€ Satellite Parcel Status Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -392,7 +420,8 @@ class _ProfileTab extends StatelessWidget {
 class _ParcelStatusCard extends StatefulWidget {
   final int landownerId;
   final VoidCallback onViewHistory;
-  const _ParcelStatusCard({required this.landownerId, required this.onViewHistory});
+  const _ParcelStatusCard(
+      {required this.landownerId, required this.onViewHistory});
 
   @override
   State<_ParcelStatusCard> createState() => _ParcelStatusCardState();
@@ -411,7 +440,11 @@ class _ParcelStatusCardState extends State<_ParcelStatusCard> {
 
   Future<void> _load() async {
     final alert = await _svc.getAlertForLandowner('ozar', widget.landownerId);
-    if (mounted) setState(() { _alert = alert; _loading = false; });
+    if (mounted)
+      setState(() {
+        _alert = alert;
+        _loading = false;
+      });
   }
 
   @override
@@ -420,8 +453,9 @@ class _ParcelStatusCardState extends State<_ParcelStatusCard> {
       return const AppCard(
         child: SizedBox(
           height: 60,
-          child: Center(child: CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation(AppColors.forestCanopy))),
+          child: Center(
+              child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation(AppColors.forestCanopy))),
         ),
       );
     }
@@ -435,8 +469,10 @@ class _ParcelStatusCardState extends State<_ParcelStatusCard> {
 
     return GestureDetector(
       onTap: _alert != null
-          ? () => Navigator.push(context, MaterialPageRoute(
-              builder: (_) => AlertDetailScreen(alert: _alert!)))
+          ? () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => AlertDetailScreen(alert: _alert!)))
           : null,
       child: AppCard(
         elevation: AppElevation.floating,
@@ -470,11 +506,13 @@ class _ParcelStatusCardState extends State<_ParcelStatusCard> {
                       ),
                       const Spacer(),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
                           color: tierColor.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(AppRadius.sm),
-                          border: Border.all(color: tierColor.withValues(alpha: 0.35)),
+                          border: Border.all(
+                              color: tierColor.withValues(alpha: 0.35)),
                         ),
                         child: Text(
                           tier.displayNameEn,
@@ -490,7 +528,8 @@ class _ParcelStatusCardState extends State<_ParcelStatusCard> {
                   const SizedBox(height: 3),
                   Text(
                     cause,
-                    style: AppTypography.caption.copyWith(color: context.colors.textSecondary),
+                    style: AppTypography.caption
+                        .copyWith(color: context.colors.textSecondary),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -499,7 +538,7 @@ class _ParcelStatusCardState extends State<_ParcelStatusCard> {
                       [
                         if (survey != null) 'Survey $survey',
                         if (feasibility != null) feasibility.label,
-                      ].join(' Â· '),
+                      ].join(' · '),
                       style: AppTypography.caption.copyWith(
                         fontSize: 11,
                         color: context.colors.textTertiary,
@@ -509,7 +548,8 @@ class _ParcelStatusCardState extends State<_ParcelStatusCard> {
               ),
             ),
             const SizedBox(width: AppSpacing.sm),
-            Icon(Icons.chevron_right_rounded, color: context.colors.textTertiary, size: 20),
+            Icon(Icons.chevron_right_rounded,
+                color: context.colors.textTertiary, size: 20),
           ],
         ),
       ),

@@ -65,17 +65,30 @@ class ApiAuthService {
     final response = await _apiClient.get(ApiEndpoints.me);
     if (response != null) {
       // Build User model from backend response
-      final roleStr = response['role'] as String? ?? 'villager';
-      final role = UserRoleExtension.parse(roleStr);
+      // The backend sends {roles: [{role, village_id, taluka, district, ...}]}.
+      // Its three roles map onto the app's dashboards.
+      final grants = (response['roles'] as List<dynamic>? ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .toList();
+      final grant = grants.isNotEmpty ? grants.first : const <String, dynamic>{};
+      final backendRole =
+          response['is_admin'] == true ? 'admin' : (grant['role'] as String? ?? 'villager');
+      final role = switch (backendRole) {
+        'gram_sabha' => UserRole.frc, // Gram Sabha / FRC dashboard
+        'sdo' => UserRole.sdlc, // sub-division dashboard
+        'admin' => UserRole.admin,
+        _ => UserRole.villager,
+      };
 
       return User(
         id: response['id'] ?? '',
         email: response['email'] ?? '',
         name: response['name'] ?? '',
         role: role,
-        villageId: response['village_id'] ?? 'ozhar_jawhar_palghar',
-        tehsil: response['tehsil'] ?? 'Jawhar',
-        district: response['district'] ?? 'Palghar',
+        villageId: 'ozhar_jawhar_palghar',
+        backendVillageId: grant['village_id'] as String?,
+        tehsil: grant['taluka'] as String? ?? 'Jawhar',
+        district: grant['district'] as String? ?? 'Palghar',
         state: response['state'] ?? 'Maharashtra',
         preferredLanguage: response['preferredLanguage'] ?? 'mr',
         createdAt: response['created_at'] != null 
