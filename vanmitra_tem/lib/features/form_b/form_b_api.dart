@@ -142,6 +142,44 @@ class FormBApi {
     return FormBData.fromJson(_decode(res) as Map<String, dynamic>);
   }
 
+  // ── Push messages and in-app notifications ──────────────────────────────────────
+
+  /// Register this phone for push messages, in Marathi ('mr') or English ('en').
+  Future<void> registerDevice(String token, {String platform = 'android', String language = 'mr'}) async {
+    final res = await http
+        .post(_uri('/devices'),
+            headers: _headers, body: jsonEncode({'token': token, 'platform': platform, 'language': language}))
+        .timeout(const Duration(seconds: 10));
+    _decode(res);
+  }
+
+  /// Stop push messages to this phone (on sign-out).
+  Future<void> removeDevice(String token) async {
+    final res = await http
+        .delete(_uri('/devices/${Uri.encodeComponent(token)}'), headers: _headers)
+        .timeout(const Duration(seconds: 10));
+    _decode(res);
+  }
+
+  Future<NotificationsPage> notifications() async {
+    final res = await http.get(_uri('/notifications'), headers: _headers).timeout(const Duration(seconds: 10));
+    return NotificationsPage.fromJson(_decode(res) as Map<String, dynamic>);
+  }
+
+  Future<void> markNotificationRead(String id) async {
+    final res = await http
+        .post(_uri('/notifications/$id/read'), headers: _headers)
+        .timeout(const Duration(seconds: 10));
+    _decode(res);
+  }
+
+  Future<NotificationsPage> markAllNotificationsRead() async {
+    final res = await http
+        .post(_uri('/notifications/read-all'), headers: _headers)
+        .timeout(const Duration(seconds: 10));
+    return NotificationsPage.fromJson(_decode(res) as Map<String, dynamic>);
+  }
+
   Future<FormBData> saveFormB(String caseId, Map<String, dynamic> body) async {
     final res = await http
         .put(_uri('/cases/$caseId/form-b'), headers: _headers, body: jsonEncode(body))

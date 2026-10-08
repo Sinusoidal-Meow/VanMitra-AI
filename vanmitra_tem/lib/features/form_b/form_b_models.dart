@@ -4,16 +4,17 @@ class RoleGrant {
   RoleGrant({required this.villageId, required this.villageNameMr, required this.villageNameEn, required this.role});
 
   factory RoleGrant.fromJson(Map<String, dynamic> j) => RoleGrant(
-        villageId: j['village_id'] as String,
-        villageNameMr: j['village_name_mr'] as String,
-        villageNameEn: j['village_name_en'] as String,
+        villageId: j['village_id'] as String?,
+        villageNameMr: j['village_name_mr'] as String? ?? '',
+        villageNameEn: j['village_name_en'] as String? ?? '',
         role: j['role'] as String,
       );
 
-  final String villageId;
+  /// Empty for the SDO, whose role covers a whole taluka.
+  final String? villageId;
   final String villageNameMr;
   final String villageNameEn;
-  final String role; // facilitator | frc_member | gs_secretary
+  final String role; // villager | gram_sabha | sdo
 }
 
 class Me {
@@ -27,31 +28,119 @@ class Me {
   final String name;
   final List<RoleGrant> roles;
 
-  /// Form B is prepared by the FRC [Rule 11(4)]; the NGO facilitator may draft it.
-  bool canEditFormB(String villageId) =>
-      roles.any((r) => r.villageId == villageId && (r.role == 'frc_member' || r.role == 'facilitator'));
+  bool _has(String villageId, Set<String> wanted) =>
+      roles.any((r) => r.villageId == villageId && wanted.contains(r.role));
 
-  /// Form C is prepared the same way [Rule 11(4)].
-  bool canEditFormC(String villageId) => canEditFormB(villageId);
+  /// Form B (community rights) is filed by a villager or by the Gram Sabha.
+  bool canEditFormB(String villageId) => _has(villageId, {'villager', 'gram_sabha'});
 
-  /// The Gram Sabha roster is kept by the Gram Sabha Secretary [Rule 11(6)].
-  bool canEditRoster(String villageId) => roles.any((r) => r.villageId == villageId && r.role == 'gs_secretary');
+  /// Form C (community forest resource) is the Gram Sabha's own claim.
+  bool canEditFormC(String villageId) => _has(villageId, {'gram_sabha'});
+
+  /// The Gram Sabha keeps its member roster.
+  bool canEditRoster(String villageId) => _has(villageId, {'gram_sabha'});
+}
+
+/// Why a claim was sent back to the villager, and how long is left to resubmit it.
+class ReturnedInfo {
+  ReturnedInfo({
+    required this.byRole,
+    required this.byName,
+    required this.remarks,
+    required this.resubmitBy,
+    required this.daysLeft,
+  });
+
+  factory ReturnedInfo.fromJson(Map<String, dynamic> j) => ReturnedInfo(
+        byRole: j['by_role'] as String,
+        byName: j['by_name'] as String,
+        remarks: j['remarks'] as String,
+        resubmitBy: DateTime.parse(j['resubmit_by'] as String),
+        daysLeft: j['days_left'] as int,
+      );
+
+  final String byRole; // gram_sabha | sdo
+  final String byName;
+  final String remarks;
+  final DateTime resubmitBy;
+  final int daysLeft;
 }
 
 class CaseSummary {
-  CaseSummary({required this.id, required this.claimType, required this.state, required this.createdAt});
+  CaseSummary({
+    required this.id,
+    required this.claimType,
+    required this.state,
+    required this.createdAt,
+    this.returned,
+  });
 
   factory CaseSummary.fromJson(Map<String, dynamic> j) => CaseSummary(
         id: j['id'] as String,
         claimType: j['claim_type'] as String,
         state: j['state'] as String,
         createdAt: DateTime.parse(j['created_at'] as String).toLocal(),
+        returned: j['returned'] == null ? null : ReturnedInfo.fromJson(j['returned'] as Map<String, dynamic>),
       );
 
   final String id;
   final String claimType;
   final String state;
   final DateTime createdAt;
+
+  /// Set while the claim waits for the villager to correct and resubmit it.
+  final ReturnedInfo? returned;
+}
+
+/// A message for the signed-in user (also sent to the phone as a push message).
+class AppNotification {
+  AppNotification({
+    required this.id,
+    required this.caseId,
+    required this.kind,
+    required this.titleEn,
+    required this.bodyEn,
+    required this.titleMr,
+    required this.bodyMr,
+    required this.createdAt,
+    required this.read,
+  });
+
+  factory AppNotification.fromJson(Map<String, dynamic> j) => AppNotification(
+        id: j['id'] as String,
+        caseId: j['case_id'] as String?,
+        kind: j['kind'] as String,
+        titleEn: j['title_en'] as String,
+        bodyEn: j['body_en'] as String,
+        titleMr: j['title_mr'] as String,
+        bodyMr: j['body_mr'] as String,
+        createdAt: DateTime.parse(j['created_at'] as String).toLocal(),
+        read: j['read'] as bool,
+      );
+
+  final String id;
+  final String? caseId;
+  final String kind;
+  final String titleEn;
+  final String bodyEn;
+  final String titleMr;
+  final String bodyMr;
+  final DateTime createdAt;
+  final bool read;
+}
+
+class NotificationsPage {
+  NotificationsPage({required this.unread, required this.items});
+
+  factory NotificationsPage.fromJson(Map<String, dynamic> j) => NotificationsPage(
+        unread: j['unread'] as int,
+        items: (j['items'] as List<dynamic>)
+            .map((e) => AppNotification.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+
+  final int unread;
+  final List<AppNotification> items;
 }
 
 class FormBRight {
