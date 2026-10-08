@@ -4,7 +4,8 @@ Claim cases: open a Form A / B / C claim, list and read cases.
 Who opens which form (services.cases.CREATORS):
   Form A (ifr) individual claim ............ village user
   Form B (cr)  community rights ............ village user or Gram Sabha
-  Form C (cfr) community forest resource ... Gram Sabha
+  Form C (cfr) community forest resource ... Gram Sabha (and, while testing, the
+                                              village user: villager_opens_form_c)
 Visibility: the claimant always; the Gram Sabha once filed to it; the SDO once it
 reaches the SDO; district officers once it reaches the district (domain.workflow.can_view).
 """
@@ -21,7 +22,7 @@ from ...domain.workflow import can_view
 from ...errors import ApiError
 from ...models import CaseState, ClaimCase, FormA, FormB, FormC, GramSabha, Role, Village
 from ...schemas.cases import CaseCreate, CaseOut
-from ...services.cases import CREATORS, CaseContext, load_case
+from ...services.cases import CaseContext, creators, load_case
 from ._shared import case_out
 
 router = APIRouter(tags=["cases"])
@@ -41,12 +42,13 @@ def create_case(
     """Open a claim: `ifr` → empty Form A, `cr` → empty Form B, `cfr` → empty Form C."""
     principal, village = scope
     roles = principal.roles_for(village_ref(village))
-    if not roles & CREATORS[body.claim_type]:
+    allowed = creators(body.claim_type)
+    if not roles & allowed:
         raise ApiError(
             403,
             "NOT_ALLOWED_TO_OPEN_FORM",
             "case.not_allowed_to_open_form",
-            {"claim_type": body.claim_type, "allowed_roles": sorted(CREATORS[body.claim_type])},
+            {"claim_type": body.claim_type, "allowed_roles": sorted(allowed)},
         )
     gram_sabha = db.find_one(GramSabha, {"village_id": village.id})
     if gram_sabha is None:

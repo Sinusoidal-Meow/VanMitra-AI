@@ -53,6 +53,7 @@ dependencies:
 
   # HTTP (kept for AI module calls)
   http: ^1.2.0
+  http_parser: ^4.0.2
 
   # Connectivity (offline-first fallback detection + sync trigger)
   connectivity_plus: ^6.1.1

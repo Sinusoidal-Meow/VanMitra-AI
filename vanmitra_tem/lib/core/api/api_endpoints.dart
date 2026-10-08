@@ -67,7 +67,8 @@ class ApiEndpoints {
   static String landmarks(String caseId) => '/cases/$caseId/boundary/landmarks';
   static String useZones(String caseId) => '/cases/$caseId/boundary/use-zones';
   static String walks(String caseId) => '/cases/$caseId/boundary/walks';
-  static String resolveDispute(String caseId, String disputeId) => '/cases/$caseId/disputes/$disputeId/resolve';
+  static String boundaryVersions(String caseId) => '/cases/$caseId/boundary/versions';
+  static String disputes(String caseId) => '/cases/$caseId/disputes';
 
   // Verification
   static String verification(String caseId) => '/cases/$caseId/verification';
@@ -75,9 +76,12 @@ class ApiEndpoints {
   // Documents
   static String acknowledgement(String caseId) => '/cases/$caseId/acknowledgement';
   static String titleDraft(String caseId) => '/cases/$caseId/title-draft';
-  static String documentFormA(String caseId) => '/cases/$caseId/documents/form-a/html';
-  static String documentFormB(String caseId) => '/cases/$caseId/documents/form-b/html';
-  static String documentFormC(String caseId) => '/cases/$caseId/documents/form-c/html';
-  static String documentReceipt(String caseId) => '/cases/$caseId/documents/receipt/html';
-  static String documentTitle(String caseId) => '/cases/$caseId/documents/title/html';
+  static String caseDocument(String caseId, String code) => '/cases/$caseId/documents/$code';
+
+  // Gram Sabha records
+  static String caseResolutions(String caseId) => '/cases/$caseId/resolutions';
+  static String approvalCheck(String caseId) => '/cases/$caseId/approval-check';
+  static String meeting(String meetingId) => '/meetings/$meetingId';
+  static String ledgerVerify(String villageId) => '/villages/$villageId/ledger/verify';
+  static String mediaFile(String mediaId) => '/media/$mediaId/file';
 }

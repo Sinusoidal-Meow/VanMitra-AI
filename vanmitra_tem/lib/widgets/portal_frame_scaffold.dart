@@ -28,6 +28,12 @@ class PortalFrameScaffold extends ConsumerStatefulWidget {
   final List<Widget>? actions;
   final Widget? bottomNavigationBar;
 
+  /// Header title; defaults to the app name.
+  final String? title;
+
+  /// Hide the breadcrumb bar (e.g. when the header title already says where you are).
+  final bool showBreadcrumbs;
+
   const PortalFrameScaffold({
     super.key,
     required this.body,
@@ -37,6 +43,8 @@ class PortalFrameScaffold extends ConsumerStatefulWidget {
     this.floatingActionButton,
     this.actions,
     this.bottomNavigationBar,
+    this.title,
+    this.showBreadcrumbs = true,
   });
 
   @override
@@ -91,7 +99,7 @@ class _PortalFrameScaffoldState extends ConsumerState<PortalFrameScaffold> {
               AppHeader(
                 showBack: showBack,
                 actions: widget.actions,
-                title: context.tr('app_title'),
+                title: widget.title ?? context.tr('app_title'),
                 subtitle: auth.currentUser?.villageId ??
                     context.tr('default_village_name'),
                 onSettingsTap: _toggleSettings,
@@ -108,7 +116,7 @@ class _PortalFrameScaffoldState extends ConsumerState<PortalFrameScaffold> {
                 ),
 
               // ── Breadcrumbs ──────────────────────────────────────────────
-              if (effectiveBreadcrumbs.isNotEmpty)
+              if (widget.showBreadcrumbs && effectiveBreadcrumbs.isNotEmpty)
                 _BreadcrumbBar(breadcrumbs: effectiveBreadcrumbs),
 
               // ── Main Content Body ────────────────────────────────────────

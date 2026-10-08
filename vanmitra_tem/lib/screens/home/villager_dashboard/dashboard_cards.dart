@@ -375,11 +375,17 @@ class ClaimActionCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title,
-                      style: TextStyle(
-                          color: look.title,
-                          fontSize: 15.5,
-                          fontWeight: FontWeight.w700)),
+                  // One line: a long title shrinks slightly instead of wrapping.
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(title,
+                        maxLines: 1,
+                        style: TextStyle(
+                            color: look.title,
+                            fontSize: 15.5,
+                            fontWeight: FontWeight.w700)),
+                  ),
                   const SizedBox(height: 3),
                   Text(subtitle,
                       maxLines: 2,

@@ -37,6 +37,10 @@ class Settings(BaseSettings):
     # key file (a secret: keep it out of git). Not set = messages are shown in the app only.
     fcm_credentials_file: str | None = None
 
+    # TEMPORARY, for testing the app: a village user may also open Form C. The law has
+    # the Gram Sabha (its FRC) prepare Form C [Rule 11(4)]; set false to go back to that.
+    villager_opens_form_c: bool = True
+
     # Old "Model A" AI endpoints, kept until the app migrates (BACKEND_PLAN B-04).
     enable_legacy_api: bool = True
 

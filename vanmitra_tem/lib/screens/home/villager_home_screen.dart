@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../widgets/illustrations/vanmitra_illustrations.dart';
 import 'villager_dashboard/dashboard_cards.dart';
 import 'villager_dashboard/villager_hero_section.dart';
@@ -7,7 +8,6 @@ import '../../core/routes/app_router.dart';
 import '../../models/boundary_alert.dart';
 import '../../models/gram_sabha_meeting.dart';
 import '../../providers/auth_provider.dart';
-import '../../providers/claims_provider.dart';
 import '../../providers/meeting_provider.dart';
 import '../../providers/village_provider.dart';
 import '../../services/localization_service.dart';
@@ -18,7 +18,7 @@ import '../../widgets/common/vanmitra_background_watermark.dart';
 import '../../widgets/portal_frame_scaffold.dart';
 import '../../features/case_hub/cases_list_screen.dart';
 import '../../features/case_hub/new_claim.dart';
-import '../gram_sabha/gram_sabha_dashboard.dart';
+import '../../features/gram_sabha_records/gram_sabha_records_screen.dart';
 import '../profile/profile_screen.dart';
 import 'alert_detail_screen.dart';
 import 'boundary_map_screen.dart';
@@ -49,7 +49,10 @@ class _VillagerHomeScreenState extends ConsumerState<VillagerHomeScreen> {
             bottomNavigationBar: navBar,
             onSwitchTab: (index) => setState(() => _currentTab = index)),
         CasesListScreen(bottomNavigationBar: navBar),
-        _ProfileTab(bottomNavigationBar: navBar),
+        _ProfileTab(
+            bottomNavigationBar: navBar,
+            onOpenClaims: () =>
+                setState(() => _currentTab = AppTab.claims.index)),
         _GramSabhaTab(bottomNavigationBar: navBar),
         _MapTab(bottomNavigationBar: navBar),
       ],
@@ -70,30 +73,12 @@ class _HomeTab extends ConsumerWidget {
     final village = ref.watch(villageProvider);
 
     final villageId = village?.id ?? '';
-    final claimsAsync = ref.watch(claimsStreamProvider(villageId));
     final meetingsAsync = ref.watch(meetingsStreamProvider(villageId));
-
-    final approvedClaimsCount = claimsAsync.maybeWhen(
-      data: (list) =>
-          list.where((c) => c.status.name == 'approved').length.toString(),
-      orElse: () => '0',
-    );
-
-    final approvedAreaStr = claimsAsync.maybeWhen(
-      data: (list) {
-        final areaSqM = list
-            .where((c) => c.status.name == 'approved')
-            .fold<int>(0, (s, c) => s + (c.areaSqMeters?.toInt() ?? 0));
-        return (areaSqM / 10000).toStringAsFixed(1);
-      },
-      orElse: () => '0.0',
-    );
-
-    final pastMeetingsCount = meetingsAsync.maybeWhen(
-      data: (list) =>
-          list.where((m) => m.status.name == 'completed').length.toString(),
-      orElse: () => '0',
-    );
+    // Next Gram Sabha meeting from the VanMitra server.
+    final backendMeetings = ref
+        .watch(villageMeetingsProvider(
+            auth.currentUser?.backendVillageId ?? ''))
+        .maybeWhen(data: (m) => m, orElse: () => <Map<String, dynamic>>[]);
 
     final allMeetings = meetingsAsync.maybeWhen(
       data: (list) => list,
@@ -147,41 +132,7 @@ class _HomeTab extends ConsumerWidget {
                               HeroGeometry.cardHeight,
                         ),
                         _buildNextMeetingCard(
-                            context, allMeetings, todayMeeting),
-                        const SizedBox(height: AppSpacing.md),
-                        DashboardStatsRow(
-                          cards: [
-                            StatCardData(
-                              value: approvedClaimsCount,
-                              label: context.tr('approved_claims'),
-                              icon: Icons.check_circle_outline_rounded,
-                              accent: DashTones.green,
-                              iconBg: DashTones.greenIconBg,
-                              art: CardArt.documents,
-                              onTap: () =>
-                                  onSwitchTab?.call(AppTab.claims.index),
-                            ),
-                            StatCardData(
-                              value: approvedAreaStr,
-                              label: context.tr('hectares'),
-                              icon: Icons.landscape_rounded,
-                              accent: DashTones.blue,
-                              iconBg: DashTones.blueIconBg,
-                              art: CardArt.hills,
-                              onTap: () => onSwitchTab?.call(AppTab.map.index),
-                            ),
-                            StatCardData(
-                              value: pastMeetingsCount,
-                              label: context.tr('meeting_records'),
-                              icon: Icons.groups_rounded,
-                              accent: DashTones.orange,
-                              iconBg: DashTones.orangeIconBg,
-                              art: CardArt.people,
-                              onTap: () =>
-                                  onSwitchTab?.call(AppTab.sabha.index),
-                            ),
-                          ],
-                        ),
+                            context, backendMeetings, todayMeeting),
                         const SizedBox(height: AppSpacing.lg),
                         ClaimsSectionHeader(
                           title: context.tr('claims'),
@@ -208,7 +159,7 @@ class _HomeTab extends ConsumerWidget {
                           iconBg: DashTones.greenIconBg,
                           art: CardArt.community,
                           onTap: () =>
-                              Navigator.pushNamed(context, AppRouter.formB),
+                              onSwitchTab?.call(AppTab.claims.index),
                         ),
                         const SizedBox(height: AppSpacing.sm),
                         ClaimActionCard(
@@ -218,8 +169,7 @@ class _HomeTab extends ConsumerWidget {
                           accent: DashTones.amber,
                           iconBg: DashTones.amberIconBg,
                           art: CardArt.checklist,
-                          onTap: () => Navigator.pushNamed(
-                              context, AppRouter.rule13Evidence),
+                          onTap: () => openEvidenceForMyClaim(context, ref),
                         ),
                         const SizedBox(height: AppSpacing.xl),
                         // 5. Gram Sabha & Governance Actions
@@ -302,18 +252,19 @@ class _HomeTab extends ConsumerWidget {
     );
   }
 
-  Widget _buildNextMeetingCard(BuildContext context,
-      List<GramSabhaMeeting> allMeetings, GramSabhaMeeting? todayMeeting) {
-    final upcoming = allMeetings.where((m) => m.isUpcoming).toList()
-      ..sort((a, b) => a.scheduledDate.compareTo(b.scheduledDate));
-
-    final nextMeeting = upcoming.isNotEmpty ? upcoming.first : null;
-    final meeting = todayMeeting ?? nextMeeting;
-
+  Widget _buildNextMeetingCard(
+      BuildContext context,
+      List<Map<String, dynamic>> backendMeetings,
+      GramSabhaMeeting? todayMeeting) {
+    final meeting = todayMeeting;
     if (meeting == null) {
+      final next = nextMeeting(backendMeetings);
+      final date = next == null ? null : meetingDate(next);
       return NextMeetingCard(
         title: context.tr('next_meeting'),
-        subtitle: context.tr('no_meeting_scheduled'),
+        subtitle: next == null || date == null
+            ? context.tr('no_meeting_scheduled')
+            : '${DateFormat('d MMM yyyy').format(date)} · ${next['place']}',
         onTap: () => onSwitchTab?.call(AppTab.sabha.index),
       );
     }
@@ -393,7 +344,7 @@ class _GramSabhaTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) =>
-      GramSabhaDashboard(bottomNavigationBar: bottomNavigationBar);
+      GramSabhaRecordsScreen(bottomNavigationBar: bottomNavigationBar);
 }
 
 class _MapTab extends StatelessWidget {
@@ -407,11 +358,13 @@ class _MapTab extends StatelessWidget {
 
 class _ProfileTab extends StatelessWidget {
   final Widget bottomNavigationBar;
-  const _ProfileTab({required this.bottomNavigationBar});
+  final VoidCallback onOpenClaims;
+  const _ProfileTab(
+      {required this.bottomNavigationBar, required this.onOpenClaims});
 
   @override
-  Widget build(BuildContext context) =>
-      ProfileScreen(bottomNavigationBar: bottomNavigationBar);
+  Widget build(BuildContext context) => ProfileScreen(
+      bottomNavigationBar: bottomNavigationBar, onOpenClaims: onOpenClaims);
 }
 
 // â”€â”€ Satellite Parcel Status Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

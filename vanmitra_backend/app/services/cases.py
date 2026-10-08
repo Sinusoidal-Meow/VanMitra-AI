@@ -6,6 +6,7 @@ from datetime import date
 
 from ..auth.deps import village_ref
 from ..auth.principal import Principal
+from ..config import get_settings
 from ..db import Store
 from ..domain.dates import ist_date
 from ..domain.workflow import can_view, resubmit_deadline
@@ -28,6 +29,13 @@ CREATORS: dict[ClaimType, frozenset[Role]] = {
     ClaimType.CR: frozenset({Role.VILLAGER, Role.GRAM_SABHA}),
     ClaimType.CFR: frozenset({Role.GRAM_SABHA}),
 }
+
+
+def creators(claim_type: ClaimType) -> frozenset[Role]:
+    """CREATORS, plus the village user for Form C while testing (villager_opens_form_c)."""
+    if claim_type is ClaimType.CFR and get_settings().villager_opens_form_c:
+        return CREATORS[claim_type] | {Role.VILLAGER}
+    return CREATORS[claim_type]
 
 
 @dataclass

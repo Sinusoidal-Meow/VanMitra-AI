@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'api_endpoints.dart';
 import '../auth/auth_storage.dart';
 
@@ -108,6 +109,33 @@ class ApiClient {
     final headers = await _getHeaders(requireAuth: requireAuth);
     final response = await http.delete(Uri.parse('${ApiEndpoints.baseUrl}$path'), headers: headers);
     return _handleResponse(response);
+  }
+
+  /// Multipart upload (POST), e.g. a photo to /media. [fields] go as form fields.
+  Future<dynamic> upload(
+    String path, {
+    required List<int> bytes,
+    required String filename,
+    required String mime,
+    Map<String, String> fields = const {},
+  }) async {
+    final headers = await _getHeaders();
+    headers.remove('Content-Type'); // the multipart request sets its own boundary
+    final request = http.MultipartRequest('POST', Uri.parse('${ApiEndpoints.baseUrl}$path'))
+      ..headers.addAll(headers)
+      ..fields.addAll(fields)
+      ..files.add(http.MultipartFile.fromBytes('file', bytes,
+          filename: filename, contentType: MediaType.parse(mime)));
+    final response = await http.Response.fromStream(await request.send());
+    return _handleResponse(response);
+  }
+
+  /// Raw bytes of a protected file, e.g. /media/{id}/file for a photo thumbnail.
+  Future<List<int>> getBytes(String path) async {
+    final headers = await _getHeaders();
+    final response = await http.get(Uri.parse('${ApiEndpoints.baseUrl}$path'), headers: headers);
+    if (response.statusCode >= 200 && response.statusCode < 300) return response.bodyBytes;
+    return _handleResponse(response) as List<int>;
   }
 
   Future<dynamic> patch(String path, {Map<String, dynamic>? body, bool requireAuth = true}) async {

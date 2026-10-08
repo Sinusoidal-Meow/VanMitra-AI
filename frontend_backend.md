@@ -1,577 +1,433 @@
-# VanMitra — Complete Frontend & Backend Integration Blueprint (`frontend_backend.md`)
+# VanMitra: Frontend ↔ Backend Guide (`frontend_backend.md`)
 
-> **Target Audience:** Kaushal (Frontend Lead)  
-> **Repository Branch:** `kaushal-dev` (Frontend) & `soham_backend` (Backend)  
-> **Backend Stack:** FastAPI · MongoDB Atlas (Replica Set) · PyMongo Store · Shapely 2.0 & PyProj (EPSG:32643 UTM 43N) · JWT Authentication  
-> **Frontend Stack:** Flutter 3.x · Riverpod · Hive (Offline Storage) · HTTP Client  
-> **Purpose:** Exhaustive, step-by-step implementation guide detailing **what is happening in the backend**, **what needs to be built in the frontend**, **where in `vanmitra_tem/lib/` to build it**, and **the statutory FRA legal rules** guiding every screen.
-
----
-
-## 1. Quick Start & Connection Setup
-
-### 1.1 Backend Connectivity
-The backend runs FastAPI on port `8010` (or `8000`).
-
-- **Physical Android Tablet / Phone over USB:**
-  ```bash
-  adb reverse tcp:8010 tcp:8010
-  ```
-  Base URL in Flutter: `http://127.0.0.1:8010/api/v1`
-- **Android Emulator:**
-  Base URL in Flutter: `http://10.0.2.2:8010/api/v1`
-- **Wi-Fi / LAN (Real Tablet without USB cable):**
-  Find your backend PC's local IP (e.g., `192.168.1.5`): `http://192.168.1.5:8010/api/v1`
-- **Flutter Run Parameter:**
-  ```bash
-  flutter run --dart-define=VANMITRA_API_BASE_URL=http://127.0.0.1:8010
-  ```
-- **Health Check Endpoint:**
-  `GET /api/v1/health` → `{"status": "ok", "database": "ok", "version": "1.0.0"}`
-
-### 1.2 Development Demo Logins (All PINs: `123456`)
-These accounts are pre-seeded in the database for instant testing:
-| Phone | Name | Role | Access Level | Jurisdiction |
-|---|---|---|---|---|
-| `9000000001` | Demo Village User | `villager` | Level 1 (Villager) | Ozhar village |
-| `9000000002` | Demo Village User 2 | `villager` | Level 1 (Villager) | Ozhar village |
-| `9000000003` | Demo Gram Sabha (Ozhar) | `gram_sabha` | Level 2 (Gram Sabha) | Ozhar village |
-| `9000000004` | Demo Admin (back-office) | `admin` | Admin | System management only |
-| `9000000005` | Demo SDO (Jawhar) | `sdo` | Level 3 (Sub-Division) | Jawhar taluka (Palghar) |
-
-### 1.3 Uniform API Error Response Structure
-Every endpoint returns errors in the exact same schema. If status is `409`, it is a **statutory legal violation** under FRA Rules:
-```json
-{
-  "error": "FRC_TOO_FEW_WOMEN",
-  "message_key": "frc.too_few_women",
-  "rule": "Rule 3(1)",
-  "details": { "women_count": 3, "required": 4 }
-}
-```
-> **UI Rule:** Always display the plain-language message (e.g. Marathi or English) and render a small chip showing the rule badge: `[Rule 3(1)]`. Never show a raw crash or empty alert.
+> **For:** Kaushal (frontend) · Ishan · Soham (backend)
+> **Last rewritten:** 8 October 2026, on branch `soham_backend`
+> **App:** Flutter (`vanmitra_tem/`) · Riverpod · `http`
+> **Server:** FastAPI (`vanmitra_backend/`) · MongoDB Atlas · JWT login
+>
+> This guide has three parts:
+> - **Part A:** how to connect the app to the server.
+> - **Part B:** the **village user's app**, screen by screen and button by button: what each button does, which Dart method runs, and which server call it makes.
+> - **Part C:** every server endpoint the app uses.
+>
+> The Gram Sabha and SDO screens get their own designs later. Until then they keep their current screens.
 
 ---
 
-## 2. Core Philosophy & Non-Negotiable UX Principles
+## ⚠️ Temporary test setting: village user may open Form C
 
-1. **The System Records and Checks; People Decide:**
-   - There are **no AI eligibility scores**, no "approval probability gauges", and no automatic passes or rejections.
-   - Completeness is shown strictly as a documentation checklist: e.g. *"Documentation Completeness: 7 of 10 items recorded"*, followed by the exact missing items with statutory rule references.
-2. **One Primary Action Per Screen:**
-   - Big, full-width button at the bottom of the screen (min height 48–56 dp) for primary actions.
-3. **Paper-First & Signed Scans:**
-   - Every major legal milestone (Call for claims, Elder statement, Joint inspection, Meeting resolution) ends with: **Print/Generate Document → Physical Signatures/Thumbprints → Upload Signed Scan**.
-   - An action is only marked complete once the signed scan is uploaded.
-4. **Resubmission Window is Loud:**
-   - When a claim is returned by the Gram Sabha or SDO, the villager has **60 days** to correct and resubmit. A prominent deadline banner must show the days remaining (`days_left`).
-5. **Dynamic Button Rendering (`allowed_actions`):**
-   - The backend sends an `allowed_actions` array on every case response (`["submit"]`, `["approve", "return", "reject"]`, etc.).
-   - The frontend must only show action buttons present in this array!
+By law, Form C (Community Forest Resource claim) is prepared and filed by the Gram Sabha through its FRC [Rule 11(4)]. **For testing only**, the server currently lets a village user open Form C too, so the whole Form C flow can be tried from the villager login.
+
+- **Switch:** `villager_opens_form_c` in `vanmitra_backend/app/config.py` (env `VANMITRA_VILLAGER_OPENS_FORM_C`). Default `true` for now.
+- **To go back to the legal rule:** set `VANMITRA_VILLAGER_OPENS_FORM_C=false` in `vanmitra_backend/.env` and restart the server. The app needs no change: if the server refuses, the chooser shows the server's message.
+- What the claimant (here the villager) may do on their own Form C **while it is a draft**:
+  - fill Form C;
+  - add evidence;
+  - map the boundary;
+  - pin landmarks;
+  - mark use zones;
+  - record the boundary walk.
+- What stays with the **Gram Sabha** during its review:
+  - field verification;
+  - the meeting and its resolution;
+  - approving the claim.
+
+  The villager sees these records read-only.
 
 ---
 
-## 3. Architecture & Target Directory Structure
+# Part A: Connecting the app
 
-Build your features inside `vanmitra_tem/lib/` using this clean feature-based layout:
+## A1. Server address
 
-```
-vanmitra_tem/lib/
-├── core/
-│   ├── api/
-│   │   ├── api_client.dart          # Base HTTP client with Bearer token injector & error handling
-│   │   └── api_endpoints.dart       # String constants for all URLs
-│   ├── auth/
-│   │   ├── auth_state.dart          # Riverpod state: token, current user, active role
-│   │   └── auth_storage.dart        # Encrypted Hive token storage
-│   ├── models/                      # Shared models (CaseOut, Village, etc.)
-│   └── theme/                       # Noto Sans Devanagari typography, contrast tokens
-├── features/
-│   ├── auth/                        # Login & Villager Self-Registration
-│   ├── case_hub/                    # My Claims, Review Queue, Stepper Dashboard
-│   ├── form_a/                      # IFR (Individual Forest Rights) Claim
-│   ├── form_b/                      # CR (Community Rights) Claim
-│   ├── form_c/                      # CFR (Community Forest Resource) & Members
-│   ├── frc/                         # Forest Rights Committee Constitution & Intimation
-│   ├── claim_call/                  # 3-Month Window, Extension & Acknowledgement Slip
-│   ├── evidence/                    # Rule 13 Media Capture, Elder Audio, Verifications
-│   ├── mapping/                     # GPS Walk, Boundary Segments, Landmarks, Use Zones, Disputes
-│   ├── verification/                # Joint Field Inspection (Revenue + Forest)
-│   ├── gram_sabha/                  # Meeting Setup, Attendance, Quorum Engine, Resolution
-│   ├── workflow/                    # Approve, Return (Remarks), Reject Dialogs
-│   └── documents/                   # Printable HTML Previews (Annexures, G-Series)
-└── shared/widgets/
-    ├── step_card.dart               # 6-step progress card
-    ├── completeness_widget.dart     # Advisory checklist with Rule tags
-    ├── deadline_banner.dart         # 60-day return countdown banner
-    └── rule_badge.dart              # Chips like [Rule 3(1)], [Rule 12(1)(g)]
+The server runs on the PC on port **8010**. A phone on USB reaches it through `adb reverse`:
+
+```bash
+adb reverse tcp:8000 tcp:8010        # phone's 127.0.0.1:8000 → PC's 8010 (redo after replugging)
+flutter build apk --debug --dart-define=VANMITRA_API_BASE_URL=http://127.0.0.1:8000
+adb install -r build/app/outputs/flutter-apk/app-debug.apk
 ```
 
----
+`ApiEndpoints.baseUrl` accepts the address with or without `/api/v1`. Health check: `GET /api/v1/health` returns `{"status":"ok","database":"ok",...}`.
 
-## 4. Module Breakdown & What Kaushal Needs to Build
+## A2. Demo logins (PIN `123456`)
 
----
+| Phone | Role in app | Server role | Village |
+|---|---|---|---|
+| `9000000001` | Village user | `villager` | Ozhar |
+| `9000000002` | Village user 2 | `villager` | Ozhar |
+| `9000000003` | Gram Sabha | `gram_sabha` | Ozhar |
+| `9000000004` | Admin | `admin` | (none) |
+| `9000000005` | SDO (Jawhar) | `sdo` | Jawhar taluka |
 
-### Module 0: Authentication, Registration & Jurisdiction (`lib/features/auth/`)
+`/me` returns `roles` as a list. In the app, `gram_sabha` maps to `UserRole.frc` and `sdo` to `UserRole.sdlc`. The village id comes from `User.backendVillageId`.
 
-#### Backend Mechanics
-- Passwords are 6-digit numeric PINs hashed with BCrypt.
-- Standard JWT access token (`access_token`, 30 min expiry) and refresh token (`refresh_token`, 30 days).
-- Level 1 `villager` can **self-register** by picking their village.
-- Official logins (`gram_sabha`, `sdo`) are provisioned by admin.
-- `GET /api/v1/me` returns the caller's active user object along with their list of `roles`, each scoped by `village_id` (village level) or `taluka`/`district` (SDO level).
+## A3. Errors
 
-#### Endpoints
-- `GET /api/v1/public/villages` → List of registered villages `[{id, name_en, name_mr, taluka, district, gram_panchayat}]`.
-- `POST /api/v1/auth/register` → Body: `{"phone": "9876543210", "pin": "123456", "name": "Ramu Bhoye", "village_id": "<uuid>"}`. Returns tokens.
-- `POST /api/v1/auth/login` → Body: `{"phone": "9000000001", "pin": "123456"}`. Returns `{"access_token": "...", "refresh_token": "...", "expires_in": 1800}`.
-- `POST /api/v1/auth/refresh` → Body: `{"refresh_token": "..."}`. Returns new token pair.
-- `GET /api/v1/me` → Returns user profile and role grants.
+Every error has the same body: `{error, message_key, rule?, details}`. A `409` means a legal rule was not met.
+- Show plain words, plus a small rule chip (for example `[Rule 3(1)]`) when `rule` is present.
+- Never show a raw crash.
+- In Dart, `ApiClient` throws `ApiException` (`statusCode`, `error`, `messageKey`, `rule`, `details`).
 
-#### What to Build in Frontend
-1. **Login Screen (`login_screen.dart`):**
-   - Clean 10-digit phone field and 6-digit PIN input with show/hide toggle.
-   - Quick-fill buttons for testing demo users (`Villager`, `Gram Sabha`, `SDO`).
-2. **Registration Screen (`register_screen.dart`):**
-   - Full name, Phone, PIN confirmation.
-   - Village dropdown populated via `/public/villages`.
-3. **User State Provider (`auth_provider.dart`):**
-   - Saves tokens in encrypted Hive box.
-   - Loads `/api/v1/me` on startup. Displays current logged-in role banner in app header.
+## A4. Rules every screen follows
+
+1. **The app records and checks. People decide.** There are no AI scores and no "chance of approval". Completeness is shown only as a checklist, for example "6 of 10 recorded", with the rule for each missing item.
+2. **Buttons come from the server.** On a claim, only the actions listed in `allowed_actions` are shown (`submit`, `approve`, `return`, `reject`).
+3. **Sent-back claims are loud.** A returned claim shows the reviewer's remarks and **days left** (60-day window).
+4. **Paper first.** Signed scans (verification report, resolution, elder statement) are uploaded as photos.
 
 ---
 
-### Module 1: The Case Hub & 6-Step Dashboard (`lib/features/case_hub/`)
+# Part B: The village user's app, button by button
 
-#### Backend Mechanics
-- A `ClaimCase` belongs to one of three types: `ifr` (Individual), `cr` (Community Rights), or `cfr` (Community Forest Resource).
-- Lifecycle states: `draft` → `gs_review` → `sdo_review` → `district_review` → `title_issued` (or `rejected` / `expired`).
-- Response returns `allowed_actions: ["submit"]` or `["approve", "return", "reject"]`.
-- Returned claims include `returned: {by_role, by_name, remarks, returned_on, resubmit_by, days_left}`.
+Entry: `lib/screens/home/villager_home_screen.dart` → `VillagerHomeScreen`. It is an `IndexedStack` of five tabs, all sharing one bottom bar (`AnimatedBottomNavBar`).
 
-#### Endpoints
-- `GET /api/v1/cases/mine` → Cases created by the logged-in user.
-- `GET /api/v1/villages/{village_id}/cases` → All cases in the village visible to the user's role.
-- `GET /api/v1/review/queue` → Cases waiting for **current user's approval** across their jurisdiction (oldest first).
-- `POST /api/v1/villages/{village_id}/cases` → Body: `{"claim_type": "ifr" | "cr" | "cfr"}`. Opens a fresh draft claim.
-- `GET /api/v1/cases/{id}` → Full summary for the case.
+Every villager screen uses the same frame (`PortalFrameScaffold`):
+- green header with the app name and the village, a status dot, and a language button;
+- the notice strip (`NoticeBoardWidget`);
+- a breadcrumb;
+- the content;
+- the dark-green footer ("Helpline: 1800-209-6060 | Forest Rights Act 2006 | Privacy Policy");
+- the bottom bar.
 
-#### What to Build in Frontend
-1. **Home / Cases Screen (`cases_list_screen.dart`):**
-   - Tabs: **My Claims** (for villagers), **Village Claims** (overview), and **Review Queue** (prominently badge count for Gram Sabha and SDO!).
-   - Floating Action Button: "+ Open New Claim" (dialog to pick Form A `ifr`, Form B `cr`, or Form C `cfr`).
-2. **Case Stepper Dashboard (`case_home_screen.dart`):**
-   - Displays Claimant Name, Claim Type, and Current State badge (`DRAFT`, `GRAM SABHA REVIEW`, `SDO REVIEW`).
-   - If returned: Render **`DeadlineBanner`** showing reviewer remarks and "X days left to resubmit".
-   - 6 Step Progress Cards:
-     1. **Step 1: Claim Form** (Form A, B, or C filled)
-     2. **Step 2: Evidence Pool** (photos, documents, elder statement)
-     3. **Step 3: Boundary & Landmarks** (CFR mapping)
-     4. **Step 4: Field Verification** (Joint Revenue & Forest report)
-     5. **Step 5: Gram Sabha Meeting** (Quorum & Resolution)
-     6. **Step 6: Status & Title Certificate** (SDO approval & Title Draft)
-   - Bottom Action Bar: dynamically renders buttons present in `allowed_actions`.
+Shared look, from `lib/widgets/villager_ui/`:
+- `NatureBanner`: a light landscape strip with hills, sun, trees and a small house;
+- `LeafCorner`: faint decorative leaves;
+- `VillagerEmptyState`: a round icon with leaves, a title, a line of text and an optional orange button.
 
----
+## B0. Frame (on every screen)
 
-### Module 2: Claim Forms A, B, and C (`lib/features/form_a/`, `form_b/`, `form_c/`)
+| Element | Method | What happens |
+|---|---|---|
+| Back arrow (pushed screens) | `Navigator.pop` | Goes back. |
+| Settings / profile icon in header | `_PortalFrameScaffoldState._toggleSettings()` | Opens the settings panel (theme, profile shortcut). |
+| Language button `EN ▾` | `AppHeader` → `localeProvider` | Switches English / मराठी. |
+| Notice strip `×` | `noticesProvider.notifier.dismissNotice(id)` | Hides that notice; the counter (e.g. `3/4`) moves on. |
+| Breadcrumb "Dashboard" | `_BreadcrumbBar` → `Navigator.pop` (as many times as needed) | Goes back to the dashboard. |
 
-#### Backend Mechanics
-- Only the creator can edit, and only while the case is in `draft`.
-- Once submitted, form is locked (returns 409 if edited).
-- Returned case goes back to `draft`, making it editable again.
+## B1. Bottom bar
 
-#### Form A (IFR — Individual Forest Rights)
-- **Endpoint:** `GET /api/v1/cases/{id}/form-a`, `PUT /api/v1/cases/{id}/form-a`
-- **Fields:**
-  - Claimant Names (`list[str]`), Spouse Name, Parents Name, Address.
-  - Category: `is_scheduled_tribe` (`bool`), `is_otfd` (`bool`), `spouse_is_scheduled_tribe` (`bool`).
-  - Family Members: `[{seq, name, age, relation}]`.
-  - Claim Items: `[{claim_code, extent_ha, details}]` where claim codes are: `habitation`, `self_cultivation`, `disputed_lands`, `pattas_leases`, `conversion_forest_villages`, `other_traditional_rights`.
+| Item | Method | Opens |
+|---|---|---|
+| Dashboard (floating orange button) | `_VillagerHomeScreenState.setState(_currentTab = 0)` | Dashboard tab |
+| Claims | `… _currentTab = 1` | **My Claims** (B3) |
+| Profile | `… _currentTab = 2` | **Profile & Settings** (B6) |
+| Gram Sabha | `… _currentTab = 3` | **Gram Sabha Records** (B5) |
+| Atlas Map | `… _currentTab = 4` | `BoundaryMapScreen` (village atlas, unchanged) |
 
-#### Form B (CR — Community Rights)
-- **Endpoint:** `GET /api/v1/cases/{id}/form-b`, `PUT /api/v1/cases/{id}/form-b`
-- **Fields:**
-  - Claimant Names, FDST/OTFD community flags.
-  - Rights Claimed (`rights`): list of right entries (`nistar`, `minor_forest_produce`, `grazing`, `water_bodies`, `fish_products`, `pastoralist_routes`, `biodiversity`, `other`).
-  - Maharashtra field practice per right: Survey/compartment numbers, total area in ha, 4 boundary landmarks (East, West, North, South चतु:सीमा), annual quantity used.
+## B2. Dashboard tab (`_HomeTab`)
 
-#### Form C (CFR — Community Forest Resource)
-- **Endpoint:** `GET /api/v1/cases/{id}/form-c`, `PUT /api/v1/cases/{id}/form-c`
-- **Fields:**
-  - `resolution_statement` (Default Marathi/English text passed by FRC).
-  - `approx_area_ha` and `area_description` (words describing boundary until polygon is mapped).
-  - `pastoral_seasonal_use` (`bool`) & `seasonal_use_details`.
-  - `khasra_compartment_numbers` (`list[str]`).
-  - `landmarks`: `[{seq, side: "east"|"west"|"north"|"south"|"within", kind, name, description}]`.
-  - `bordering_villages`: `[{seq, name, shares_resources, sharing_details}]`.
-- **Gram Sabha Member Roster:**
-  - `GET /api/v1/villages/{village_id}/members`
-  - `POST /api/v1/villages/{village_id}/members` → Body: `{"name": "Asha Bhoye", "gender": "female"|"male"|"other", "category": "st"|"otfd"|"other"}`.
+From top to bottom:
+1. Green hero with nature layers.
+2. Glass profile card.
+3. S-curve.
+4. Next Meeting card.
+5. **Claims** heading with "Quick Actions".
+6. Three claim cards.
+7. Gram Sabha shortcuts.
+8. Satellite parcel card.
 
-#### What to Build in Frontend
-- Multi-step, card-based form editors with auto-save or "Save Draft" button.
-- Clean add/remove dialogs for Family Members, Right Items, Landmarks, and Bordering Villages.
-- Member Roster Screen (`members_screen.dart`): shows member sheet (Form C item 5) with ST/OTFD tags and active status toggle.
+**Removed (8 Oct 2026):** the statistics row (Approved Claims, Hectares Area, Meeting Records).
 
----
+| Button / card | Method | Server call | What happens |
+|---|---|---|---|
+| Avatar on glass card | `onSwitchTab(AppTab.profile.index)` | none | Opens Profile tab. |
+| Leaf emblem on glass card | `Navigator.pushNamed(AppRouter.fraRightsInfo)` | none | "Know your rights" page. |
+| **Next Meeting** card | `onSwitchTab(AppTab.sabha.index)` | `GET /villages/{vid}/meetings` (to fill the card) | Shows the next meeting date and place from the server, or "No meetings scheduled". Tap opens the Gram Sabha tab. |
+| "Quick Actions" label | `onSwitchTab(AppTab.claims.index)` | none | Opens My Claims. |
+| **File New Claim** | `startNewBackendClaim(context, ref)` (`features/case_hub/new_claim.dart`) | `POST /villages/{vid}/cases {"claim_type": "cr"\|"cfr"}` | Chooser with **Form B (community rights)** and **Form C (community forest resource)**. **Form A is no longer offered.** After choosing, the claim is opened on the server and its claim page (B4) opens. |
+| **Form B / C · Community claims** | `onSwitchTab(AppTab.claims.index)` | none | Opens My Claims, where all your community claims are listed. |
+| **Evidence Checklist (Rule 13)** | `openEvidenceForMyClaim(context, ref)` (`new_claim.dart`) | `GET /cases/mine` | One open claim: opens its Evidence screen (B4.2). Several: a sheet to pick the claim. None: the Rule 13 guide, with a "File New Claim" button. |
+| Gram Sabha Records | `onSwitchTab(AppTab.sabha.index)` | none | Gram Sabha tab. |
+| Self check-in | `Navigator.pushNamed(AppRouter.selfCheckin, arguments: meeting.id)` | (existing attendance flow) | Only when a meeting is open today; otherwise a message. |
+| Village map | `onSwitchTab(AppTab.map.index)` | none | Atlas Map tab. |
+| Know your rights | `Navigator.pushNamed(AppRouter.fraRightsInfo)` | none | FRA guide. |
+| Satellite parcel card | `Navigator.pushNamed(AppRouter.alertHistory)` | (Module B, offline seed) | Satellite alert history. |
 
-### Module 3: FRC Constitution & Intimation (`lib/features/frc/`)
+## B3. My Claims tab (`features/case_hub/cases_list_screen.dart` → `CasesListScreen`)
 
-#### Backend Mechanics (Rule 3)
-- FRC must have between **10 and 15 members**.
-- If Gram Sabha has ST members, **at least 2/3 of FRC must be ST**.
-- **At least 1/3 of FRC must be women**.
-- Chairperson and Secretary must be two different people.
-- `POST /villages/{id}/frc/check` runs a dry-run check without saving. If rules are broken, returns `409` with `rule: "Rule 3(1)"` and exact counts.
+Layout: breadcrumb "Dashboard › My Claims", `NatureBanner`, search box with a ⋮ menu, status chips, the claim cards (or the empty state), and an orange **+ File New Claim** button at the bottom right.
 
-#### Endpoints
-- `POST /api/v1/villages/{id}/frc/check` → Dry run verification.
-- `POST /api/v1/villages/{id}/frc` → Body: `{"chair_member_id": "...", "secretary_member_id": "...", "member_ids": ["...", "..."]}`.
-- `GET /api/v1/villages/{id}/frc` → Active FRC details and composition statistics.
-- `POST /api/v1/villages/{id}/frc/intimation` → Body: `{"intimated_on": "2026-09-01"}` (Date FRC sent to SDLC).
+| Button | Method | Server call | What happens |
+|---|---|---|---|
+| (screen opens / pull down) | `_loadData()` | `GET /cases/mine` (village user). Gram Sabha / SDO also: `GET /villages/{vid}/cases`, `GET /review/queue` | Loads the claims. |
+| Search box | `_onSearchChanged(text)` | none | Filters by claimant name, form letter, village, or status. |
+| ⋮ menu → Refresh | `_loadData()` | as above | Reloads. |
+| ⋮ menu → Newest first / Oldest first | `_setSort(newestFirst)` | none | Sorts by date opened. |
+| ⋮ menu → My claims / Village claims / Review queue *(Gram Sabha and SDO only)* | `_setSource(_Source)` | none | Switches which list is shown. |
+| Chip **✓ N Approved** | `_toggleFilter(_StatusFilter.approved)` | none | Shows only claims with a title issued. Tap again to clear. |
+| Chip **◷ N Pending** | `_toggleFilter(_StatusFilter.pending)` | none | Draft, or waiting at Gram Sabha, SDO or district. |
+| Chip **⊗ N Rejected** | `_toggleFilter(_StatusFilter.rejected)` | none | Rejected or expired. |
+| "N Claims" counter | (display) | none | Number of claims in the current list. |
+| A claim card | `_openCase(item)` | none | Opens the claim page (B4), then reloads on return. |
+| **File New Claim** (empty state) and **+ File New Claim** (floating) | `_openNewClaim()` → `startNewBackendClaim(…, onChanged: _loadData)` | `POST /villages/{vid}/cases` | Same chooser as the dashboard: Form B or Form C. |
 
-#### What to Build in Frontend
-1. **FRC Setup Screen (`frc_screen.dart`):**
-   - Multi-select member picker from the Gram Sabha roster.
-   - Dedicated dropdowns for Chairperson and Secretary.
-   - Live Statutory Quota Indicator:
-     - Total count: `12 / 10-15` (Green check if valid).
-     - ST quota: `83% (≥ 66% required)` (Rule 3(1) chip).
-     - Women quota: `41% (≥ 33% required)` (Rule 3(1) chip).
-   - "Constitute FRC" button that validates via `/frc/check` before final save.
-   - SDLC Intimation Date picker.
+A claim card shows:
+- the form letter;
+- the claimant (or "Draft: name not filled yet");
+- the form name;
+- a coloured status pill;
+- the date opened;
+- the "sent back · N days left" pill when returned.
 
----
+## B4. Claim page (`features/case_hub/case_home_screen.dart` → `CaseHomeScreen`)
 
-### Module 4: Call for Claims & Acknowledgement Slip (`lib/features/claim_call/`)
+Layout:
+- a breadcrumb: "Dashboard › My Claims › Form C";
+- a summary card on a nature banner, with the form, state, claimant and village;
+- the sent-back banner, if the claim was returned;
+- the **steps** list;
+- the action bar.
 
-#### Backend Mechanics (Rule 11)
-- The Gram Sabha makes a public call for claims for a **minimum of 3 months**.
-- On submission of any claim, the backend automatically issues an **official written acknowledgement serial** (Format: `<Village>/<Year>/<Serial>`, e.g., `OZHAR/2026/0001`).
+The steps depend on the form:
+- **Form C (cfr):** six steps. 1 Form · 2 Evidence · 3 Boundary · 4 Field verification · 5 Gram Sabha decision · 6 Status & title.
+- **Form B (cr):** four steps. 1 Form · 2 Evidence · 3 Gram Sabha decision · 4 Status & title.
 
-#### Endpoints
-- `POST /api/v1/villages/{id}/claim-calls` → Body: `{"called_on": "2026-09-01", "place_of_filing": "Gram Panchayat Office", "notice_displayed_on": "2026-09-02"}`. Window is automatically 3 months.
-- `GET /api/v1/villages/{id}/claim-calls/current` → Returns `closes_on`, `days_remaining`, `is_open`.
-- `POST /api/v1/villages/{id}/claim-calls/current/extend` → Body: `{"extended_to": "2026-12-31", "reason": "Monsoon delay", "resolution_ref": "Res 4/2026"}`.
-- `GET /api/v1/cases/{id}/acknowledgement` → Returns acknowledgement serial, date, filed within window, list of received documents.
+Each step's status comes from server data. `_loadCase()` loads, in parallel:
+- `GET /cases/{id}`;
+- `GET /cases/{id}/evidence`;
+- `GET /cases/{id}/boundary` (Form C);
+- `GET /cases/{id}/verification` (Form C);
+- `GET /cases/{id}/resolutions`.
 
-#### What to Build in Frontend
-1. **Notice Board Screen (`claim_call_screen.dart`):**
-   - Displays Active Call banner: "Call open until 1 Dec 2026 (45 days remaining)".
-   - Button for Gram Sabha: "Extend Window" with reason dialog.
-2. **Acknowledgement Slip Card (`acknowledgement_card.dart`):**
-   - Rendered upon submission: Displays official serial, date, QR/barcode-like style, and "Print Receipt (G4)" button.
+| Button | Method | Server call | What happens |
+|---|---|---|---|
+| ↻ (header) | `_loadCase()` | as above | Reloads. |
+| 🕘 History (header) | `_showHistory()` | `GET /cases/{id}/history` | Sheet listing every action: who, which role, remarks, date. |
+| Step **1 · Claim form** | `_openClaimForm()` | Form B: `GET/PUT /cases/{id}/form-b`. Form C: `GET/PUT /cases/{id}/form-c` | Opens the form (B4.1). Editable only while a draft; otherwise read-only. |
+| Step **2 · Evidence (Rule 13)** | `_openEvidence()` | see B4.2 | Opens the evidence screen. |
+| Step **3 · Boundary & landmarks** *(Form C)* | `_openBoundary()` | see B4.3 | Opens the boundary map. |
+| Step **4 · Field verification** *(Form C)* | `_openVerification()` | `GET /cases/{id}/verification` | Read-only record of the joint visit (B4.4). |
+| Step **Gram Sabha decision** | `_openGramSabhaDecision()` | `GET /cases/{id}/resolutions`, `GET /cases/{id}/approval-check` | Read-only resolution(s) and what the Gram Sabha still needs (B4.5). |
+| Step **Status & title** | `_openStatus()` | `GET /cases/{id}/acknowledgement`, `GET /cases/{id}/title-draft` | Receipt number, the title draft once at district level, and history (B4.6). |
+| **Submit claim** (action bar, shown if `submit` ∈ `allowed_actions`) | `_handleSubmit()` | `POST /cases/{id}/submit` | Asks to confirm, then sends the claim to the Gram Sabha. The form locks and a receipt number is issued. |
+| Approve / Return / Reject *(reviewers only)* | `_handleApprove()` / `_handleReturn()` / `_handleReject()` | `POST /cases/{id}/approve` · `/return {remarks}` · `/reject {remarks}` | Return needs remarks (5+ characters) and gives the villager 60 days. Reject needs written reasons [Rule 12A(7)]. |
 
----
+### B4.1 Form C screen (`features/form_c/form_c_screen.dart` → `FormCScreen`)
 
-### Module 5: Media Capture & Evidence Pool (`lib/features/evidence/`)
+The sections follow the printed Form C, in order:
+1. Village details (read-only from the registry).
+2. Gram Sabha member sheet: counts, the first names, and **Manage member list** (`MembersScreen`).
+3. Resolving statement (5a).
+4. The area, with landmarks per side (5b).
+5. Khasra / compartment numbers (6, optional).
+6. Bordering villages (7).
+7. Evidence list (8).
 
-#### Backend Mechanics (Rule 13)
-- Media file upload via multipart `POST /api/v1/media` (JPEG, PNG, WebP, PDF, Audio up to 20MB). Calculates SHA-256 for integrity.
-- Evidence entry `POST /api/v1/cases/{id}/evidence`:
-  - `rule_ref`: specific Rule 13 subclause (e.g. `13(1)(a)` govt records, `13(1)(c)` physical structures, `13(1)(i)` elder statements).
-  - Elder Statement: requires `elder_member_id`, `transcript`, and `signed_scan_media_id`. Elder **cannot be a claimant** in this case (returns 409 Rule 13(1)(i) otherwise).
-- Verifications: In `gs_review`, FRC members attest evidence. FRC members who are claimants must recuse themselves (409 Rule 3(3)).
-- Advisory Completeness: `GET /api/v1/cases/{id}/readiness` checks Rules R1 to R10 (at least 2 independent pieces of evidence, boundary closed, etc.).
+A completeness card at the top shows "N of 8 recorded" with each missing item and its rule.
 
-#### Endpoints
-- `POST /api/v1/media` → Multipart `file`, optional `captured_at`, `gps_lat`, `gps_lon`. Returns `{"id": "<uuid>", "sha256": "..."}`.
-- `GET /api/v1/media/{id}/file` → Stream download of media file.
-- `POST /api/v1/cases/{id}/evidence` → Body:
-  ```json
-  {
-    "rule_ref": "13(1)(c)",
-    "kind": "photo",
-    "description": "Ancient burial site and cattle shed",
-    "media_id": "<uuid>",
-    "gps_lat": 19.9234,
-    "gps_lon": 73.2341
-  }
-  ```
-- `GET /api/v1/cases/{id}/evidence` → List of evidence items with verification stamps.
-- `POST /api/v1/cases/{id}/evidence/{eid}/verify` → FRC attestation.
-- `GET /api/v1/cases/{id}/readiness` → Returns `{done: 7, total: 10, items: [{id: "R1", ok: true, rule: "Rule 13(1)", message_key: "..."}]}`.
+| Button | Method | Server call | What happens |
+|---|---|---|---|
+| (opens) | `_load()` | `GET /cases/{id}/form-c` | Fills every field. |
+| Manage member list | `_openMembers()` | `GET /villages/{vid}/members` | Member sheet (adding members is the Gram Sabha's job). |
+| Restore printed text | `_restoreStatement()` | none (sent on save as `null`) | Puts back the printed resolving statement. |
+| Pastoral / seasonal use switch | `setState(_pastoral = v)` | none | Shows the seasonal-use details box. |
+| **+ Add landmark** | `_addLandmark()` | none | New row: side (E/W/N/S/inside), kind, name, description. |
+| 🗑 on a row | `_removeLandmark(i)` / `_removeVillage(i)` / `_removeEvidence(i)` | none | Removes the row. |
+| **+ Add bordering village** | `_addVillage()` | none | New row: name, "shares resources", details. |
+| **+ Add evidence** | `_addEvidence()` | none | New row: Rule 13 tag and description (the actual photos go in Step 2). |
+| **Save draft** (bottom) | `_save()` | `PUT /cases/{id}/form-c` | Saves; completeness refreshes. A 409 is shown as plain text. |
 
-#### What to Build in Frontend
-1. **Evidence Capture Flow (`evidence_capture_screen.dart`):**
-   - Options: Camera Photo (with auto-GPS), PDF Document Scan, or Elder Voice Recording.
-   - For Voice: Audio recorder widget that uploads audio to `/media` and captures Marathi/English summary text.
-   - Evidence Tagging Dropdown: Rule 13 options in plain Marathi/English (e.g. "Govt Record / वन हक्क दाखला", "Traditional Boundary Landmark / पारंपरिक सीमा", "Elder Testimony / ज्येष्ठांचे मौखिक पुरावे").
-2. **Evidence Gallery Screen (`evidence_list_screen.dart`):**
-   - Thumbnail cards showing description, date, Rule chip, and Verification status.
-   - For Gram Sabha role: "Attest / Verify" button.
-3. **Readiness Checklist Widget (`readiness_widget.dart`):**
-   - Clean list of 10 legal requirements showing Green Check / Orange Circle, rule reference badge, and guidance text.
+### B4.2 Evidence screen (`features/evidence/evidence_screen.dart` → `EvidenceScreen`)
 
----
+Layout:
+- the readiness checklist ("N of 10 recorded", or of 5 for Form B), with rule chips;
+- the evidence cards: photo thumbnail, Rule 13 chip, kind, description, GPS, date, "Verified by FRC" stamp;
+- **+ Add evidence**.
 
-### Module 6: Boundary Mapping, Landmarks, Use Zones & Disputes (`lib/features/mapping/`)
+| Button | Method | Server call | What happens |
+|---|---|---|---|
+| (opens / pull down) | `_load()` | `GET /cases/{id}/evidence`, `GET /cases/{id}/readiness` | Loads the list and the checklist. |
+| **+ Add evidence** (only while you may add) | `_addEvidence()` → `AddEvidenceSheet` | none yet | Opens the add sheet. |
+| Sheet: Rule 13 picker | `setState(_rule = …)` | none | 14 sub-clauses in plain words. |
+| Sheet: kind chips (Photo / Document scan / Written note / Elder statement) | `setState(_kind = …)` | none | The elder statement asks for the elder (from the member list), the transcript and the signed scan. |
+| Sheet: **Take photo** | `_pickImage(ImageSource.camera)` | none | Camera; GPS is taken at the same time (`_captureGps()`). |
+| Sheet: **From gallery** | `_pickImage(ImageSource.gallery)` | none | Picks an image. |
+| Sheet: **Use my location** | `_captureGps()` | none | Fills lat / lon / accuracy (Geolocator). |
+| Sheet: **Save evidence** | `_save()` | `POST /media` (multipart, with GPS) then `POST /cases/{id}/evidence` | Uploads the file, then records the evidence item. The server keeps a SHA-256 hash for integrity. |
+| Tap a photo thumbnail | `_viewPhoto(mediaId)` | `GET /media/{id}/file` | Full-screen photo. |
 
-#### Backend Mechanics (Rule 12(1)(f)(g), Rule 12(3))
-- Geometry is **GeoJSON Polygon** `[lon, lat]` in EPSG:4326.
-- Area in hectares is calculated by the backend in UTM 43N (metric projection).
-- `segment_breaks`: vertex indices where boundary segments start (for 4 sides).
-- `landmarks`: Each segment **must have at least 1 landmark** (stream, sacred tree, hillock, boundary stone) with lat/lon and photo.
-- `use_zones`: Polygons inside CFR marked for Grazing, Minor Forest Produce (MFP), Sacred Groves, Water Sources.
-- **Overlap & Dispute Engine (Rule 12(3)):**
-  - Saving a boundary automatically checks all neighbouring Gram Sabhas.
-  - Overlap > 1 m² automatically registers an official `Dispute` between both villages!
-  - Resolution requires joint meeting (`resolved_by_joint_meeting`) or boundary adjustment.
-- **Freezing:** Passing the Gram Sabha resolution freezes the boundary (`gs_approved`). Subsequent edits return 409 `BOUNDARY_FROZEN`.
+### B4.3 Boundary screen (`features/mapping/boundary_screen.dart` → `BoundaryScreen`), Form C only
 
-#### Endpoints
-- `POST /api/v1/cases/{id}/boundary` → Body:
-  ```json
-  {
-    "polygon": {
-      "type": "Polygon",
-      "coordinates": [[[73.1, 19.1], [73.2, 19.1], [73.2, 19.2], [73.1, 19.2], [73.1, 19.1]]]
-    },
-    "source": "gps_walk",
-    "segment_breaks": [0, 1, 2, 3],
-    "vertex_accuracy_m": [3.2, 2.8, 4.1, 3.5]
-  }
-  ```
-  Returns `BoundaryOut` with calculated `area_ha`, `segments`, and any `disputes_opened`.
-- `GET /api/v1/cases/{id}/boundary` → Current active boundary, segments, landmarks, use zones, and open disputes.
-- `POST /api/v1/cases/{id}/boundary/landmarks` → Body: `{"segment_seq": 0, "name": "Nala Odha", "kind": "stream", "lat": 19.12, "lon": 73.15, "photo_media_id": "<uuid>"}`.
-- `POST /api/v1/cases/{id}/boundary/use-zones` → Body: `{"use_type": "grazing"|"mfp"|"sacred"|"water", "name": "Gavthan Charai", "polygon": {...}}`.
-- `POST /api/v1/cases/{id}/boundary/walks` → Body: `{"walked_on": "2026-09-15", "participants": [{"name": "Elders & FRC", "role": "elder"}], "notes": "Walked traditional bounds"}`.
-- `POST /api/v1/cases/{id}/disputes/{dispute_id}/resolve` → Resolves boundary conflict with neighbour.
+Layout:
+- a map (OpenStreetMap / satellite toggle) showing:
+  - the saved boundary, each side in its own colour;
+  - landmarks as pins;
+  - use zones as pale fills;
+  - your position;
+- an info strip: area in hectares, number of sides, "sides without a landmark", open disputes;
+- the tool buttons;
+- lists of landmarks, use zones, walks and disputes.
 
-#### What to Build in Frontend
-1. **Interactive Map Screen (`boundary_map_screen.dart`):**
-   - Supports: (a) Live GPS Boundary Walk (records points as you walk perimeter), (b) Manual Tap-to-Draw Polygon.
-   - Visual layers:
-     - Outer boundary line (with segment color coding).
-     - Landmarks pinned with icons (tree, mountain, river).
-     - Customary Use Zones filled with subtle pastel color overlays.
-   - Shows computed Area (e.g. `245.50 ha`).
-2. **Segment & Landmark Sheet (`landmark_sheet.dart`):**
-   - Lists Segment 1 (North), Segment 2 (East), etc.
-   - Prompts user if a segment has 0 landmarks (warns that Rule BR-08 requires at least 1).
-   - "Pin Landmark" button: takes camera photo, records GPS, asks for landmark name & type.
-3. **Boundary Dispute Alert Banner:**
-   - Displays if backend reports `open_disputes > 0`: "Warning: 1.4 ha overlaps with neighbouring village (Kharonda). Boundary dispute opened [Rule 12(3)]."
+| Button | Method | Server call | What happens |
+|---|---|---|---|
+| (opens) | `_load()` | `GET /cases/{id}/boundary` (404 = none yet), `GET /cases/{id}/boundary/walks`, `GET /cases/{id}/disputes` | Shows what is saved. |
+| 🛰 / 🗺 basemap | `_toggleBasemap()` | none | Satellite ↔ street map. |
+| ◎ My location | `_centerOnMe()` | none | Centres the map on your GPS position. |
+| **Draw on map** | `_startDrawing(_DrawTarget.boundary)` | none | Each tap adds a corner point. |
+| **Walk with GPS** | `_startGpsWalk()` | none | Records a point every few metres as you walk the boundary, with accuracy. |
+| Undo point | `_undoPoint()` | none | Removes the last point. |
+| Clear | `_clearPoints()` | none | Starts again. |
+| **Save boundary** | `_saveBoundary()` | `POST /cases/{id}/boundary` | Needs at least 3 points. The ring is split into the four sides (चतु:सीमा) using `segment_breaks`. The server works out the area in hectares and opens a dispute if it overlaps a neighbour's claim. |
+| **Add landmark** | `_addLandmark()` → `_LandmarkSheet` | `POST /cases/{id}/boundary/landmarks` (+ `POST /media` for the photo) | Choose the side, kind and name. Position = your GPS position, or the map centre. Optional photo. |
+| **Add use zone** | `_startDrawing(_DrawTarget.useZone)`, then `_saveUseZone()` | `POST /cases/{id}/boundary/use-zones` | Draw the zone, then choose its use (grazing, minor forest produce, water, sacred…), name and season. |
+| **Record boundary walk** | `_recordWalk()` → `_WalkSheet` | `POST /cases/{id}/boundary/walks` | Date, who walked (names and roles), notes. If a GPS walk was just made, its trace is attached. |
 
----
+While the claim is not your draft (submitted, or the boundary was approved by the Gram Sabha), the screen is view-only and the tool buttons are hidden.
 
-### Module 7: Joint Field Verification (`lib/features/verification/`)
+### B4.4 Field verification (read-only, `features/case_hub/case_stage_screens.dart` → `VerificationRecordScreen`)
 
-#### Backend Mechanics
-- Joint on-site inspection conducted with Forest & Revenue officials.
-- Verification record requires: visit date, observations, presence list (Officer names + Department), signatures obtained (`forest_signed: bool`, `revenue_signed: bool`), and the uploaded scanned report.
+Shows each visit:
+- the date;
+- who was present (Forest / Revenue / FRC);
+- the observations;
+- "Forest signed" and "Revenue signed" ticks;
+- the signed report photo;
+- "Complete" or "Still open".
 
-#### Endpoints
-- `POST /api/v1/cases/{id}/verification` → Body:
-  ```json
-  {
-    "visit_on": "2026-09-20",
-    "observations": "Boundary verified in presence of RFO and Talathi",
-    "presence": [
-      { "name": "S. Patil", "department": "forest" },
-      { "name": "V. Deshmukh", "department": "revenue" }
-    ],
-    "forest_signed": true,
-    "revenue_signed": true,
-    "signed_scan_media_id": "<uuid>"
-  }
-  ```
-- `GET /api/v1/cases/{id}/verification` → Read inspection proceedings.
+The Gram Sabha records this; its screen comes with the Gram Sabha design.
 
-#### What to Build in Frontend
-- **Field Verification Form (`verification_screen.dart`):**
-  - Date picker for inspection date.
-  - Presence list builder (Add official name, pick "Forest Department" or "Revenue Department").
-  - Observations multi-line text input.
-  - Signature check toggles: "Forest Official Signed" & "Revenue Official Signed".
-  - Camera button: "Upload Scanned & Signed Joint Inspection Report".
+### B4.5 Gram Sabha decision (read-only, `GramSabhaDecisionScreen`)
 
----
+Shows:
+- each resolution: number, decision, votes for and against, the quorum proof (present, women present, passed) and the signed scan;
+- for Form C, the approval checklist: resolution passed, boundary approved, verification complete, no open disputes, each with its rule.
 
-### Module 8: Gram Sabha Meeting, Quorum & Resolution (`lib/features/gram_sabha/`)
+### B4.6 Status & title (`ClaimStatusScreen`)
 
-#### Backend Mechanics (Rule 4(2))
-- Gram Sabha meeting must satisfy statutory quorum before passing resolutions:
-  - **Overall Attendance ≥ 50%** of total Gram Sabha members.
-  - **Women Attendance ≥ 33%** of present attendees.
-- Resolution approval freezes the CFR boundary polygon and unlocks forwarding to SDO.
+Shows:
+- the receipt (acknowledgement) number and date, once submitted;
+- the title draft (Annexure III / IV) once the claim reaches the district;
+- the full history timeline.
 
-#### Endpoints
-- `POST /api/v1/villages/{village_id}/meetings` → Body: `{"held_on": "2026-09-25", "place": "Gram Panchayat Hall", "agenda": "CFR Boundary and Claim Approval"}`. Returns `meeting_id`.
-- `PUT /api/v1/meetings/{meeting_id}/attendance` → Body: `{"present_member_ids": ["<uuid>", "<uuid>", ...]}`. Returns attendance count and gender breakdown.
-- `GET /api/v1/meetings/{meeting_id}/quorum` →
-  ```json
-  {
-    "total_members": 120,
-    "present_count": 68,
-    "present_women": 28,
-    "quorum_met": true,
-    "overall_pct": 56.6,
-    "women_pct": 41.1,
-    "rules": { "overall_50_met": true, "women_33_met": true }
-  }
-  ```
-- `POST /api/v1/meetings/{meeting_id}/resolutions` → Body:
-  ```json
-  {
-    "case_id": "<uuid>",
-    "decision_text": "Gram Sabha unanimously approves Form C and the mapped CFR boundary",
-    "votes_for": 68,
-    "votes_against": 0,
-    "approves_boundary": true,
-    "signed_scan_media_id": "<uuid>"
-  }
-  ```
+## B5. Gram Sabha Records tab (`features/gram_sabha_records/gram_sabha_records_screen.dart` → `GramSabhaRecordsScreen`)
 
-#### What to Build in Frontend
-1. **Meeting Setup Screen (`meeting_screen.dart`):**
-   - Meeting date, location, and agenda.
-2. **Attendance Roster Screen (`attendance_screen.dart`):**
-   - Displays all Gram Sabha members with checkboxes.
-   - Quick filters: "All", "Women", "ST".
-   - (Optional Facilitation Helper): Face recognition / photo attendance to help check boxes quickly.
-3. **Live Quorum Status Card (`quorum_gauge_widget.dart`):**
-   - Shows live attendance metrics as checkboxes are ticked:
-     - Total: `68 / 120 (56.6%)` → Green Check (≥ 50% Rule 4(2)).
-     - Women: `28 / 68 (41.1%)` → Green Check (≥ 33% Rule 4(2)).
-   - If quorum is not met, banner shows in Orange: *"Cannot pass legal resolution: need 4 more women members"*.
-4. **Resolution Drafting Screen (`resolution_screen.dart`):**
-   - Decision statement input, Votes For / Votes Against.
-   - "Upload Signed Gram Sabha Resolution Scan" button.
+Layout:
+- header title "ग्रामसभा | Gram Sabha Records";
+- notice strip;
+- `NatureBanner`;
+- two tabs, **Upcoming (येणारी बैठक)** and **Past (मागील नोंदी)**, with an orange underline;
+- meeting cards, or the empty state "No meetings scheduled yet."
+
+| Button | Method | Server call | What happens |
+|---|---|---|---|
+| (opens / pull down) | `ref.refresh(villageMeetingsProvider(vid))` | `GET /villages/{vid}/meetings` | Upcoming = today or later; Past = before today. |
+| Tab Upcoming / Past | `TabController` | none | Switches the list. |
+| A meeting card | `_showMeeting(meeting)` | `GET /meetings/{id}/quorum` (only if attendance was recorded) | Sheet with the date, place, agenda, attendance, women present and quorum result. |
+
+## B6. Profile & Settings tab (`screens/profile/profile_screen.dart` → `ProfileScreen`)
+
+Layout:
+- breadcrumb "Dashboard › Profile & Settings";
+- a green hero card with nature layers: avatar, "Hello, name", role pill, village;
+- **Cloud Sync & Offline Storage Diagnostics** card;
+- **Account Preferences & Documents** tiles;
+- Logout.
+
+| Button | Method | Server call | What happens |
+|---|---|---|---|
+| **Trigger Immediate Cloud Sync** | `_handleManualSync()` | `CloudSyncService.syncPendingItems()` and `GET /health` | Sends anything saved offline, checks the server, and updates the "Synced" chip. |
+| **My Documents & FRA Claims** | `_openMyClaims()` | none | Village user: switches to the Claims tab (callback from the home screen). Otherwise: pushes `CasesListScreen`. |
+| **Resolution Ledger & Chain Integrity** | `_openLedger()` → `LedgerCheckScreen` | `GET /villages/{vid}/ledger/verify` | Re-checks the village's tamper-evident record chain. Shows "Intact: N records" or where it breaks. |
+| Help & Legal Aid | `Navigator.pushNamed(AppRouter.fraRightsInfo)` | none | Legal aid info. |
+| **Logout** | `_confirmLogout()` → `authProvider.notifier.logout()` | none | Ends the session and goes back to the start screen. |
 
 ---
 
-### Module 9: Workflow Transitions & Approval Pipeline (`lib/features/workflow/`)
+# Part C: Server endpoints used by the app
 
-#### Backend Mechanics
-- Workflow actions are submitted via dedicated endpoints:
-  - `POST /api/v1/cases/{id}/submit` (Claimant in `draft`)
-  - `POST /api/v1/cases/{id}/approve` (Reviewer in `gs_review` or `sdo_review`)
-  - `POST /api/v1/cases/{id}/return` (Reviewer: requires `remarks` ≥ 5 chars)
-  - `POST /api/v1/cases/{id}/reject` (Reviewer: requires written reasons `remarks` [Rule 12A(7)])
-- Form C approval in `gs_review` automatically verifies:
-  1. Boundary approved in resolution (`GS_RESOLUTION_MISSING`)
-  2. Field verification closed (`FIELD_VERIFICATION_MISSING`)
-  3. No open disputes (`OPEN_DISPUTES_REMAIN`)
+All paths below start with `/api/v1`. All need `Authorization: Bearer <access_token>` except the public ones.
 
-#### What to Build in Frontend
-1. **Dynamic Action Bar (`workflow_action_bar.dart`):**
-   - Appears at the bottom of the Case Screen.
-   - Maps backend `allowed_actions`:
-     - `"submit"` → Green button: **"दाखल करा / Submit Claim"**
-     - `"approve"` → Green button: **"मंजूर करा / Approve & Forward"**
-     - `"return"` → Amber button: **"त्रुटींसाठी परत पाठवा / Return with Remarks"**
-     - `"reject"` → Red outlined button: **"नाकारणे / Reject with Reasons"**
-2. **Return Dialog (`return_dialog.dart`):**
-   - Multi-line text field for remarks explaining what corrections the villager needs to make.
-   - Clarifies to the reviewer that the villager will get **60 days** to fix and resubmit.
-3. **Reject Dialog (`reject_dialog.dart`):**
-   - Mandatory written legal justification field (Rule 12A(7)).
-4. **History Log Screen (`case_history_screen.dart`):**
-   - Calls `GET /api/v1/cases/{id}/history`.
-   - Timeline list showing: Action, Date, Officer Name, Role Badge, and Remarks.
+### Auth and user
+| Method | Path | Who | Purpose |
+|---|---|---|---|
+| GET | `/public/villages` | public | Villages for sign-up |
+| POST | `/auth/register` | public | Village user signs up `{phone, pin, name, village_id}` |
+| POST | `/auth/login` | public | `{phone, pin}` → tokens |
+| POST | `/auth/refresh` | public | New tokens |
+| GET | `/me` | logged in | Profile and `roles` |
 
----
+### Claims and workflow
+| Method | Path | Who | Purpose |
+|---|---|---|---|
+| POST | `/villages/{vid}/cases` `{"claim_type"}` | village user: `cr`, `cfr` (cfr = test setting) · Gram Sabha: `cr`, `cfr` | Open a claim |
+| GET | `/cases/mine` | logged in | Claims I opened |
+| GET | `/villages/{vid}/cases` | role in village | Village claims (by visibility) |
+| GET | `/review/queue` | Gram Sabha / SDO | Waiting for me, oldest first |
+| GET | `/cases/{id}` | viewers | Summary, `allowed_actions`, `returned` |
+| POST | `/cases/{id}/submit` · `/approve` · `/return` · `/reject` | per `allowed_actions` | Move the claim (`remarks` for return and reject) |
+| GET | `/cases/{id}/history` | viewers | Every action |
+| GET | `/cases/{id}/acknowledgement` | viewers | Receipt (after submit) |
+| GET | `/cases/{id}/title-draft` | viewers | Annexure title draft (district stage onward) |
 
-### Module 10: Title Certificate & Printable HTML Documents (`lib/features/documents/`)
+### Forms
+| Method | Path | Purpose |
+|---|---|---|
+| GET / PUT | `/cases/{id}/form-b` | Form B draft (claimant edits while draft) |
+| GET / PUT | `/cases/{id}/form-c` | Form C draft (claimant edits while draft) |
+| GET | `/forms/form-c/fields` | Printed statement, sides, landmark kinds, Rule 13 tags |
+| GET | `/villages/{vid}/members` | Gram Sabha member list |
+| POST / PATCH | `/villages/{vid}/members`, `/members/{id}` | Gram Sabha keeps the list |
 
-#### Backend Mechanics
-- Once case reaches `district_review` or `title_issued`, `GET /cases/{id}/title-draft` generates the official Annexure draft:
-  - Form A → Annexure II (*Title for forest land under occupation*)
-  - Form B → Annexure III (*Title to community forest rights*)
-  - Form C → Annexure IV (*Title to Community Forest Resources*)
-- HTML Document endpoints render print-ready statutory templates with government header and bilingual labels.
+### Evidence and media
+| Method | Path | Purpose |
+|---|---|---|
+| POST | `/media` (multipart: `file`, optional `captured_at`, `gps_lat`, `gps_lon`, `gps_accuracy_m`) | Upload a photo, PDF or audio (≤ 20 MB). Returns `{id, sha256, …}` |
+| GET | `/media/{id}/file` | Download (with the token) |
+| POST | `/cases/{id}/evidence` `{rule_ref, kind, description, media_id?, gps_*?, elder_member_id?, transcript?, signed_scan_media_id?}` | Add evidence (claimant while draft; Gram Sabha in review) |
+| GET | `/cases/{id}/evidence` | List with verification stamps |
+| POST | `/cases/{id}/evidence/{eid}/verify` | Gram Sabha attests (claimants recuse) |
+| GET | `/cases/{id}/readiness` | Checklist R1–R10 (Form C) or the 5 that apply (Form B) |
 
-#### Endpoints
-- `GET /api/v1/cases/{id}/title-draft` → JSON title draft with rights granted, boundary descriptions, and holder names.
-- `GET /api/v1/cases/{id}/documents/form-a/html` → Printable Form A HTML.
-- `GET /api/v1/cases/{id}/documents/form-b/html` → Printable Form B HTML.
-- `GET /api/v1/cases/{id}/documents/form-c/html` → Printable Form C HTML.
-- `GET /api/v1/cases/{id}/documents/receipt/html` → Printable G4 Written Acknowledgement slip.
-- `GET /api/v1/cases/{id}/documents/title/html` → Printable Annexure Title Certificate.
+### Boundary (Form C)
+| Method | Path | Purpose |
+|---|---|---|
+| POST | `/cases/{id}/boundary` `{polygon, source, segment_breaks, vertex_accuracy_m?}` | Save a boundary version (polygon is GeoJSON, `[lon, lat]`) |
+| GET | `/cases/{id}/boundary` | Current version: area, segments, landmarks, use zones, `segments_without_landmark`, `open_disputes` |
+| GET | `/cases/{id}/boundary/versions` | All versions |
+| POST | `/cases/{id}/boundary/landmarks` `{segment_seq, name, kind, lat, lon, photo_media_id?}` | Pin a landmark on a side |
+| POST | `/cases/{id}/boundary/use-zones` `{use_type, name?, polygon, season?, user_hamlets[]}` | Mark a use zone |
+| GET / POST | `/cases/{id}/boundary/walks` `{walked_on, participants[], trace?, notes?}` | Boundary walk with elders (G9) |
+| GET | `/cases/{id}/disputes` | Overlaps with neighbours [Rule 12(3)] |
+| POST | `/cases/{id}/disputes/{did}/joint-meeting`, `/sdlc-referral` | Gram Sabha settles or refers a dispute |
 
-#### What to Build in Frontend
-- **Document Preview Screen (`document_viewer_screen.dart`):**
-  - WebView rendering the HTML document directly from the backend endpoint.
-  - Top action bar with: **"Print / PDF"** and **"Share"**.
-  - Standard footer disclaimer: *"Community record prepared with VanMitra. Not a government document."*
+### Gram Sabha (read by everyone in the village; written by the Gram Sabha)
+| Method | Path | Purpose |
+|---|---|---|
+| GET / POST | `/cases/{id}/verification` | Joint field visit record (POST: Gram Sabha) |
+| GET / POST | `/villages/{vid}/meetings` | Meetings (POST: Gram Sabha) |
+| GET | `/meetings/{mid}` · `/meetings/{mid}/quorum` | Meeting and quorum (≥ 50% present, ≥ 1/3 women, claimants) [Rule 4(2)] |
+| PUT | `/meetings/{mid}/attendance` | Gram Sabha marks attendance |
+| POST | `/meetings/{mid}/resolutions` `{case_id, decision_text, votes_for, votes_against, signed_scan_media_id?}` | Resolution (Form C: freezes the boundary) |
+| GET | `/cases/{id}/resolutions` · `/cases/{id}/approval-check` | Resolutions of a claim and what's still needed before forwarding |
+| GET | `/villages/{vid}/ledger/verify` | Tamper check of the record chain |
 
----
+### Documents (printable HTML)
+`GET /cases/{id}/documents/{code}?lang=en|mr`, where `code` is one of:
+- `g4`: receipt;
+- `g8`: verification;
+- `g9`: boundary record;
+- `g10`: map sheet;
+- `g12`: quorum, needs `meeting_id`;
+- `g13`: resolution;
+- `g17`: joint meeting, needs `dispute_id`.
 
-## 5. Master API Endpoints Cheat Sheet
-
-| Category | HTTP Method | Path | Required Role | Summary |
-|---|---|---|---|---|
-| **Health** | `GET` | `/api/v1/health` | Public | Pings server & MongoDB connection |
-| **Villages** | `GET` | `/api/v1/public/villages` | Public | Villages for registration picker |
-| **Auth** | `POST` | `/api/v1/auth/register` | Public | Self-register as a `villager` |
-| **Auth** | `POST` | `/api/v1/auth/login` | Public | Phone + 6-digit PIN login |
-| **Auth** | `POST` | `/api/v1/auth/refresh` | Public | Refresh expired access token |
-| **Auth** | `GET` | `/api/v1/me` | Authenticated | Current profile, roles & jurisdiction |
-| **Cases** | `POST` | `/api/v1/villages/{vid}/cases` | `villager` / `gram_sabha` | Open a fresh claim (`ifr`, `cr`, `cfr`) |
-| **Cases** | `GET` | `/api/v1/cases/mine` | Authenticated | List claims created by caller |
-| **Cases** | `GET` | `/api/v1/villages/{vid}/cases` | Role in village | List claims in village |
-| **Cases** | `GET` | `/api/v1/review/queue` | `gram_sabha` / `sdo` | Claims waiting for caller's action |
-| **Cases** | `GET` | `/api/v1/cases/{id}` | Case Viewers | Case summary, state & `allowed_actions` |
-| **Form A** | `GET` / `PUT` | `/api/v1/cases/{id}/form-a` | View / Creator (draft) | Read / update Form A draft |
-| **Form B** | `GET` / `PUT` | `/api/v1/cases/{id}/form-b` | View / Creator (draft) | Read / update Form B draft |
-| **Form C** | `GET` / `PUT` | `/api/v1/cases/{id}/form-c` | View / Creator (draft) | Read / update Form C draft |
-| **Members** | `GET` / `POST` | `/api/v1/villages/{vid}/members` | View / `gram_sabha` | Gram Sabha member sheet |
-| **FRC** | `POST` | `/api/v1/villages/{vid}/frc/check` | `gram_sabha` | Dry-run check of FRC statutory rules |
-| **FRC** | `POST` | `/api/v1/villages/{vid}/frc` | `gram_sabha` | Constitute FRC (10-15, 2/3 ST, 1/3 women) |
-| **FRC** | `GET` | `/api/v1/villages/{vid}/frc` | Role in village | Read current FRC and quota statistics |
-| **FRC** | `POST` | `/api/v1/villages/{vid}/frc/intimation` | `gram_sabha` | Record date sent to SDLC |
-| **Claim Calls**| `POST` | `/api/v1/villages/{vid}/claim-calls` | `gram_sabha` | Open 3-month claim filing window |
-| **Claim Calls**| `GET` | `/api/v1/villages/{vid}/claim-calls/current` | Role in village | Current call & days remaining |
-| **Claim Calls**| `POST` | `/api/v1/villages/{vid}/claim-calls/current/extend` | `gram_sabha` | Extend window with resolution ref |
-| **Receipt** | `GET` | `/api/v1/cases/{id}/acknowledgement` | Case Viewers | G4 receipt serial & filing data |
-| **Media** | `POST` | `/api/v1/media` | Authenticated | Multipart upload (images/PDF/audio ≤20MB)|
-| **Evidence** | `POST` | `/api/v1/cases/{id}/evidence` | Creator / `gram_sabha` | Add Rule 13 evidence entry |
-| **Evidence** | `GET` | `/api/v1/cases/{id}/evidence` | Case Viewers | List all evidence & verification stamps |
-| **Evidence** | `POST` | `/api/v1/cases/{id}/evidence/{eid}/verify` | `gram_sabha` (review) | FRC attestation (claimants recuse) |
-| **Readiness** | `GET` | `/api/v1/cases/{id}/readiness` | Case Viewers | 10-point statutory advisory checklist |
-| **Boundary** | `POST` | `/api/v1/cases/{id}/boundary` | `gram_sabha` | Save GeoJSON polygon version |
-| **Boundary** | `GET` | `/api/v1/cases/{id}/boundary` | Case Viewers | Current polygon, area in ha, segments |
-| **Landmarks**| `POST` | `/api/v1/cases/{id}/boundary/landmarks` | `gram_sabha` | Pin landmark on segment with photo |
-| **Use Zones** | `POST` | `/api/v1/cases/{id}/boundary/use-zones` | `gram_sabha` | Add grazing/MFP/sacred zone |
-| **Walks** | `POST` | `/api/v1/cases/{id}/boundary/walks` | `gram_sabha` | Record boundary walk with elders (G9) |
-| **Disputes** | `POST` | `/api/v1/cases/{id}/disputes/{did}/resolve` | `gram_sabha` | Mark overlap dispute resolved |
-| **Verification**| `POST` | `/api/v1/cases/{id}/verification` | `gram_sabha` | Record joint Revenue + Forest visit |
-| **Meetings** | `POST` | `/api/v1/villages/{vid}/meetings` | `gram_sabha` | Create Gram Sabha meeting |
-| **Attendance** | `PUT` | `/api/v1/meetings/{mid}/attendance` | `gram_sabha` | Submit attendee member IDs |
-| **Quorum** | `GET` | `/api/v1/meetings/{mid}/quorum` | `gram_sabha` | Live check: ≥50% overall & ≥33% women |
-| **Resolutions**| `POST` | `/api/v1/meetings/{mid}/resolutions` | `gram_sabha` | Pass resolution (freezes boundary) |
-| **Workflow** | `POST` | `/api/v1/cases/{id}/submit` | Claimant (draft) | Submit claim to Gram Sabha |
-| **Workflow** | `POST` | `/api/v1/cases/{id}/approve` | Reviewer | Forward to next level (GS → SDO) |
-| **Workflow** | `POST` | `/api/v1/cases/{id}/return` | Reviewer | Return to villager (needs remarks) |
-| **Workflow** | `POST` | `/api/v1/cases/{id}/reject` | Reviewer | Reject with written reasons |
-| **History** | `GET` | `/api/v1/cases/{id}/history` | Case Viewers | Complete audit timeline |
-| **Title Draft**| `GET` | `/api/v1/cases/{id}/title-draft` | Case Viewers | Annexure II, III, or IV title draft |
-| **Documents** | `GET` | `/api/v1/cases/{id}/documents/{type}/html` | Case Viewers | Print-ready HTML document |
+### Notifications and push
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/notifications` · POST `/notifications/{id}/read` · `/notifications/read-all` | In-app messages (claim expired, sent back) |
+| POST / DELETE | `/devices` | Register the phone for push messages (FCM) |
 
 ---
 
-## 6. Checklist of Next Steps for Kaushal
+## Status words used in the app
 
-1. **Verify Base Connection:**
-   - Run `adb reverse tcp:8010 tcp:8010` (or `8000`).
-   - Call `/api/v1/health` and verify `{"status": "ok", "database": "ok"}`.
-2. **Auth & Current User Provider:**
-   - In `lib/core/auth/`, implement login with phone & PIN, store JWT token, and call `/api/v1/me`.
-   - Test login with `9000000001` (Villager) and `9000000003` (Gram Sabha).
-3. **Connect Form B & Form C Screens:**
-   - Wire up `form_b_screen.dart` and `form_c_screen.dart` to their respective endpoints (`/cases/{id}/form-b`, `/cases/{id}/form-c`).
-4. **Build Case Hub Stepper Dashboard:**
-   - Implement `case_home_screen.dart` with the 6 step progress cards and dynamic `allowed_actions` buttons.
-5. **Implement Boundary Map & Landmarks:**
-   - In `lib/features/mapping/`, integrate the GPS polygon walk and landmark pinning sheet.
-6. **Implement Quorum Engine in Meeting Attendance:**
-   - In `lib/features/gram_sabha/`, connect attendance checkboxes to `/meetings/{id}/attendance` and display live 50% overall / 33% female quorum status.
-7. **Document Viewer:**
-   - Integrate InAppWebView or browser launcher to preview `/documents/{type}/html`.
-
----
-*Created and maintained by Soham for Kaushal · VanMitra AI Project*
+| Server `state` | App label | Chip group |
+|---|---|---|
+| `draft` | Draft · मसुदा | Pending |
+| `gs_review` | With Gram Sabha | Pending |
+| `sdo_review` | With SDO | Pending |
+| `district_review` | At district | Pending |
+| `title_issued` | Title issued · सनद | Approved |
+| `rejected` | Rejected · नाकारले | Rejected |
+| `expired` | Expired (not resubmitted in 60 days) | Rejected |

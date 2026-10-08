@@ -6,6 +6,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
+from app.config import get_settings
 from app.domain.form_c import DEFAULT_RESOLUTION_STATEMENT
 from app.models import Gender, GramSabha, GsMember, MemberCategory, Role
 
@@ -66,8 +67,9 @@ def villages(session_factory: StoreMaker) -> dict[str, uuid.UUID]:
 
 
 def test_only_the_gram_sabha_opens_form_c(
-    db_client: TestClient, villages: dict[str, uuid.UUID]
+    db_client: TestClient, villages: dict[str, uuid.UUID], monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    monkeypatch.setattr(get_settings(), "villager_opens_form_c", False)
     res = db_client.post(
         f"/api/v1/villages/{villages['ozar']}/cases",
         json={"claim_type": "cfr"},
@@ -75,6 +77,19 @@ def test_only_the_gram_sabha_opens_form_c(
     )
     assert res.status_code == 403
     assert res.json()["error"] == "NOT_ALLOWED_TO_OPEN_FORM"
+
+
+def test_village_user_opens_form_c_while_testing(
+    db_client: TestClient, villages: dict[str, uuid.UUID], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(get_settings(), "villager_opens_form_c", True)
+    res = db_client.post(
+        f"/api/v1/villages/{villages['ozar']}/cases",
+        json={"claim_type": "cfr"},
+        headers=auth_headers(db_client, VILLAGER),
+    )
+    assert res.status_code == 201
+    assert res.json()["claim_type"] == "cfr"
 
 
 def test_roster_is_kept_by_the_gram_sabha(
