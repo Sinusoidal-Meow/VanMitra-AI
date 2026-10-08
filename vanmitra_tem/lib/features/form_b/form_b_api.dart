@@ -1,145 +1,103 @@
-// Client for the VanMitra backend Form B API (docs/API_FORM_B.md).
-//
-// Base URL: --dart-define=VANMITRA_API_BASE_URL=http://localhost:8000
-// (phone over USB: `adb reverse tcp:8000 tcp:8000`; emulator: 10.0.2.2).
-
-import 'dart:convert';
-
-import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
-
+import '../../core/api/api_client.dart';
+import '../../core/api/api_endpoints.dart';
+import '../../core/auth/auth_storage.dart';
 import '../form_c/form_c_models.dart';
 import 'form_b_models.dart';
 
-const String _apiBaseUrl = String.fromEnvironment(
-  'VANMITRA_API_BASE_URL',
-  defaultValue: kIsWeb ? 'http://localhost:8000' : 'http://10.0.2.2:8000',
-);
-
-/// Error body returned by every backend endpoint: {error, message_key, rule?, details}.
-class ApiException implements Exception {
-  ApiException(this.status, this.error, this.messageKey, {this.rule, this.details});
-
-  final int status;
-  final String error;
-  final String messageKey;
-  final String? rule;
-  final Map<String, dynamic>? details;
-
-  @override
-  String toString() => rule == null ? '$error ($status)' : '$error ($status) · $rule';
-}
+// Re-export ApiException so all consumers can use it uniformly
+export '../../core/api/api_client.dart' show ApiException;
 
 class FormBApi {
-  FormBApi({String? baseUrl}) : baseUrl = baseUrl ?? _apiBaseUrl;
+  final ApiClient _apiClient;
+  final AuthStorage _authStorage;
 
-  final String baseUrl;
-  String? _accessToken;
+  FormBApi({ApiClient? apiClient, AuthStorage? authStorage}) 
+      : _apiClient = apiClient ?? ApiClient(),
+        _authStorage = authStorage ?? AuthStorage();
 
-  bool get isLoggedIn => _accessToken != null;
+  String get baseUrl => ApiEndpoints.baseUrl;
 
-  void logout() => _accessToken = null;
-
-  Map<String, String> get _headers => {
-        'Content-Type': 'application/json',
-        if (_accessToken != null) 'Authorization': 'Bearer $_accessToken',
-      };
-
-  Uri _uri(String path) => Uri.parse('$baseUrl/api/v1$path');
-
-  dynamic _decode(http.Response res) {
-    final body = res.body.isEmpty ? null : jsonDecode(utf8.decode(res.bodyBytes));
-    if (res.statusCode >= 200 && res.statusCode < 300) return body;
-    if (body is Map<String, dynamic>) {
-      throw ApiException(
-        res.statusCode,
-        body['error'] as String? ?? 'HTTP_${res.statusCode}',
-        body['message_key'] as String? ?? 'http.${res.statusCode}',
-        rule: body['rule'] as String?,
-        details: body['details'] as Map<String, dynamic>?,
-      );
-    }
-    throw ApiException(res.statusCode, 'HTTP_${res.statusCode}', 'http.${res.statusCode}');
+  Future<bool> isLoggedIn() async {
+    return (await _authStorage.getAccessToken()) != null;
   }
 
   Future<void> login(String phone, String pin) async {
-    final res = await http
-        .post(_uri('/auth/login'), headers: _headers, body: jsonEncode({'phone': phone, 'pin': pin}))
-        .timeout(const Duration(seconds: 10));
-    final body = _decode(res) as Map<String, dynamic>;
-    _accessToken = body['access_token'] as String;
+    final res = await _apiClient.post(ApiEndpoints.login, body: {'phone': phone, 'pin': pin}, requireAuth: false);
+    if (res != null && res['access_token'] != null) {
+      await _authStorage.saveTokens(
+        accessToken: res['access_token'],
+        refreshToken: res['refresh_token'] ?? '',
+      );
+    }
+  }
+
+  Future<void> logout() async {
+    await _authStorage.clearTokens();
   }
 
   Future<Me> me() async {
-    final res = await http.get(_uri('/me'), headers: _headers).timeout(const Duration(seconds: 10));
-    return Me.fromJson(_decode(res) as Map<String, dynamic>);
+    final res = await _apiClient.get(ApiEndpoints.me);
+    return Me.fromJson(res as Map<String, dynamic>);
   }
 
   Future<List<CaseSummary>> listCases(String villageId) async {
-    final res = await http
-        .get(_uri('/villages/$villageId/cases'), headers: _headers)
-        .timeout(const Duration(seconds: 10));
-    return (_decode(res) as List<dynamic>)
+    final res = await _apiClient.get(ApiEndpoints.villageCases(villageId));
+    return (res as List<dynamic>)
         .map((e) => CaseSummary.fromJson(e as Map<String, dynamic>))
         .toList();
   }
 
   Future<CaseSummary> createCommunityRightsCase(String villageId) async {
-    final res = await http
-        .post(_uri('/villages/$villageId/cases'), headers: _headers, body: jsonEncode({'claim_type': 'cr'}))
-        .timeout(const Duration(seconds: 10));
-    return CaseSummary.fromJson(_decode(res) as Map<String, dynamic>);
+    return createCase(villageId, 'cr');
   }
 
-  /// Opens a case: 'cr' → empty Form B draft, 'cfr' → empty Form C draft.
+  /// Opens a case: 'cr' -> Form B draft, 'cfr' -> Form C draft, 'ifr' -> Form A draft.
   Future<CaseSummary> createCase(String villageId, String claimType) async {
-    final res = await http
-        .post(_uri('/villages/$villageId/cases'), headers: _headers, body: jsonEncode({'claim_type': claimType}))
-        .timeout(const Duration(seconds: 10));
-    return CaseSummary.fromJson(_decode(res) as Map<String, dynamic>);
+    final res = await _apiClient.post(
+      ApiEndpoints.villageCases(villageId),
+      body: {'claim_type': claimType},
+    );
+    return CaseSummary.fromJson(res as Map<String, dynamic>);
   }
 
   Future<FormCData> getFormC(String caseId) async {
-    final res = await http
-        .get(_uri('/cases/$caseId/form-c'), headers: _headers)
-        .timeout(const Duration(seconds: 10));
-    return FormCData.fromJson(_decode(res) as Map<String, dynamic>);
+    final res = await _apiClient.get(ApiEndpoints.formC(caseId));
+    return FormCData.fromJson(res as Map<String, dynamic>);
   }
 
   Future<FormCData> saveFormC(String caseId, Map<String, dynamic> body) async {
-    final res = await http
-        .put(_uri('/cases/$caseId/form-c'), headers: _headers, body: jsonEncode(body))
-        .timeout(const Duration(seconds: 15));
-    return FormCData.fromJson(_decode(res) as Map<String, dynamic>);
+    final res = await _apiClient.put(ApiEndpoints.formC(caseId), body: body);
+    return FormCData.fromJson(res as Map<String, dynamic>);
   }
 
   Future<List<GsMember>> listMembers(String villageId) async {
-    final res = await http
-        .get(_uri('/villages/$villageId/members'), headers: _headers)
-        .timeout(const Duration(seconds: 10));
-    return (_decode(res) as List<dynamic>).map((e) => GsMember.fromJson(e as Map<String, dynamic>)).toList();
+    final res = await _apiClient.get(ApiEndpoints.members(villageId));
+    return (res as List<dynamic>)
+        .map((e) => GsMember.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
-  Future<GsMember> addMember(String villageId, {required String name, required String gender, required String category}) async {
-    final res = await http
-        .post(_uri('/villages/$villageId/members'),
-            headers: _headers, body: jsonEncode({'name': name, 'gender': gender, 'category': category}))
-        .timeout(const Duration(seconds: 10));
-    return GsMember.fromJson(_decode(res) as Map<String, dynamic>);
+  Future<GsMember> addMember(
+    String villageId, {
+    required String name,
+    required String gender,
+    required String category,
+  }) async {
+    final res = await _apiClient.post(
+      ApiEndpoints.members(villageId),
+      body: {'name': name, 'gender': gender, 'category': category},
+    );
+    return GsMember.fromJson(res as Map<String, dynamic>);
   }
 
   Future<GsMember> updateMember(String memberId, Map<String, dynamic> changes) async {
-    final res = await http
-        .patch(_uri('/members/$memberId'), headers: _headers, body: jsonEncode(changes))
-        .timeout(const Duration(seconds: 10));
-    return GsMember.fromJson(_decode(res) as Map<String, dynamic>);
+    final res = await _apiClient.patch('/members/$memberId', body: changes);
+    return GsMember.fromJson(res as Map<String, dynamic>);
   }
 
   Future<FormBData> getFormB(String caseId) async {
-    final res = await http
-        .get(_uri('/cases/$caseId/form-b'), headers: _headers)
-        .timeout(const Duration(seconds: 10));
-    return FormBData.fromJson(_decode(res) as Map<String, dynamic>);
+    final res = await _apiClient.get(ApiEndpoints.formB(caseId));
+    return FormBData.fromJson(res as Map<String, dynamic>);
   }
 
   // ── Push messages and in-app notifications ──────────────────────────────────────
@@ -181,12 +139,10 @@ class FormBApi {
   }
 
   Future<FormBData> saveFormB(String caseId, Map<String, dynamic> body) async {
-    final res = await http
-        .put(_uri('/cases/$caseId/form-b'), headers: _headers, body: jsonEncode(body))
-        .timeout(const Duration(seconds: 15));
-    return FormBData.fromJson(_decode(res) as Map<String, dynamic>);
+    final res = await _apiClient.put(ApiEndpoints.formB(caseId), body: body);
+    return FormBData.fromJson(res as Map<String, dynamic>);
   }
 }
 
-/// One client for the app session (token kept in memory only for now).
+/// One client for the app session
 final formBApi = FormBApi();

@@ -37,7 +37,13 @@ class _FormBHomeScreenState extends State<FormBHomeScreen> {
   @override
   void initState() {
     super.initState();
-    if (formBApi.isLoggedIn) _loadMe();
+    _checkLogin();
+  }
+
+  Future<void> _checkLogin() async {
+    if (await formBApi.isLoggedIn()) {
+      _loadMe();
+    }
   }
 
   @override

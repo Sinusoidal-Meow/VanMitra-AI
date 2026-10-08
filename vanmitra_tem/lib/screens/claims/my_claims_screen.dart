@@ -11,6 +11,9 @@ import '../../widgets/common/app_components.dart';
 import '../../widgets/portal_frame_scaffold.dart';
 import '../../widgets/status_timeline_widget.dart';
 import '../home/alert_detail_screen.dart';
+import '../../features/case_hub/case_hub_api.dart';
+import '../../features/case_hub/case_home_screen.dart';
+import '../../providers/auth_provider.dart';
 
 /// Renovated My Claims List — FRA Citizen Application directory built on Forest Canopy tokens,
 /// StatusBadge tracking tags, floating card hierarchy, and standardized empty state representation.
@@ -26,6 +29,57 @@ class _MyClaimsScreenState extends ConsumerState<MyClaimsScreen> {
   final _searchCtrl = TextEditingController();
   ClaimStatus? _filterStatus;
   String _searchQuery = '';
+  final CaseHubApi _api = CaseHubApi();
+
+  void _openNewClaim() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Open New Claim', style: TextStyle(fontFamily: 'NotoSansDevanagari')),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: const Text('Form A — IFR'),
+              onTap: () => _createAndNavigate('ifr', ctx),
+            ),
+            ListTile(
+              title: const Text('Form B — Community Rights'),
+              onTap: () => _createAndNavigate('cr', ctx),
+            ),
+            ListTile(
+              title: const Text('Form C — CFR'),
+              onTap: () => _createAndNavigate('cfr', ctx),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _createAndNavigate(String type, BuildContext dialogCtx) async {
+    Navigator.pop(dialogCtx);
+    try {
+      final authState = ref.read(authProvider);
+      final villageId = authState.currentUser?.villageId ?? '';
+      final newCase = await _api.createCase(villageId, type);
+      
+      if (mounted) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => CaseHomeScreen(
+              caseId: newCase['id'],
+              initialClaimType: type,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to create case: $e')));
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -74,7 +128,7 @@ class _MyClaimsScreenState extends ConsumerState<MyClaimsScreen> {
       floatingActionButton: Container(
         margin: const EdgeInsets.only(bottom: 12),
         child: FloatingActionButton.extended(
-          onPressed: () => Navigator.pushNamed(context, AppRouter.claimType),
+          onPressed: _openNewClaim,
           backgroundColor: AppColors.saffron,
           foregroundColor: Colors.white,
           elevation: 6,
@@ -96,65 +150,45 @@ class _MyClaimsScreenState extends ConsumerState<MyClaimsScreen> {
       ),
       body: Column(
         children: [
-          // ── Search Bar (DBT Application Tracker pattern) ────────────────────
+          // ── Search Bar (DBT Application Tracker pattern) + Filter ─────────────────
           Container(
             color: context.colors.cardBg,
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-            child: TextField(
-              controller: _searchCtrl,
-              onChanged: (v) => setState(() => _searchQuery = v),
-              style: AppTypography.body.copyWith(color: context.colors.textPrimary),
-              decoration: InputDecoration(
-                hintText: context.tr('search_placeholder') /* Search by application ID or claimant */,
-                hintStyle: AppTypography.caption.copyWith(color: context.colors.textTertiary),
-                prefixIcon: Icon(Icons.search_rounded, color: context.colors.textSecondary),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppRadius.md),
-                  borderSide: BorderSide(color: context.colors.border),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppRadius.md),
-                  borderSide: BorderSide(color: context.colors.border),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppRadius.md),
-                  borderSide: const BorderSide(color: AppColors.forestSage, width: 2),
-                ),
-                filled: true,
-                fillColor: context.colors.sunkenBg,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              ),
-            ),
-          ),
-
-          // ── Status Filter Chips ──────────────────────────────────────────
-          Container(
-            color: context.colors.cardBg,
-            padding: const EdgeInsets.only(left: AppSpacing.md, right: AppSpacing.md, bottom: AppSpacing.md),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              physics: const BouncingScrollPhysics(),
-              child: Row(
-                children: [
-                  _FilterChip(
-                    label: context.tr('filter_all') /* All Claims */,
-                    selected: _filterStatus == null,
-                    onTap: () => setState(() => _filterStatus = null),
-                    color: AppColors.forestCanopy,
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  for (final s in ClaimStatus.values)
-                    Padding(
-                      padding: const EdgeInsets.only(right: AppSpacing.sm),
-                      child: _FilterChip(
-                        label: s.getLocalizedStatus(context),
-                        selected: _filterStatus == s,
-                        onTap: () => setState(() => _filterStatus = s),
-                        color: _statusColor(s),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _searchCtrl,
+                    onChanged: (v) => setState(() => _searchQuery = v),
+                    style: AppTypography.body.copyWith(color: context.colors.textPrimary),
+                    decoration: InputDecoration(
+                      hintText: context.tr('search_placeholder') /* Search by application ID or claimant */,
+                      hintStyle: AppTypography.caption.copyWith(color: context.colors.textTertiary),
+                      prefixIcon: Icon(Icons.search_rounded, color: context.colors.textSecondary),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(AppRadius.md),
+                        borderSide: BorderSide(color: context.colors.border),
                       ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(AppRadius.md),
+                        borderSide: BorderSide(color: context.colors.border),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(AppRadius.md),
+                        borderSide: const BorderSide(color: AppColors.forestSage, width: 2),
+                      ),
+                      filled: true,
+                      fillColor: context.colors.sunkenBg,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                     ),
-                ],
-              ),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                ClaimsFilterMenu(
+                  selectedFilter: _filterStatus,
+                  onSelected: (status) => setState(() => _filterStatus = status),
+                ),
+              ],
             ),
           ),
 
@@ -219,6 +253,72 @@ class _MyClaimsScreenState extends ConsumerState<MyClaimsScreen> {
     );
   }
 
+}
+
+class ClaimsFilterMenu extends StatelessWidget {
+  final ClaimStatus? selectedFilter;
+  final ValueChanged<ClaimStatus?> onSelected;
+
+  const ClaimsFilterMenu({
+    super.key,
+    required this.selectedFilter,
+    required this.onSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    
+    return Container(
+      decoration: BoxDecoration(
+        color: c.sunkenBg,
+        shape: BoxShape.circle,
+        border: Border.all(color: c.border),
+      ),
+      child: PopupMenuButton<ClaimStatus?>(
+        color: c.cardBg,
+        icon: Icon(Icons.more_vert, color: c.textPrimary),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+        onSelected: onSelected,
+        itemBuilder: (BuildContext context) {
+          return [
+            _buildMenuItem(context, null, context.tr('filter_all'), AppColors.forestCanopy),
+            const PopupMenuDivider(),
+            ...ClaimStatus.values.map((s) => _buildMenuItem(context, s, s.getLocalizedStatus(context), _statusColor(s))),
+          ];
+        },
+      ),
+    );
+  }
+
+  PopupMenuItem<ClaimStatus?> _buildMenuItem(BuildContext context, ClaimStatus? value, String label, Color color) {
+    final isSelected = selectedFilter == value;
+    final c = context.colors;
+    final effectiveColor = (isSelected && c.isDark && color == AppColors.forestCanopy)
+        ? AppColors.forestSage
+        : color;
+
+    return PopupMenuItem<ClaimStatus?>(
+      value: value,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: AppTypography.body.copyWith(
+                color: isSelected ? effectiveColor : c.textPrimary,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ),
+          if (isSelected)
+            Icon(Icons.check, color: effectiveColor, size: 20),
+        ],
+      ),
+    );
+  }
+
   Color _statusColor(ClaimStatus s) {
     switch (s) {
       case ClaimStatus.approved:
@@ -231,47 +331,6 @@ class _MyClaimsScreenState extends ConsumerState<MyClaimsScreen> {
       default:
         return AppColors.textTertiary;
     }
-  }
-}
-
-class _FilterChip extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-  final Color color;
-
-  const _FilterChip({required this.label, required this.selected, required this.onTap, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    final effectiveColor = (selected && c.isDark && color == AppColors.forestCanopy)
-        ? AppColors.forestSage
-        : color;
-
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-        decoration: BoxDecoration(
-          color: selected ? effectiveColor : c.chipUnselectedBg,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: selected ? effectiveColor : c.chipUnselectedBorder,
-            width: 1.2,
-          ),
-        ),
-        child: Text(
-          label,
-          style: AppTypography.caption.copyWith(
-            color: selected ? AppColors.textOnBrand : c.textPrimary,
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-            fontSize: 12,
-          ),
-        ),
-      ),
-    );
   }
 }
 

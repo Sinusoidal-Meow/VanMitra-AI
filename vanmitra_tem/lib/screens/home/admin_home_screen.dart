@@ -9,6 +9,7 @@ import '../../providers/notices_provider.dart';
 import '../../providers/village_provider.dart';
 import '../../services/localization_service.dart';
 import '../../widgets/common/app_components.dart';
+import '../../widgets/common/vanmitra_background_watermark.dart';
 import '../../widgets/portal_frame_scaffold.dart';
 import '../claims/my_claims_screen.dart';
 import '../gram_sabha/gram_sabha_dashboard.dart';
@@ -45,9 +46,9 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen> {
       children: [
         _AdminDashboard(bottomNavigationBar: navBar, onSwitchTab: (index) => setState(() => _currentTab = index)),
         MyClaimsScreen(bottomNavigationBar: navBar),
+        _AdminProfileTab(bottomNavigationBar: navBar),
         _AdminGramSabhaTab(bottomNavigationBar: navBar),
         _AdminMapTab(bottomNavigationBar: navBar),
-        _AdminProfileTab(bottomNavigationBar: navBar),
       ],
     );
   }
@@ -203,7 +204,13 @@ class _AdminDashboardState extends ConsumerState<_AdminDashboard>
     return PortalFrameScaffold(
       breadcrumbs: const [],
       bottomNavigationBar: widget.bottomNavigationBar,
-      body: CustomScrollView(
+      body: Stack(
+        children: [
+          const DashboardCurveBackground(),
+          const Positioned.fill(
+            child: VanMitraBackgroundWatermark(),
+          ),
+          CustomScrollView(
         physics: const BouncingScrollPhysics(),
         slivers: [
           SliverPadding(
@@ -362,6 +369,8 @@ class _AdminDashboardState extends ConsumerState<_AdminDashboard>
               ]),
             ),
           ),
+        ],
+      ),
         ],
       ),
     );

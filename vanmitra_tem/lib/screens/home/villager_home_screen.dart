@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/routes/app_router.dart';
 import '../../models/boundary_alert.dart';
@@ -10,6 +10,8 @@ import '../../providers/village_provider.dart';
 import '../../services/localization_service.dart';
 import '../../services/module_b_service.dart';
 import '../../widgets/common/app_components.dart';
+import '../../widgets/common/animated_bottom_nav_bar.dart';
+import '../../widgets/common/vanmitra_background_watermark.dart';
 import '../../widgets/portal_frame_scaffold.dart';
 import '../claims/my_claims_screen.dart';
 import '../gram_sabha/gram_sabha_dashboard.dart';
@@ -17,7 +19,7 @@ import '../profile/profile_screen.dart';
 import 'alert_detail_screen.dart';
 import 'boundary_map_screen.dart';
 
-/// Renovated Villager Home Screen — featuring Forest Canopy identity, Saffron BottomNavBar,
+/// Renovated Villager Home Screen â€” featuring Forest Canopy identity, Saffron BottomNavBar,
 /// GreetingHero, StatTile hierarchy, and completely wired application navigation.
 class VillagerHomeScreen extends ConsumerStatefulWidget {
   const VillagerHomeScreen({super.key});
@@ -31,7 +33,7 @@ class _VillagerHomeScreenState extends ConsumerState<VillagerHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final navBar = BottomNavBar(
+    final navBar = AnimatedBottomNavBar(
       currentTab: AppTab.values[_currentTab],
       onTabSelected: (tab) => setState(() => _currentTab = tab.index),
     );
@@ -41,15 +43,15 @@ class _VillagerHomeScreenState extends ConsumerState<VillagerHomeScreen> {
       children: [
         _HomeTab(bottomNavigationBar: navBar, onSwitchTab: (index) => setState(() => _currentTab = index)),
         MyClaimsScreen(bottomNavigationBar: navBar),
+        _ProfileTab(bottomNavigationBar: navBar),
         _GramSabhaTab(bottomNavigationBar: navBar),
         _MapTab(bottomNavigationBar: navBar),
-        _ProfileTab(bottomNavigationBar: navBar),
       ],
     );
   }
 }
 
-/// Home Tab — village overview, next meeting hero, stat metrics & action checklist
+/// Home Tab â€” village overview, next meeting hero, stat metrics & action checklist
 class _HomeTab extends ConsumerWidget {
   final Widget bottomNavigationBar;
   final ValueChanged<int>? onSwitchTab;
@@ -99,7 +101,12 @@ class _HomeTab extends ConsumerWidget {
     return PortalFrameScaffold(
       breadcrumbs: const [],
       bottomNavigationBar: bottomNavigationBar,
-      body: CustomScrollView(
+      body: Stack(
+        children: [
+          const Positioned.fill(
+            child: VanMitraBackgroundWatermark(),
+          ),
+          CustomScrollView(
         physics: const BouncingScrollPhysics(),
         slivers: [
           SliverPadding(
@@ -169,8 +176,8 @@ class _HomeTab extends ConsumerWidget {
                 const SizedBox(height: AppSpacing.sm),
                 ActionListItem(
                   icon: Icons.groups_2_rounded,
-                  title: 'Form B / C · Community claims',
-                  subtitle: 'सामूहिक हक्क व सामूहिक वन संसाधन दावा',
+                  title: 'Form B / C Â· Community claims',
+                  subtitle: 'à¤¸à¤¾à¤®à¥‚à¤¹à¤¿à¤• à¤¹à¤•à¥à¤• à¤µ à¤¸à¤¾à¤®à¥‚à¤¹à¤¿à¤• à¤µà¤¨ à¤¸à¤‚à¤¸à¤¾à¤§à¤¨ à¤¦à¤¾à¤µà¤¾',
                   iconColor: AppColors.forestCanopy,
                   onTap: () => Navigator.pushNamed(context, AppRouter.formB),
                 ),
@@ -245,6 +252,8 @@ class _HomeTab extends ConsumerWidget {
               ]),
             ),
           ),
+        ],
+      ),
         ],
       ),
     );
@@ -377,7 +386,7 @@ class _ProfileTab extends StatelessWidget {
   Widget build(BuildContext context) => ProfileScreen(bottomNavigationBar: bottomNavigationBar);
 }
 
-// ── Satellite Parcel Status Card ──────────────────────────────────────────────
+// â”€â”€ Satellite Parcel Status Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 /// Shows the satellite monitoring result for the current user's parcel.
 /// Fetches from SeedModuleBService (offline). Taps through to AlertDetailScreen.
 class _ParcelStatusCard extends StatefulWidget {
@@ -490,7 +499,7 @@ class _ParcelStatusCardState extends State<_ParcelStatusCard> {
                       [
                         if (survey != null) 'Survey $survey',
                         if (feasibility != null) feasibility.label,
-                      ].join(' · '),
+                      ].join(' Â· '),
                       style: AppTypography.caption.copyWith(
                         fontSize: 11,
                         color: context.colors.textTertiary,

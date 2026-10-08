@@ -5,14 +5,7 @@ import '../../core/routes/app_router.dart';
 import '../../models/user_role.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/localization_service.dart';
-
-/// Supported villages — display name → canonical Firestore ID.
-/// Add new villages here to make them selectable during registration.
-const _kVillages = [
-  _VillageOption(id: 'OZH-01', nameEn: 'Ozhar (Jawhar, Palghar)', nameMr: 'ओझर (जव्हार, पालघर)'),
-  _VillageOption(id: 'JWH-01', nameEn: 'Jawhar (Jawhar, Palghar)', nameMr: 'जव्हार (जव्हार, पालघर)'),
-  _VillageOption(id: 'KKD-01', nameEn: 'Khokad (Mokhada, Palghar)', nameMr: 'खोकड (मोखाडा, पालघर)'),
-];
+import '../../services/api_auth_service.dart';
 
 class _VillageOption {
   final String id;
@@ -21,7 +14,7 @@ class _VillageOption {
   const _VillageOption({required this.id, required this.nameEn, required this.nameMr});
 }
 
-/// VanMitra-AI — Email / Password Login and Registration Screen
+/// VanMitra-AI — Phone / PIN Login and Registration Screen
 class RegistrationScreen extends ConsumerStatefulWidget {
   const RegistrationScreen({super.key});
 
@@ -31,39 +24,87 @@ class RegistrationScreen extends ConsumerStatefulWidget {
 
 class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
   bool _isLogin = true;
+  bool _isLoadingVillages = false;
 
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _pinController = TextEditingController();
+  final _pinConfirmController = TextEditingController();
   final _nameController = TextEditingController();
 
   String _selectedRole = 'villager';
-  // Village is always selected from the list — never typed manually
-  String _selectedVillageId = _kVillages.first.id;
-  bool _obscurePassword = true;
+  String? _selectedVillageId;
+  bool _obscurePin = true;
+  bool _obscurePinConfirm = true;
+
+  List<_VillageOption> _villages = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchVillages();
+  }
+
+  Future<void> _fetchVillages() async {
+    setState(() => _isLoadingVillages = true);
+    try {
+      final apiAuth = ApiAuthService();
+      final data = await apiAuth.getVillages();
+      setState(() {
+        _villages = data.map((v) => _VillageOption(
+          id: v['id'] ?? '',
+          nameEn: v['name_en'] ?? '',
+          nameMr: v['name_mr'] ?? '',
+        )).toList();
+        if (_villages.isNotEmpty) {
+          _selectedVillageId = _villages.first.id;
+        }
+      });
+    } catch (e) {
+      // Fallback
+      setState(() {
+        _villages = const [
+          _VillageOption(id: 'OZH-01', nameEn: 'Ozhar (Jawhar, Palghar)', nameMr: 'ओझर (जव्हार, पालघर)'),
+        ];
+        _selectedVillageId = 'OZH-01';
+      });
+    } finally {
+      setState(() => _isLoadingVillages = false);
+    }
+  }
 
   @override
   void dispose() {
-    _emailController.dispose();
-    _passwordController.dispose();
+    _phoneController.dispose();
+    _pinController.dispose();
+    _pinConfirmController.dispose();
     _nameController.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    
+    if (!_isLogin && _pinController.text != _pinConfirmController.text) {
+      _showError('PINs do not match');
+      return;
+    }
 
-    final email = _emailController.text.trim();
-    final password = _passwordController.text;
+    if (!_isLogin && _selectedVillageId == null) {
+      _showError('Please select a village');
+      return;
+    }
+
+    final phone = _phoneController.text.trim();
+    final pin = _pinController.text.trim();
 
     String? role;
     if (_isLogin) {
-      role = await ref.read(authProvider.notifier).login(email, password);
+      role = await ref.read(authProvider.notifier).login(phone, pin);
     } else {
       final name = _nameController.text.trim();
-      // villageId comes from the dropdown — never user-typed
       role = await ref.read(authProvider.notifier).register(
-        email, password, name, _selectedRole, _selectedVillageId,
+        phone, pin, name, _selectedRole, _selectedVillageId!,
       );
     }
 
@@ -73,7 +114,7 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
       Navigator.pushReplacementNamed(context, AppRouter.adminHome);
     } else if (role == 'villager') {
       Navigator.pushReplacementNamed(context, AppRouter.villagerHome);
-    } else {
+    } else if (role != null) {
       Navigator.pushReplacementNamed(context, AppRouter.cfrRoleDashboard);
     }
   }
@@ -96,7 +137,7 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
     final localizations = AppLocalizations.of(context);
-    final isLoading = authState.isLoading;
+    final isLoading = authState.isLoading || _isLoadingVillages;
 
     ref.listen<AuthState>(authProvider, (prev, next) {
       if (next.errorMessage != null &&
@@ -176,37 +217,61 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                   const SizedBox(height: 20),
                 ],
 
-                _buildLabel('Email Address'),
+                _buildLabel('Phone Number (10 digits)'),
                 const SizedBox(height: 8),
                 TextFormField(
-                  controller: _emailController,
+                  controller: _phoneController,
                   enabled: !isLoading,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: _inputDecoration('Enter your email', Icons.email_outlined),
-                  validator: (v) => v!.contains('@') ? null : 'Enter a valid email',
+                  keyboardType: TextInputType.phone,
+                  maxLength: 10,
+                  decoration: _inputDecoration('Enter your phone number', Icons.phone_outlined),
+                  validator: (v) => v!.length != 10 ? 'Enter a valid 10-digit phone number' : null,
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 10),
 
-                _buildLabel('Password'),
+                _buildLabel('PIN (6 digits)'),
                 const SizedBox(height: 8),
                 TextFormField(
-                  controller: _passwordController,
+                  controller: _pinController,
                   enabled: !isLoading,
-                  obscureText: _obscurePassword,
-                  decoration: _inputDecoration('Enter your password', Icons.lock_outline).copyWith(
+                  obscureText: _obscurePin,
+                  keyboardType: TextInputType.number,
+                  maxLength: 6,
+                  decoration: _inputDecoration('Enter your 6-digit PIN', Icons.lock_outline).copyWith(
                     suffixIcon: IconButton(
                       icon: Icon(
-                        _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                        _obscurePin ? Icons.visibility_off_outlined : Icons.visibility_outlined,
                         color: AppColors.textTertiary,
                       ),
-                      onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                      onPressed: () => setState(() => _obscurePin = !_obscurePin),
                     ),
                   ),
-                  validator: (v) => v!.length < 6 ? 'Password must be at least 6 characters' : null,
+                  validator: (v) => v!.length != 6 ? 'PIN must be exactly 6 digits' : null,
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 10),
 
                 if (!_isLogin) ...[
+                  _buildLabel('Confirm PIN (6 digits)'),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: _pinConfirmController,
+                    enabled: !isLoading,
+                    obscureText: _obscurePinConfirm,
+                    keyboardType: TextInputType.number,
+                    maxLength: 6,
+                    decoration: _inputDecoration('Confirm your 6-digit PIN', Icons.lock_outline).copyWith(
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscurePinConfirm ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                          color: AppColors.textTertiary,
+                        ),
+                        onPressed: () => setState(() => _obscurePinConfirm = !_obscurePinConfirm),
+                      ),
+                    ),
+                    validator: (v) => v!.length != 6 ? 'PIN must be exactly 6 digits' : null,
+                  ),
+                  const SizedBox(height: 10),
+
                   // ── Village Selector ──────────────────────────────────
                   _buildLabel('Select Your Village / गाव निवडा'),
                   const SizedBox(height: 8),
@@ -222,7 +287,7 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                         value: _selectedVillageId,
                         isExpanded: true,
                         icon: const Icon(Icons.location_on_outlined, color: AppColors.secondary),
-                        items: _kVillages.map((v) => DropdownMenuItem(
+                        items: _villages.map((v) => DropdownMenuItem(
                           value: v.id,
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -251,18 +316,18 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                       ),
                     ),
                   ),
-                  // Show the assigned ID so user can verify
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4, left: 4),
-                    child: Text(
-                      'Village ID: $_selectedVillageId',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: AppColors.textSecondary.withValues(alpha: 0.8),
-                        fontFamily: 'monospace',
+                  if (_selectedVillageId != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4, left: 4),
+                      child: Text(
+                        'Village ID: $_selectedVillageId',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: AppColors.textSecondary.withValues(alpha: 0.8),
+                          fontFamily: 'monospace',
+                        ),
                       ),
                     ),
-                  ),
                   const SizedBox(height: 20),
 
                   // ── Role Selector ─────────────────────────────────────
@@ -280,19 +345,41 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                         dropdownColor: c.dialogBg,
                         value: _selectedRole,
                         isExpanded: true,
-                        items: UserRole.values.map((role) {
-                          return DropdownMenuItem<String>(
-                            value: role.name,
+                        items: [
+                          DropdownMenuItem<String>(
+                            value: UserRole.villager.name,
                             child: Text(
-                              '${role.displayNameEn} (${role.displayNameMr})',
+                              'Villager',
                               style: TextStyle(
                                 fontFamily: 'NotoSansDevanagari',
                                 fontSize: 13,
                                 color: c.textPrimary,
                               ),
                             ),
-                          );
-                        }).toList(),
+                          ),
+                          DropdownMenuItem<String>(
+                            value: UserRole.frc.name,
+                            child: Text(
+                              'Village / GramSabha',
+                              style: TextStyle(
+                                fontFamily: 'NotoSansDevanagari',
+                                fontSize: 13,
+                                color: c.textPrimary,
+                              ),
+                            ),
+                          ),
+                          DropdownMenuItem<String>(
+                            value: UserRole.admin.name,
+                            child: Text(
+                              'System Administrator',
+                              style: TextStyle(
+                                fontFamily: 'NotoSansDevanagari',
+                                fontSize: 13,
+                                color: c.textPrimary,
+                              ),
+                            ),
+                          ),
+                        ],
                         onChanged: isLoading
                             ? null
                             : (value) => setState(() => _selectedRole = value!),
@@ -303,6 +390,27 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                 ],
 
                 if (_isLogin) const SizedBox(height: 12),
+
+                // ── Demo Logins ─────────────────────────────────────────
+                if (_isLogin)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                         Text('Quick Demo Logins:', style: TextStyle(color: c.textSecondary, fontSize: 12)),
+                         const SizedBox(height: 8),
+                         Row(
+                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                           children: [
+                             _demoLoginBtn('Villager', '9000000001'),
+                             _demoLoginBtn('Gram Sabha', '9000000003'),
+                             _demoLoginBtn('SDO', '9000000005'),
+                           ],
+                         ),
+                      ],
+                    ),
+                  ),
 
                 // ── Submit Button ───────────────────────────────────────
                 SizedBox(
@@ -426,10 +534,23 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
     );
   }
 
+  Widget _demoLoginBtn(String label, String phone) {
+    return ActionChip(
+      label: Text(label, style: const TextStyle(fontSize: 12)),
+      onPressed: () {
+        _phoneController.text = phone;
+        _pinController.text = '123456';
+      },
+      backgroundColor: AppColors.cardElevated,
+      side: BorderSide(color: AppColors.secondary.withValues(alpha: 0.5)),
+    );
+  }
+
   InputDecoration _inputDecoration(String hint, IconData prefixIcon) {
     final c = context.colors;
     return InputDecoration(
       hintText: hint,
+      counterText: "",
       hintStyle: TextStyle(color: c.textTertiary),
       prefixIcon: Icon(prefixIcon, color: c.textTertiary),
       filled: true,
