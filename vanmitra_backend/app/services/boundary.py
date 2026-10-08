@@ -10,8 +10,9 @@ from datetime import date
 from decimal import Decimal
 from typing import Any
 
+import numpy as np
+import numpy.typing as npt
 import shapely
-import shapely.ops
 from pyproj import Transformer
 from shapely.geometry import mapping, shape
 from shapely.validation import explain_validity
@@ -45,7 +46,13 @@ _transformer = Transformer.from_crs("EPSG:4326", "EPSG:32643", always_xy=True)
 
 
 def to_utm(geom: Any) -> Any:
-    return shapely.ops.transform(_transformer.transform, geom)
+    """The shape in UTM zone 43N metres, for areas, lengths and distances."""
+    return shapely.transform(geom, _project)
+
+
+def _project(coords: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    xs, ys = _transformer.transform(coords[:, 0], coords[:, 1])
+    return np.column_stack([xs, ys])
 
 
 def ensure_valid(geom_or_wkt: str | dict[str, Any]) -> None:
