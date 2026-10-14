@@ -2,13 +2,31 @@ class ApiEndpoints {
   // Server address from --dart-define=VANMITRA_API_BASE_URL (the same value the rest of
   // the app uses, e.g. http://127.0.0.1:8000 for a phone over USB). Accepted with or
   // without the trailing /api/v1. Default: the Android emulator's view of this PC.
+  // An explicit EMPTY value (--dart-define=VANMITRA_API_BASE_URL=) means "not set": the sign-in
+  // screen then asks for the address.
   static const String _server = String.fromEnvironment(
     'VANMITRA_API_BASE_URL',
     defaultValue: 'http://10.0.2.2:8000',
   );
 
+  /// The address typed on the sign-in screen and kept on the phone (see ServerAddress). It wins
+  /// over the compiled-in one, so a demo APK needs no rebuild when the server moves.
+  static String? serverOverride;
+
+  static String get _root {
+    final s = serverOverride ?? _server;
+    return s.endsWith('/') ? s.substring(0, s.length - 1) : s;
+  }
+
+  /// False when no address was compiled in and none was typed yet.
+  static bool get isConfigured => _root.isNotEmpty;
+
+  /// The server's address without the /api/v1 part ("" when not set).
+  static String get serverRoot =>
+      _root.endsWith('/api/v1') ? _root.substring(0, _root.length - '/api/v1'.length) : _root;
+
   static String get baseUrl {
-    final root = _server.endsWith('/') ? _server.substring(0, _server.length - 1) : _server;
+    final root = _root;
     return root.endsWith('/api/v1') ? root : '$root/api/v1';
   }
 

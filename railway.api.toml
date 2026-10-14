@@ -1,0 +1,13 @@
+# Railway config for the LEAN API image (see docs/DEPLOY_DEMO.md).
+# In Railway: service -> Settings -> "Config as code" -> path: railway.api.toml
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "vanmitra_backend/Dockerfile.api"
+buildContext = "vanmitra_backend"
+
+[deploy]
+startCommand = "sh -c 'uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}'"
+healthcheckPath = "/api/v1/health"
+healthcheckTimeout = 60
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3

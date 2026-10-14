@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/api/api_endpoints.dart';
+import '../../core/api/server_address.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/routes/app_router.dart';
 import '../../models/user_role.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/localization_service.dart';
 import '../../services/api_auth_service.dart';
+import '../../widgets/server_address_dialog.dart';
 
 class _VillageOption {
   final String id;
@@ -42,6 +45,17 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
   @override
   void initState() {
     super.initState();
+    _fetchVillages();
+    // a demo APK built without a server address asks for it the first time
+    if (!ApiEndpoints.isConfigured) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _editServer());
+    }
+  }
+
+  Future<void> _editServer() async {
+    await showServerAddressDialog(context);
+    if (!mounted) return;
+    setState(() {}); // the "Server" line shows the new address
     _fetchVillages();
   }
 
@@ -471,7 +485,19 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 32),
+                Center(
+                  child: TextButton.icon(
+                    onPressed: isLoading ? null : _editServer,
+                    icon: Icon(Icons.dns_outlined, size: 16, color: c.textSecondary),
+                    label: Text(
+                      ApiEndpoints.isConfigured
+                          ? 'Server: ${ServerAddress.describe(ApiEndpoints.serverRoot)}'
+                          : 'Server: not set',
+                      style: TextStyle(color: c.textSecondary, fontSize: 12),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
 
                 // ── Legal Notice ──────────────────────────────────────────
                 Container(

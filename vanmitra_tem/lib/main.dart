@@ -7,6 +7,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'firebase_options.dart';
+import 'core/api/server_address.dart';
 import 'data/local/hive_database.dart';
 import 'models/notice.dart';
 import 'providers/notices_provider.dart';
@@ -43,6 +44,7 @@ void main() async {
 
     // Initialize Hive local database
     await HiveDatabase.initialize();
+    ServerAddress.load(); // the server address typed on the sign-in screen, if any
     
     // Request FCM permission and save token
     try {
