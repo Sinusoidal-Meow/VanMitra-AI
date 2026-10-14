@@ -133,10 +133,10 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
 
     if (role == 'admin') {
       Navigator.pushReplacementNamed(context, AppRouter.adminHome);
-    } else if (role == 'villager') {
+    } else {
+      // village users, the Gram Sabha and the SDO all use the same shell (its Claims tab shows
+      // the review queue to the officials); the old CFR dashboard never loaded from the backend
       Navigator.pushReplacementNamed(context, AppRouter.villagerHome);
-    } else if (role != null) {
-      Navigator.pushReplacementNamed(context, AppRouter.cfrRoleDashboard);
     }
   }
 

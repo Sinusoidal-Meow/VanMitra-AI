@@ -16,7 +16,8 @@ import 'case_home_screen.dart';
 import 'case_hub_api.dart';
 
 class _ClaimKind {
-  const _ClaimKind(this.type, this.title, this.subtitle, this.detail, this.icon, this.color);
+  const _ClaimKind(
+      this.type, this.title, this.subtitle, this.detail, this.icon, this.color);
   final String type;
   final String title;
   final String subtitle;
@@ -25,6 +26,14 @@ class _ClaimKind {
   final Color color;
 }
 
+const _formA = _ClaimKind(
+  'ifr',
+  'Form A · Individual forest rights',
+  'वैयक्तिक वन हक्क दावा',
+  'Land you live on or farm: habitation, self-cultivation, and other individual rights',
+  Icons.person_rounded,
+  Color(0xFF1E6FB8),
+);
 const _formB = _ClaimKind(
   'cr',
   'Form B · Community rights',
@@ -44,75 +53,96 @@ const _formC = _ClaimKind(
 
 /// Which forms the role may open (the server checks the same).
 List<_ClaimKind> _allowedFor(UserRole role) => switch (role) {
-      UserRole.villager || UserRole.frc => const [_formB, _formC],
+      // Form A is opened by the village user only; the Gram Sabha opens B and C
+      UserRole.villager => const [_formA, _formB, _formC],
+      UserRole.frc => const [_formB, _formC],
       _ => const [],
     };
 
 /// Let the user pick a form, open the claim on the backend and show its page.
 /// [onChanged] runs after the claim page is closed (e.g. to refresh a list).
-Future<void> startNewBackendClaim(BuildContext context, WidgetRef ref, {VoidCallback? onChanged}) async {
+Future<void> startNewBackendClaim(BuildContext context, WidgetRef ref,
+    {VoidCallback? onChanged}) async {
   final user = ref.read(authProvider).currentUser;
   final kinds = _allowedFor(user?.role ?? UserRole.villager);
   final messenger = ScaffoldMessenger.of(context);
   if (user == null || kinds.isEmpty) {
-    messenger.showSnackBar(const SnackBar(content: Text('Your role does not file claims; claims reach you for review.')));
+    messenger.showSnackBar(const SnackBar(
+        content: Text(
+            'Your role does not file claims; claims reach you for review.')));
     return;
   }
   final chosen = await showModalBottomSheet<_ClaimKind>(
     context: context,
+    isScrollControlled:
+        true, // three forms plus their help can be taller than a small phone
     showDragHandle: true,
     backgroundColor: context.colors.bottomSheetBg,
     builder: (sheet) {
       final c = sheet.colors;
       return SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text('File a new claim · नवीन दावा',
-                  style: TextStyle(color: c.textPrimary, fontSize: 19, fontWeight: FontWeight.w800)),
-              const SizedBox(height: 4),
-              Text('Choose the form for your community’s claim.',
-                  style: TextStyle(color: c.textSecondary, fontSize: 13)),
-              const SizedBox(height: 14),
-              for (final k in kinds)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: VmCard(
-                    padding: const EdgeInsets.all(14),
-                    onTap: () => Navigator.pop(sheet, k),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 50,
-                          height: 50,
-                          decoration: BoxDecoration(
-                            color: k.color.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(14),
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text('File a new claim · नवीन दावा',
+                    style: TextStyle(
+                        color: c.textPrimary,
+                        fontSize: 19,
+                        fontWeight: FontWeight.w800)),
+                const SizedBox(height: 4),
+                Text('Choose the form for your claim.',
+                    style: TextStyle(color: c.textSecondary, fontSize: 13)),
+                const SizedBox(height: 14),
+                for (final k in kinds)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: VmCard(
+                      padding: const EdgeInsets.all(14),
+                      onTap: () => Navigator.pop(sheet, k),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 50,
+                            height: 50,
+                            decoration: BoxDecoration(
+                              color: k.color.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Icon(k.icon, color: k.color, size: 26),
                           ),
-                          child: Icon(k.icon, color: k.color, size: 26),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(k.title,
-                                  style: TextStyle(color: c.textPrimary, fontWeight: FontWeight.w800, fontSize: 15)),
-                              Text(k.subtitle, style: TextStyle(color: c.textSecondary, fontSize: 12.5)),
-                              const SizedBox(height: 3),
-                              Text(k.detail, style: TextStyle(color: c.textTertiary, fontSize: 11.5)),
-                            ],
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(k.title,
+                                    style: TextStyle(
+                                        color: c.textPrimary,
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 15)),
+                                Text(k.subtitle,
+                                    style: TextStyle(
+                                        color: c.textSecondary,
+                                        fontSize: 12.5)),
+                                const SizedBox(height: 3),
+                                Text(k.detail,
+                                    style: TextStyle(
+                                        color: c.textTertiary, fontSize: 11.5)),
+                              ],
+                            ),
                           ),
-                        ),
-                        Icon(Icons.chevron_right_rounded, color: c.textTertiary),
-                      ],
+                          Icon(Icons.chevron_right_rounded,
+                              color: c.textTertiary),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       );
@@ -122,14 +152,17 @@ Future<void> startNewBackendClaim(BuildContext context, WidgetRef ref, {VoidCall
 
   final villageId = user.backendVillageId;
   if (villageId == null || villageId.isEmpty) {
-    messenger.showSnackBar(const SnackBar(content: Text('Your account is not linked to a village on the server yet.')));
+    messenger.showSnackBar(const SnackBar(
+        content: Text(
+            'Your account is not linked to a village on the server yet.')));
     return;
   }
   try {
     final created = await CaseHubApi().createCase(villageId, chosen.type);
     if (!context.mounted) return;
     await Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => CaseHomeScreen(caseId: created['id'] as String, initialClaimType: chosen.type),
+      builder: (_) => CaseHomeScreen(
+          caseId: created['id'] as String, initialClaimType: chosen.type),
     ));
     onChanged?.call();
   } catch (e) {
@@ -150,13 +183,17 @@ Future<void> openEvidenceForMyClaim(BuildContext context, WidgetRef ref) async {
   if (!context.mounted) return;
   final open = mine
       .cast<Map<String, dynamic>>()
-      .where((c) => !const ['rejected', 'expired', 'title_issued'].contains(c['state']))
+      .where((c) =>
+          !const ['rejected', 'expired', 'title_issued'].contains(c['state']))
       .toList();
   if (open.isEmpty) {
     Navigator.pushNamed(context, AppRouter.rule13Evidence);
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: const Text('You have no open claim yet. File a claim, then add its evidence.'),
-      action: SnackBarAction(label: 'File claim', onPressed: () => startNewBackendClaim(context, ref)),
+      content: const Text(
+          'You have no open claim yet. File a claim, then add its evidence.'),
+      action: SnackBarAction(
+          label: 'File claim',
+          onPressed: () => startNewBackendClaim(context, ref)),
     ));
     return;
   }
@@ -171,7 +208,10 @@ Future<void> openEvidenceForMyClaim(BuildContext context, WidgetRef ref) async {
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         children: [
           Text('Evidence for which claim?',
-              style: TextStyle(color: sheet.colors.textPrimary, fontSize: 18, fontWeight: FontWeight.w800)),
+              style: TextStyle(
+                  color: sheet.colors.textPrimary,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800)),
           const SizedBox(height: 12),
           for (final c in open)
             Padding(
@@ -184,7 +224,9 @@ Future<void> openEvidenceForMyClaim(BuildContext context, WidgetRef ref) async {
                     CircleAvatar(
                       backgroundColor: const Color(0xFFEAF4EE),
                       child: Text(c['form'] as String? ?? '?',
-                          style: const TextStyle(color: Color(0xFF2E705B), fontWeight: FontWeight.w800)),
+                          style: const TextStyle(
+                              color: Color(0xFF2E705B),
+                              fontWeight: FontWeight.w800)),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -192,9 +234,13 @@ Future<void> openEvidenceForMyClaim(BuildContext context, WidgetRef ref) async {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(formTitle(c['claim_type'] as String? ?? ''),
-                              style: TextStyle(color: sheet.colors.textPrimary, fontWeight: FontWeight.w700)),
+                              style: TextStyle(
+                                  color: sheet.colors.textPrimary,
+                                  fontWeight: FontWeight.w700)),
                           Text(claimStateLabel(c['state'] as String? ?? ''),
-                              style: TextStyle(color: sheet.colors.textSecondary, fontSize: 12)),
+                              style: TextStyle(
+                                  color: sheet.colors.textSecondary,
+                                  fontSize: 12)),
                         ],
                       ),
                     ),
@@ -207,7 +253,8 @@ Future<void> openEvidenceForMyClaim(BuildContext context, WidgetRef ref) async {
     ),
   );
   if (pick == null || !context.mounted) return;
-  final allowed = ((pick['allowed_actions'] as List<dynamic>?) ?? []).cast<String>();
+  final allowed =
+      ((pick['allowed_actions'] as List<dynamic>?) ?? []).cast<String>();
   final canAdd = (pick['state'] == 'draft' && pick['is_mine'] == true) ||
       (pick['state'] == 'gs_review' && allowed.contains('approve'));
   Navigator.of(context).push(MaterialPageRoute(

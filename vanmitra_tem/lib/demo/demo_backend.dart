@@ -165,15 +165,24 @@ class DemoBackend {
   Principal? principalFor(String? token) =>
       DemoAccounts.principalOf(_database, DemoAccounts.userIdOfToken(token));
 
+  Future<void>? _seeding;
+
+  /// The sample claims are made once, and every call waits for that (the dashboard asks for
+  /// several lists at the same moment on a fresh phone).
+  Future<void> _ensureSeeded() => _seeding ??= () async {
+        final db = _database;
+        if (seedSampleClaims && db.data['sample_claims_v1'] != true) {
+          db.data['sample_claims_v1'] = true;
+          await DemoSeedClaims.run((m, p, {body, token}) => _dispatch(m, p, body, token));
+          await _storage.write(db.data);
+        }
+      }();
+
   /// Answer one API call. [rawPath] is the path after /api/v1, with any query string.
   Future<dynamic> handle(String method, String rawPath, {Object? body, String? token}) async {
-    final db = _database;
-    if (seedSampleClaims && db.data['sample_claims_v1'] != true) {
-      db.data['sample_claims_v1'] = true; // first, so the calls below cannot start it again
-      await DemoSeedClaims.run((m, p, {body, token}) => _dispatch(m, p, body, token));
-    }
+    await _ensureSeeded();
     final result = await _dispatch(method, rawPath, body, token);
-    await _storage.write(db.data);
+    await _storage.write(_database.data);
     return result;
   }
 

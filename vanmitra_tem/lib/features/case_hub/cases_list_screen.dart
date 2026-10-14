@@ -18,6 +18,9 @@ import 'case_home_screen.dart';
 import 'case_hub_api.dart';
 import 'new_claim.dart';
 
+/// Bumped whenever the lists were reloaded, so the dashboard can refresh its review count.
+final ValueNotifier<int> reviewQueueChanged = ValueNotifier<int>(0);
+
 enum _StatusFilter { approved, pending, rejected }
 
 enum _Source { mine, village, review }
@@ -30,7 +33,10 @@ _StatusFilter _groupOf(String state) => switch (state) {
 
 class CasesListScreen extends ConsumerStatefulWidget {
   final Widget? bottomNavigationBar;
-  const CasesListScreen({super.key, this.bottomNavigationBar});
+
+  /// The Gram Sabha and the SDO open on the claims waiting for their decision.
+  final bool startOnReview;
+  const CasesListScreen({super.key, this.bottomNavigationBar, this.startOnReview = false});
 
   @override
   ConsumerState<CasesListScreen> createState() => _CasesListScreenState();
@@ -59,6 +65,7 @@ class _CasesListScreenState extends ConsumerState<CasesListScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.startOnReview) _source = _Source.review;
     _loadData();
   }
 
@@ -87,6 +94,7 @@ class _CasesListScreenState extends ConsumerState<CasesListScreen> {
         _error = null;
         _isLoading = false;
       });
+      reviewQueueChanged.value++; // the dashboard's "waiting for you" count reloads
     } catch (e) {
       if (!mounted) return;
       setState(() {

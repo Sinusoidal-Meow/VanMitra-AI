@@ -184,7 +184,11 @@ class _CaseHomeScreenState extends State<CaseHomeScreen> {
     // 1 · Form
     steps.add(_Step(
       'Claim form · दावा अर्ज',
-      isCfr ? 'Form C: area, landmarks, bordering villages, evidence list' : 'Form B: claimants, rights claimed, evidence list',
+      isCfr
+          ? 'Form C: area, landmarks, bordering villages, evidence list'
+          : _claimType == 'ifr'
+              ? 'Form A: claimant, family, land claimed, evidence list'
+              : 'Form B: claimants, rights claimed, evidence list',
       Icons.description_rounded,
       draft ? (_isMine ? _StepState.active : _StepState.waiting) : _StepState.done,
       draft ? (_isMine ? 'Fill and save' : 'Draft') : 'Submitted',
@@ -551,6 +555,9 @@ class _CaseHomeScreenState extends State<CaseHomeScreen> {
     final allowed = _allowed;
     if (allowed.isEmpty) return null;
     final busy = _actionInProgress;
+    final canApprove = allowed.contains('approve');
+    final canReturn = allowed.contains('return');
+    final canReject = allowed.contains('reject');
     return SafeArea(
       child: Container(
         padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
@@ -558,51 +565,58 @@ class _CaseHomeScreenState extends State<CaseHomeScreen> {
           color: context.colors.cardBg,
           boxShadow: const [BoxShadow(color: Color(0x14000000), blurRadius: 10, offset: Offset(0, -3))],
         ),
-        child: Row(
+        // A reviewer has up to three buttons: the main one (approve) gets a full-width row of its
+        // own, the two others share the row under it, so no label is squeezed on a small phone.
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (allowed.contains('reject')) ...[
-              OutlinedButton(
-                onPressed: busy ? null : _handleReject,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFFC62828),
-                  side: const BorderSide(color: Color(0xFFC62828)),
-                  minimumSize: const Size(0, 48),
-                ),
-                child: const Text('Reject'),
-              ),
-              const SizedBox(width: 8),
-            ],
-            if (allowed.contains('return')) ...[
-              OutlinedButton(
-                onPressed: busy ? null : _handleReturn,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFFB45300),
-                  side: const BorderSide(color: Color(0xFFB45300)),
-                  minimumSize: const Size(0, 48),
-                ),
-                child: const Text('Send back'),
-              ),
-              const SizedBox(width: 8),
-            ],
             if (allowed.contains('submit'))
-              Expanded(
-                child: OrangePillButton(
-                    label: 'Submit claim · दाखल करा',
-                    icon: Icons.send_rounded,
-                    busy: busy,
-                    onPressed: _handleSubmit),
-              ),
-            if (allowed.contains('approve'))
-              Expanded(
-                child: FilledButton.icon(
-                  onPressed: busy ? null : _handleApprove,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF2E7D32),
-                    minimumSize: const Size(0, 48),
-                  ),
-                  icon: const Icon(Icons.check_rounded),
-                  label: const Text('Approve & forward'),
+              OrangePillButton(
+                  label: 'Submit claim · दाखल करा',
+                  icon: Icons.send_rounded,
+                  busy: busy,
+                  onPressed: _handleSubmit),
+            if (canApprove)
+              FilledButton.icon(
+                onPressed: busy ? null : _handleApprove,
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF2E7D32),
+                  minimumSize: const Size(0, 48),
                 ),
+                icon: const Icon(Icons.check_rounded),
+                label: const Text('Approve & forward'),
+              ),
+            if (canApprove && (canReturn || canReject)) const SizedBox(height: 8),
+            if (canReturn || canReject)
+              Row(
+                children: [
+                  if (canReturn)
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: busy ? null : _handleReturn,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFFB45300),
+                          side: const BorderSide(color: Color(0xFFB45300)),
+                          minimumSize: const Size(0, 48),
+                        ),
+                        child: const Text('Send back'),
+                      ),
+                    ),
+                  if (canReturn && canReject) const SizedBox(width: 8),
+                  if (canReject)
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: busy ? null : _handleReject,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFFC62828),
+                          side: const BorderSide(color: Color(0xFFC62828)),
+                          minimumSize: const Size(0, 48),
+                        ),
+                        child: const Text('Reject'),
+                      ),
+                    ),
+                ],
               ),
           ],
         ),

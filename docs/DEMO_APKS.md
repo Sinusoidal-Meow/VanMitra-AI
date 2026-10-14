@@ -15,6 +15,18 @@ setup. If an officer picks up any presenter's phone, all of it is there.
 "Create account" works too: a new village user is created on the phone (phone number and a 6-digit
 PIN) and can sign in straight away.
 
+## What each login sees
+
+| Login | Opens on | Sees |
+|---|---|---|
+| Village user | the dashboard with the hero card | their own claims, "File New Claim" (**Form A, B or C**), Livelihood, the Gram Sabha records, the map |
+| Gram Sabha | the same shell, hero card says "Gram Sabha" | a **Gram Sabha review** card with the number of claims waiting for its decision; the Claims tab opens on that queue; it can file Forms B and C (not A); Livelihood |
+| SDO | the same shell, hero card says "SDO" | an **SDO review** card with the claims the Gram Sabha approved; the Claims tab opens on that queue; no claim-filing cards, no Livelihood tab |
+| Admin | the admin home | back-office |
+
+On a claim waiting for them, the Gram Sabha and the SDO have three buttons: **Approve & forward**,
+**Send back** (with remarks) and **Reject** (with reasons).
+
 ## What works
 
 The real screens, backed by the same rules as the real server (ported to Dart, tested):

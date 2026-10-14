@@ -15,7 +15,9 @@ import '../../services/module_b_service.dart';
 import '../../widgets/common/app_components.dart';
 import '../../widgets/common/animated_bottom_nav_bar.dart';
 import '../../widgets/common/vanmitra_background_watermark.dart';
+import '../../models/user_role.dart';
 import '../../widgets/portal_frame_scaffold.dart';
+import '../../widgets/review_queue_card.dart';
 import '../../features/case_hub/cases_list_screen.dart';
 import '../../features/case_hub/new_claim.dart';
 import '../../features/gram_sabha_records/gram_sabha_records_screen.dart';
@@ -40,11 +42,15 @@ class _VillagerHomeScreenState extends ConsumerState<VillagerHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final role = ref.watch(authProvider).currentUser?.role;
+    final isOfficial = role == UserRole.frc || role == UserRole.sdlc;
+    // Module 4 (livelihood) serves village users and the Gram Sabha, not the SDO
+    final showLivelihood = role != UserRole.sdlc;
     final navBar = AnimatedBottomNavBar(
       currentTab: AppTab.values[_currentTab],
       onTabSelected: (tab) => setState(() => _currentTab = tab.index),
       // the five tabs plus Module 4's Livelihood tab (VanRozgar)
-      tabs: AppTab.values,
+      tabs: showLivelihood ? AppTab.values : kCoreTabs,
     );
 
     return IndexedStack(
@@ -53,7 +59,7 @@ class _VillagerHomeScreenState extends ConsumerState<VillagerHomeScreen> {
         _HomeTab(
             bottomNavigationBar: navBar,
             onSwitchTab: (index) => setState(() => _currentTab = index)),
-        CasesListScreen(bottomNavigationBar: navBar),
+        CasesListScreen(bottomNavigationBar: navBar, startOnReview: isOfficial),
         _ProfileTab(
             bottomNavigationBar: navBar,
             onOpenClaims: () =>
@@ -61,7 +67,7 @@ class _VillagerHomeScreenState extends ConsumerState<VillagerHomeScreen> {
         _GramSabhaTab(bottomNavigationBar: navBar),
         _MapTab(bottomNavigationBar: navBar),
         // Module 4 (VanRozgar): resources near his land, work ideas, Ask AI, schemes
-        LivelihoodHomeScreen(bottomNavigationBar: navBar),
+        if (showLivelihood) LivelihoodHomeScreen(bottomNavigationBar: navBar),
       ],
     );
   }
@@ -78,6 +84,15 @@ class _HomeTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final auth = ref.watch(authProvider);
     final village = ref.watch(villageProvider);
+    final role = auth.currentUser?.role;
+    final isSdo = role == UserRole.sdlc;
+    final isGramSabha = role == UserRole.frc;
+    final isOfficial = isSdo || isGramSabha;
+    final roleLabel = isSdo
+        ? 'SDO (Sub-Divisional Officer)'
+        : isGramSabha
+            ? 'Gram Sabha'
+            : context.tr('villager');
 
     final villageId = village?.id ?? '';
     final meetingsAsync = ref.watch(meetingsStreamProvider(villageId));
@@ -125,7 +140,7 @@ class _HomeTab extends ConsumerWidget {
                         if (auth.currentUser != null)
                           VillagerGlassProfileCard(
                             userName: auth.currentUser!.name,
-                            roleLabel: context.tr('villager'),
+                            roleLabel: roleLabel,
                             place: village?.nameMarathi ??
                                 auth.currentUser!.villageId,
                             onProfileTap: () =>
@@ -143,6 +158,14 @@ class _HomeTab extends ConsumerWidget {
                         _buildNextMeetingCard(
                             context, backendMeetings, todayMeeting),
                         const SizedBox(height: AppSpacing.lg),
+                        if (isOfficial) ...[
+                          ReviewQueueCard(
+                            officeLabel: isSdo ? 'SDO' : 'Gram Sabha',
+                            onOpen: () => onSwitchTab?.call(AppTab.claims.index),
+                          ),
+                          const SizedBox(height: AppSpacing.lg),
+                        ],
+                        if (!isSdo) ...[
                         ClaimsSectionHeader(
                           title: context.tr('claims'),
                           label: 'Quick Actions',
@@ -181,6 +204,7 @@ class _HomeTab extends ConsumerWidget {
                           onTap: () => openEvidenceForMyClaim(context, ref),
                         ),
                         const SizedBox(height: AppSpacing.xl),
+                        ],
                         // 5. Gram Sabha & Governance Actions
                         Text(
                           context.tr('gram_sabha') /* Gram Sabha & Records */,
@@ -196,6 +220,7 @@ class _HomeTab extends ConsumerWidget {
                           onTap: () => onSwitchTab?.call(AppTab.sabha.index),
                         ),
                         const SizedBox(height: AppSpacing.sm),
+                        if (!isSdo) ...[
                         ActionListItem(
                           icon: Icons.how_to_reg_rounded,
                           title: context.tr('action_self_checkin'),
@@ -216,6 +241,7 @@ class _HomeTab extends ConsumerWidget {
                           },
                         ),
                         const SizedBox(height: AppSpacing.sm),
+                        ],
                         ActionListItem(
                           icon: Icons.map_outlined,
                           title: context.tr('action_map'),
@@ -234,6 +260,7 @@ class _HomeTab extends ConsumerWidget {
                         ),
                         const SizedBox(height: AppSpacing.sm),
                         // Module 4 (VanRozgar): resources near his land + work ideas
+                        if (!isSdo)
                         ActionListItem(
                           icon: Icons.agriculture_rounded,
                           title: LivelihoodStrings.of(context).t('lv_card_title'),
