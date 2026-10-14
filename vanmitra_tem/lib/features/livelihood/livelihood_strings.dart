@@ -19,6 +19,8 @@ const Map<String, Map<String, String>> _text = {
     'lv_card_title': 'My livelihood',
     'lv_card_sub': 'See resources near your land and work you could start',
     'lv_tab': 'Livelihood',
+    'lv_demo_banner':
+        'Demo with a sample farmer. The report does not change with the details you enter.',
     'lv_ask_ai': 'Ask AI',
     'lv_hub_section': 'What would you like to do?',
     'lv_hub_add_sub': 'A few questions about your land and animals',
@@ -515,6 +517,8 @@ const Map<String, Map<String, String>> _text = {
     'lv_card_title': 'माझा रोजगार',
     'lv_card_sub': 'तुमच्या जमिनीजवळची साधने आणि सुरू करता येतील अशी कामे पहा',
     'lv_tab': 'रोजगार',
+    'lv_demo_banner':
+        'नमुना शेतकऱ्यासह डेमो. तुम्ही भरलेल्या माहितीनुसार अहवाल बदलत नाही.',
     'lv_ask_ai': 'AI ला विचारा',
     'lv_hub_section': 'तुम्हाला काय करायचे आहे?',
     'lv_hub_add_sub': 'तुमची जमीन आणि जनावरांबद्दल काही प्रश्न',

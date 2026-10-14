@@ -5,6 +5,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 import '../providers/host_hooks.dart';
+import '../livelihood_strings.dart';
 import 'lv_ask_button.dart';
 
 /// The frame every livelihood screen shares: forest-green header, soft page background. Inside
@@ -38,6 +39,15 @@ class LvScaffold extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final all = [...actions, if (showAsk) const LvAskAction()];
+    final demo = ref.watch(hostDemoModeProvider);
+    final shown = demo
+        ? Column(
+            children: [
+              const _DemoBanner(),
+              Expanded(child: body),
+            ],
+          )
+        : body;
 
     final frame = ref.watch(hostFrameBuilderProvider);
     if (frame != null) {
@@ -45,7 +55,7 @@ class LvScaffold extends ConsumerWidget {
         context,
         LvFrameSpec(
           title: title,
-          body: body,
+          body: shown,
           actions: all,
           bottom: bottom,
           bottomNavigationBar: bottomNavigationBar,
@@ -73,9 +83,39 @@ class LvScaffold extends ConsumerWidget {
         ],
         bottom: bottom,
       ),
-      body: SafeArea(top: false, child: body),
+      body: SafeArea(top: false, child: shown),
       bottomNavigationBar: bottomNavigationBar,
       floatingActionButton: floatingActionButton,
+    );
+  }
+}
+
+/// "This is a demo": a slim strip above every screen of the feature in the offline demo build.
+class _DemoBanner extends StatelessWidget {
+  const _DemoBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Container(
+      width: double.infinity,
+      color: AppColors.saffron.withValues(alpha: c.isDark ? 0.22 : 0.14),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.xs,
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.info_outline_rounded, size: 16, color: c.textPrimary),
+          const SizedBox(width: AppSpacing.xs),
+          Expanded(
+            child: Text(
+              LivelihoodStrings.of(context).t('lv_demo_banner'),
+              style: AppTypography.caption.copyWith(color: c.textPrimary),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

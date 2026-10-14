@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_spacing.dart';
+import '../demo/demo_mode.dart';
 import '../features/livelihood/providers/host_hooks.dart';
 import '../providers/auth_provider.dart';
 import '../providers/village_provider.dart';
@@ -18,6 +19,8 @@ import 'portal_frame_scaffold.dart';
 final List<Override> livelihoodHostOverrides = [
   hostFrameBuilderProvider.overrideWithValue(_frame),
   hostHeroBuilderProvider.overrideWithValue(_hero),
+  // the offline demo build says so on every Module 4 screen (the report is a prepared one)
+  hostDemoModeProvider.overrideWithValue(DemoMode.enabled),
 ];
 
 Widget _frame(BuildContext context, LvFrameSpec spec) {

@@ -6,6 +6,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// the host leaves this empty (its own settings screen already has them) or overrides it.
 final hostAppBarActionsProvider = Provider<List<Widget>>((ref) => const []);
 
+/// True in the host's OFFLINE DEMO build. The report there is a prepared one for a sample farmer
+/// (the rules run on a server, which a demo phone does not have), so every screen of this feature
+/// says so in a slim strip instead of letting it pass for the person's own report.
+final hostDemoModeProvider = Provider<bool>((ref) => false);
+
 /// Everything a screen of this feature puts in its frame. The host turns it into its own frame
 /// (its header, notice strip, footer and bottom navigation) so the feature looks like the rest
 /// of the app without importing any host widget.

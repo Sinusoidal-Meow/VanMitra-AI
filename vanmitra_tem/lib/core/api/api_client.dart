@@ -3,6 +3,8 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'api_endpoints.dart';
 import '../auth/auth_storage.dart';
+import '../../demo/demo_backend.dart';
+import '../../demo/demo_mode.dart';
 
 class ApiException implements Exception {
   final int statusCode;
@@ -80,12 +82,14 @@ class ApiClient {
   }
 
   Future<dynamic> get(String path, {bool requireAuth = true}) async {
+    if (DemoMode.enabled) return DemoBackend.instance.handle('GET', path);
     final headers = await _getHeaders(requireAuth: requireAuth);
     final response = await http.get(Uri.parse('${ApiEndpoints.baseUrl}$path'), headers: headers);
     return _handleResponse(response);
   }
 
   Future<dynamic> post(String path, {Map<String, dynamic>? body, bool requireAuth = true}) async {
+    if (DemoMode.enabled) return DemoBackend.instance.handle('POST', path, body: body);
     final headers = await _getHeaders(requireAuth: requireAuth);
     final response = await http.post(
       Uri.parse('${ApiEndpoints.baseUrl}$path'),
@@ -96,6 +100,7 @@ class ApiClient {
   }
 
   Future<dynamic> put(String path, {Map<String, dynamic>? body, bool requireAuth = true}) async {
+    if (DemoMode.enabled) return DemoBackend.instance.handle('PUT', path, body: body);
     final headers = await _getHeaders(requireAuth: requireAuth);
     final response = await http.put(
       Uri.parse('${ApiEndpoints.baseUrl}$path'),
@@ -106,6 +111,7 @@ class ApiClient {
   }
 
   Future<dynamic> delete(String path, {bool requireAuth = true}) async {
+    if (DemoMode.enabled) return DemoBackend.instance.handle('DELETE', path);
     final headers = await _getHeaders(requireAuth: requireAuth);
     final response = await http.delete(Uri.parse('${ApiEndpoints.baseUrl}$path'), headers: headers);
     return _handleResponse(response);
@@ -119,6 +125,7 @@ class ApiClient {
     required String mime,
     Map<String, String> fields = const {},
   }) async {
+    if (DemoMode.enabled) return DemoBackend.instance.handle('UPLOAD', path, body: fields);
     final headers = await _getHeaders();
     headers.remove('Content-Type'); // the multipart request sets its own boundary
     final request = http.MultipartRequest('POST', Uri.parse('${ApiEndpoints.baseUrl}$path'))
@@ -132,6 +139,9 @@ class ApiClient {
 
   /// Raw bytes of a protected file, e.g. /media/{id}/file for a photo thumbnail.
   Future<List<int>> getBytes(String path) async {
+    if (DemoMode.enabled) {
+      return (await DemoBackend.instance.handle('BYTES', path)) as List<int>;
+    }
     final headers = await _getHeaders();
     final response = await http.get(Uri.parse('${ApiEndpoints.baseUrl}$path'), headers: headers);
     if (response.statusCode >= 200 && response.statusCode < 300) return response.bodyBytes;
@@ -139,6 +149,7 @@ class ApiClient {
   }
 
   Future<dynamic> patch(String path, {Map<String, dynamic>? body, bool requireAuth = true}) async {
+    if (DemoMode.enabled) return DemoBackend.instance.handle('PATCH', path, body: body);
     final headers = await _getHeaders(requireAuth: requireAuth);
     final response = await http.patch(
       Uri.parse('${ApiEndpoints.baseUrl}$path'),

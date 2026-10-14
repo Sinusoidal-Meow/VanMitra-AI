@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api/api_endpoints.dart';
 import '../../core/api/server_address.dart';
 import '../../core/theme/app_colors.dart';
+import '../../demo/demo_mode.dart';
 import '../../core/routes/app_router.dart';
 import '../../models/user_role.dart';
 import '../../providers/auth_provider.dart';
@@ -46,8 +47,14 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
   void initState() {
     super.initState();
     _fetchVillages();
-    // a demo APK built without a server address asks for it the first time
-    if (!ApiEndpoints.isConfigured) {
+    // the offline demo build: this presenter's phone and PIN are already filled in
+    final demo = DemoMode.persona;
+    if (demo != null) {
+      _phoneController.text = demo.phone;
+      _pinController.text = DemoPersona.pin;
+    }
+    // an APK built without a server address asks for it the first time (never the offline demo)
+    if (!DemoMode.enabled && !ApiEndpoints.isConfigured) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _editServer());
     }
   }
@@ -423,9 +430,7 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                          Row(
                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                            children: [
-                             _demoLoginBtn('Villager', '9000000001'),
-                             _demoLoginBtn('Gram Sabha', '9000000003'),
-                             _demoLoginBtn('SDO', '9000000005'),
+                             ..._quickLoginChips(),
                            ],
                          ),
                       ],
@@ -468,7 +473,8 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                 ),
                 const SizedBox(height: 24),
                 
-                // ── Toggle Login / Signup ───────────────────────────────
+                // ── Toggle Login / Signup (no sign-up in the offline demo) ──
+                if (!DemoMode.enabled)
                 Center(
                   child: TextButton(
                     onPressed: isLoading
@@ -485,6 +491,7 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                     ),
                   ),
                 ),
+                if (!DemoMode.enabled)
                 Center(
                   child: TextButton.icon(
                     onPressed: isLoading ? null : _editServer,
@@ -564,6 +571,22 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
         color: c.textPrimary,
       ),
     );
+  }
+
+  /// The quick sign-in chips: this build's presenter in the offline demo, else the usual three.
+  List<Widget> _quickLoginChips() {
+    if (!DemoMode.enabled) {
+      return [
+        _demoLoginBtn('Villager', '9000000001'),
+        _demoLoginBtn('Gram Sabha', '9000000003'),
+        _demoLoginBtn('SDO', '9000000005'),
+      ];
+    }
+    return [
+      for (final p in DemoMode.personas)
+        if (DemoMode.persona == null || DemoMode.persona!.id == p.id)
+          _demoLoginBtn(p.name, p.phone),
+    ];
   }
 
   Widget _demoLoginBtn(String label, String phone) {
