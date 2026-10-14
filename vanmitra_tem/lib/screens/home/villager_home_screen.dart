@@ -19,7 +19,6 @@ import '../../widgets/portal_frame_scaffold.dart';
 import '../../features/case_hub/cases_list_screen.dart';
 import '../../features/case_hub/new_claim.dart';
 import '../../features/gram_sabha_records/gram_sabha_records_screen.dart';
-import '../../demo/demo_mode.dart';
 import '../../features/livelihood/livelihood_strings.dart';
 import '../../features/livelihood/screens/livelihood_home_screen.dart';
 import '../../features/livelihood/widgets/lv_ask_button.dart';
@@ -37,20 +36,7 @@ class VillagerHomeScreen extends ConsumerStatefulWidget {
 }
 
 class _VillagerHomeScreenState extends ConsumerState<VillagerHomeScreen> {
-  // the offline demo build opens on its presenter's own section
-  int _currentTab = _landingTab();
-
-  static int _landingTab() {
-    switch (DemoMode.persona?.landing) {
-      case 'claims':
-        return AppTab.claims.index;
-      case 'map':
-        return AppTab.map.index;
-      case 'livelihood':
-        return AppTab.livelihood.index;
-    }
-    return 0;
-  }
+  int _currentTab = 0;
 
   @override
   Widget build(BuildContext context) {

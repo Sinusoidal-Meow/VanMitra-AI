@@ -44,6 +44,10 @@ class ApiClient {
 
   ApiClient({AuthStorage? authStorage}) : _authStorage = authStorage ?? AuthStorage();
 
+  /// The OFFLINE DEMO build answers every call inside the phone (lib/demo/).
+  Future<dynamic> _demo(String method, String path, {Object? body}) async => DemoBackend.instance
+      .handle(method, path, body: body, token: await _authStorage.getAccessToken());
+
   Future<Map<String, String>> _getHeaders({bool requireAuth = true}) async {
     final headers = {
       'Content-Type': 'application/json',
@@ -82,14 +86,14 @@ class ApiClient {
   }
 
   Future<dynamic> get(String path, {bool requireAuth = true}) async {
-    if (DemoMode.enabled) return DemoBackend.instance.handle('GET', path);
+    if (DemoMode.enabled) return _demo('GET', path);
     final headers = await _getHeaders(requireAuth: requireAuth);
     final response = await http.get(Uri.parse('${ApiEndpoints.baseUrl}$path'), headers: headers);
     return _handleResponse(response);
   }
 
   Future<dynamic> post(String path, {Map<String, dynamic>? body, bool requireAuth = true}) async {
-    if (DemoMode.enabled) return DemoBackend.instance.handle('POST', path, body: body);
+    if (DemoMode.enabled) return _demo('POST', path, body: body);
     final headers = await _getHeaders(requireAuth: requireAuth);
     final response = await http.post(
       Uri.parse('${ApiEndpoints.baseUrl}$path'),
@@ -100,7 +104,7 @@ class ApiClient {
   }
 
   Future<dynamic> put(String path, {Map<String, dynamic>? body, bool requireAuth = true}) async {
-    if (DemoMode.enabled) return DemoBackend.instance.handle('PUT', path, body: body);
+    if (DemoMode.enabled) return _demo('PUT', path, body: body);
     final headers = await _getHeaders(requireAuth: requireAuth);
     final response = await http.put(
       Uri.parse('${ApiEndpoints.baseUrl}$path'),
@@ -111,7 +115,7 @@ class ApiClient {
   }
 
   Future<dynamic> delete(String path, {bool requireAuth = true}) async {
-    if (DemoMode.enabled) return DemoBackend.instance.handle('DELETE', path);
+    if (DemoMode.enabled) return _demo('DELETE', path);
     final headers = await _getHeaders(requireAuth: requireAuth);
     final response = await http.delete(Uri.parse('${ApiEndpoints.baseUrl}$path'), headers: headers);
     return _handleResponse(response);
@@ -125,7 +129,15 @@ class ApiClient {
     required String mime,
     Map<String, String> fields = const {},
   }) async {
-    if (DemoMode.enabled) return DemoBackend.instance.handle('UPLOAD', path, body: fields);
+    if (DemoMode.enabled) {
+      // the demo "server" keeps the bytes, so a photo taken here can be shown again
+      return _demo('UPLOAD', path, body: {
+        'file_base64': base64Encode(bytes),
+        'filename': filename,
+        'mime': mime,
+        'fields': fields,
+      });
+    }
     final headers = await _getHeaders();
     headers.remove('Content-Type'); // the multipart request sets its own boundary
     final request = http.MultipartRequest('POST', Uri.parse('${ApiEndpoints.baseUrl}$path'))
@@ -139,9 +151,7 @@ class ApiClient {
 
   /// Raw bytes of a protected file, e.g. /media/{id}/file for a photo thumbnail.
   Future<List<int>> getBytes(String path) async {
-    if (DemoMode.enabled) {
-      return (await DemoBackend.instance.handle('BYTES', path)) as List<int>;
-    }
+    if (DemoMode.enabled) return (await _demo('BYTES', path)) as List<int>;
     final headers = await _getHeaders();
     final response = await http.get(Uri.parse('${ApiEndpoints.baseUrl}$path'), headers: headers);
     if (response.statusCode >= 200 && response.statusCode < 300) return response.bodyBytes;
@@ -149,7 +159,7 @@ class ApiClient {
   }
 
   Future<dynamic> patch(String path, {Map<String, dynamic>? body, bool requireAuth = true}) async {
-    if (DemoMode.enabled) return DemoBackend.instance.handle('PATCH', path, body: body);
+    if (DemoMode.enabled) return _demo('PATCH', path, body: body);
     final headers = await _getHeaders(requireAuth: requireAuth);
     final response = await http.patch(
       Uri.parse('${ApiEndpoints.baseUrl}$path'),

@@ -1,6 +1,7 @@
 import 'dart:convert';
 
-import '../core/api/api_client.dart';
+import 'core/demo_accounts.dart';
+import 'core/demo_core.dart';
 
 /// Module 4 (livelihood) for the offline demo: answers the app's /livelihood calls from the
 /// bundled mock data (assets/demo/livelihood_demo.json, made by the real rules for a sample
@@ -14,23 +15,64 @@ import '../core/api/api_client.dart';
 ///  - a typed question is answered by the nearest suggested question, or with the grey "I can only
 ///    answer questions about your report", or refused when it asks for harm.
 class DemoLivelihood {
-  DemoLivelihood(this._fixture, this._state);
+  DemoLivelihood(this._fixture, this._state, this._userName);
 
   final Map<String, dynamic> _fixture;
   final Map<String, dynamic> _state;
+  final String _userName;
 
-  Map<String, dynamic> get _scenario =>
-      (_fixture['scenarios'] as Map<String, dynamic>)[_hasProfile ? 'farmer' : 'general']
-          as Map<String, dynamic>;
+  Map<String, dynamic> get _scenario {
+    final sc = (_fixture['scenarios'] as Map<String, dynamic>)[_hasProfile ? 'farmer' : 'general']
+        as Map<String, dynamic>;
+    return sc;
+  }
 
   bool get _hasProfile => _state['lv_profile'] != null;
 
-  /// The demo starts with the sample farmer's details already saved.
-  static void seed(Map<String, dynamic> fixture, Map<String, dynamic> state) {
-    if (state.containsKey('lv_profile')) return;
-    state['lv_profile'] = fixture['profile'];
-    state['lv_has_report'] = false;
-    state['lv_turns'] = <dynamic>[];
+  /// The report with this person's name in its header (the fixture was made for a sample name).
+  Map<String, dynamic> _reportForUser() {
+    final report = Map<String, dynamic>.from(_scenario['report'] as Map);
+    final header = Map<String, dynamic>.from(report['header'] as Map)..['name'] = _userName;
+    return {...report, 'header': header};
+  }
+
+  /// A person's Module 4 state. The five demo logins start with the sample farmer's details
+  /// already saved; anyone who registers starts with none.
+  static Map<String, dynamic> stateFor(DemoDb db, Map<String, dynamic> fixture, String userId) {
+    final all = db.section('lv');
+    return (all[userId] ??= () {
+      final seeded = [for (var n = 1; n <= 5; n++) DemoAccounts.userIdFor(n)].contains(userId);
+      return <String, dynamic>{
+        'lv_profile': seeded ? fixture['profile'] : null,
+        'lv_has_report': false,
+        'lv_turns': <dynamic>[],
+      };
+    }()) as Map<String, dynamic>;
+  }
+
+  /// Module 4 is for village users and the Gram Sabha, each for their own land.
+  static void register(DemoRouter r, Future<Map<String, dynamic>> Function() loadFixture) {
+    for (final method in const ['GET', 'POST', 'PUT', 'DELETE']) {
+      for (final pattern in const [
+        '/livelihood/profile',
+        '/livelihood/report',
+        '/livelihood/report/latest',
+        '/livelihood/schemes',
+        '/livelihood/ask',
+        '/livelihood/ask/history',
+        '/livelihood/ideas/{code}',
+      ]) {
+        r.add(method, pattern, (req) async {
+          final p = req.who;
+          if (p.roles.intersection({Roles.villager, Roles.gramSabha}).isEmpty) {
+            throw DemoError(403, 'FORBIDDEN', 'livelihood.role_not_allowed');
+          }
+          final fixture = await loadFixture();
+          final lv = DemoLivelihood(fixture, stateFor(req.db, fixture, p.userId), p.name);
+          return lv.handle(method, req.path, req.query, req.body);
+        });
+      }
+    }
   }
 
   bool handles(String path) => path.startsWith('/livelihood/');
@@ -54,10 +96,10 @@ class DemoLivelihood {
         return null;
       case ('POST', '/report'):
         _state['lv_has_report'] = true;
-        return _scenario['report'];
+        return _reportForUser();
       case ('GET', '/report/latest'):
         return _state['lv_has_report'] == true
-            ? _scenario['report']
+            ? _reportForUser()
             : _notFound('livelihood.no_report');
       case ('GET', '/schemes'):
         return _schemes(query);
@@ -177,11 +219,7 @@ class DemoLivelihood {
     return reply;
   }
 
-  Never _notFound(String key) => throw ApiException(
-        statusCode: 404,
-        error: 'NOT_FOUND',
-        messageKey: key,
-      );
+  Never _notFound(String key) => throw DemoError(404, 'NOT_FOUND', key);
 
   /// For tests and for the Sample label: the raw fixture.
   static Map<String, dynamic> decode(String json) => jsonDecode(json) as Map<String, dynamic>;

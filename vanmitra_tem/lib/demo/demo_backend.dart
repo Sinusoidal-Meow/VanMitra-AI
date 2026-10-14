@@ -1,15 +1,26 @@
+import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/widgets.dart' show AppLifecycleState, WidgetsBinding, WidgetsBindingObserver;
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:hive_flutter/hive_flutter.dart';
 
 import '../core/api/api_client.dart';
 import '../data/local/hive_database.dart';
+import 'core/demo_accounts.dart';
+import 'core/demo_cases.dart';
+import 'core/demo_core.dart';
+import 'boundary/demo_boundary.dart';
+import 'boundary/demo_notifications.dart';
 import 'demo_livelihood.dart';
-import 'demo_mode.dart';
+import 'demo_seed_claims.dart';
+import 'evidence/demo_evidence.dart';
+import 'forms/demo_forms.dart';
+import 'gramsabha/demo_gramsabha.dart';
+import 'procedure/demo_procedure.dart';
 
-/// Where the demo keeps what the presenter does (details saved, questions asked, claims filed),
-/// so it survives closing the app. Tests use [MemoryDemoStorage].
+/// Where the demo keeps everything the presenters do (accounts, claims, forms, details saved,
+/// questions asked), so it survives closing the app. Tests use [MemoryDemoStorage].
 abstract class DemoStorage {
   Map<String, dynamic> read();
   Future<void> write(Map<String, dynamic> state);
@@ -25,9 +36,15 @@ class MemoryDemoStorage implements DemoStorage {
   Future<void> write(Map<String, dynamic> state) async => _state = state;
 }
 
-/// Kept in the app's own Hive settings box, on the phone only.
+/// Kept in the app's own Hive settings box, on the phone only. Saving the whole database after
+/// every call would be slow once photos are in it, so writes are gathered: the latest state is
+/// saved a moment after the last change.
 class HiveDemoStorage implements DemoStorage {
-  static const _key = 'demo_state';
+  static const _key = 'demo_state_v2';
+  static const _delay = Duration(milliseconds: 600);
+
+  Map<String, dynamic>? _pending;
+  Timer? _timer;
 
   @override
   Map<String, dynamic> read() {
@@ -41,157 +58,159 @@ class HiveDemoStorage implements DemoStorage {
   }
 
   @override
-  Future<void> write(Map<String, dynamic> state) =>
-      Hive.box(HiveDatabase.settingsBox).put(_key, jsonEncode(state));
+  Future<void> write(Map<String, dynamic> state) {
+    _pending = state;
+    _timer ??= Timer(_delay, flush);
+    return Future.value();
+  }
+
+  /// Save now (also called when the app goes to the background).
+  Future<void> flush() async {
+    _timer?.cancel();
+    _timer = null;
+    final state = _pending;
+    _pending = null;
+    if (state != null) await Hive.box(HiveDatabase.settingsBox).put(_key, jsonEncode(state));
+  }
 }
 
-/// The OFFLINE DEMO "server": [ApiClient] hands every call to [handle] instead of the network,
-/// and the answer comes from mock data bundled in the APK. See [DemoMode].
+/// Saves the demo's data when the app goes to the background, so nothing is lost if it is closed
+/// right after an action.
+class DemoLifecycleFlush with WidgetsBindingObserver {
+  DemoLifecycleFlush(this._storage);
+
+  final HiveDemoStorage _storage;
+
+  static void start() =>
+      WidgetsBinding.instance.addObserver(DemoLifecycleFlush(DemoBackend.instance._hive));
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) _storage.flush();
+  }
+}
+
+/// The OFFLINE DEMO "server": [ApiClient] hands every call to [handle] instead of the network.
 ///
-/// Every answer has the same shape the real server sends (Module 4's were produced by the real
-/// rules), so the screens are the real screens. A call this demo does not cover answers 404 and
-/// the screen shows its normal error state.
+/// It is a port of the real backend's rules to Dart, running on the phone over an in-memory
+/// database (accounts and roles, the claim path, Forms A, B and C, evidence, the Gram Sabha, ...)
+/// plus the Module 4 answers made by the real Module 4 rules. Every answer has the same shape the
+/// real server sends, so the screens are the real screens. A call this demo does not cover answers
+/// 404 and the screen shows its normal error state.
 class DemoBackend {
-  DemoBackend({DemoStorage? storage, Future<String> Function(String path)? loadAsset})
-      : _storage = storage ?? MemoryDemoStorage(),
-        _loadAsset = loadAsset ?? rootBundle.loadString;
+  DemoBackend({
+    DemoStorage? storage,
+    Future<String> Function(String path)? loadAsset,
+    DateTime Function()? clock,
+    this.seedSampleClaims = false,
+  })  : _storage = storage ?? MemoryDemoStorage(),
+        _loadAsset = loadAsset ?? rootBundle.loadString,
+        _clock = clock {
+    DemoAccounts.register(_router);
+    DemoCases.register(_router);
+    DemoForms.register(_router);
+    DemoEvidence.register(_router);
+    DemoGramSabha.register(_router);
+    DemoProcedure.register(_router);
+    DemoBoundary.register(_router);
+    DemoNotifications.register(_router);
+    DemoLivelihood.register(_router, _livelihoodFixture);
+  }
 
   static DemoBackend? _instance;
 
   /// The one used by the app (state kept in Hive).
-  static DemoBackend get instance => _instance ??= DemoBackend(storage: HiveDemoStorage());
+  static DemoBackend get instance => _instance ??=
+      DemoBackend(storage: HiveDemoStorage(), seedSampleClaims: true);
+
+  HiveDemoStorage get _hive => _storage as HiveDemoStorage;
 
   /// For tests.
   static set instance(DemoBackend value) => _instance = value;
 
+  /// Make a few SAMPLE claims the first time (see [DemoSeedClaims]).
+  final bool seedSampleClaims;
+
   final DemoStorage _storage;
   final Future<String> Function(String path) _loadAsset;
+  final DateTime Function()? _clock;
+  final DemoRouter _router = DemoRouter();
 
-  Map<String, dynamic>? _state;
-  Map<String, dynamic>? _livelihoodFixture;
+  DemoDb? _db;
+  Map<String, dynamic>? _fixture;
 
   /// The Ozhar village of the sample data (the host's demo village).
-  static const String villageId = '01a11846-11fc-7894-bcb3-597768083ceb';
+  static const String villageId = DemoAccounts.villageId;
 
-  Future<Map<String, dynamic>> _ensureState() async {
-    return _state ??= _storage.read();
-  }
-
-  Future<DemoLivelihood> _livelihood() async {
-    final state = await _ensureState();
-    _livelihoodFixture ??=
+  Future<Map<String, dynamic>> _livelihoodFixture() async {
+    return _fixture ??=
         jsonDecode(await _loadAsset('assets/demo/livelihood_demo.json')) as Map<String, dynamic>;
-    DemoLivelihood.seed(_livelihoodFixture!, state);
-    return DemoLivelihood(_livelihoodFixture!, state);
   }
 
-  /// Forget everything the presenter did (the sample data starts again).
+  DemoDb get _database {
+    final existing = _db;
+    if (existing != null) return existing;
+    final db = DemoDb(_storage.read(), clock: _clock);
+    DemoAccounts.seed(db);
+    return _db = db;
+  }
+
+  /// Forget everything the presenters did (the sample data starts again).
   Future<void> reset() async {
-    _state = {};
-    await _storage.write(_state!);
+    await _storage.write({});
+    _db = null;
   }
 
-  /// The persona signed in: this build's own, or (a build with every persona) whoever logged in.
-  Future<DemoPersona?> _persona() async {
-    final state = await _ensureState();
-    return DemoMode.persona ?? DemoMode.byPhone('${state['phone'] ?? ''}');
-  }
+  /// The signed-in person for a bearer token.
+  Principal? principalFor(String? token) =>
+      DemoAccounts.principalOf(_database, DemoAccounts.userIdOfToken(token));
 
   /// Answer one API call. [rawPath] is the path after /api/v1, with any query string.
-  Future<dynamic> handle(String method, String rawPath, {Object? body}) async {
-    final uri = Uri.parse(rawPath);
-    final path = uri.path;
-    final state = await _ensureState();
-
-    dynamic result;
-    if (path.startsWith('/livelihood/')) {
-      final lv = await _livelihood();
-      result = lv.handle(method, path, uri.queryParametersAll, body);
-    } else {
-      result = await _core(method, path, body, state);
+  Future<dynamic> handle(String method, String rawPath, {Object? body, String? token}) async {
+    final db = _database;
+    if (seedSampleClaims && db.data['sample_claims_v1'] != true) {
+      db.data['sample_claims_v1'] = true; // first, so the calls below cannot start it again
+      await DemoSeedClaims.run((m, p, {body, token}) => _dispatch(m, p, body, token));
     }
-    await _storage.write(state);
+    final result = await _dispatch(method, rawPath, body, token);
+    await _storage.write(db.data);
     return result;
   }
 
-  // ── sign-in, the user, the village list ───────────────────────────────────
-
-  Future<dynamic> _core(
-      String method, String path, Object? body, Map<String, dynamic> state) async {
-    final map = body is Map<String, dynamic> ? body : const <String, dynamic>{};
-    switch ((method, path)) {
-      case ('POST', '/auth/login'):
-        final persona = DemoMode.byPhone('${map['phone']}');
-        final allowed = persona != null &&
-            '${map['pin']}' == DemoPersona.pin &&
-            (DemoMode.persona == null || DemoMode.persona!.id == persona.id);
-        if (!allowed) {
-          throw ApiException(
-            statusCode: 401,
-            error: 'INVALID_CREDENTIALS',
-            messageKey: 'auth.invalid_credentials',
-          );
-        }
-        state['phone'] = persona.phone;
-        return _tokens(persona);
-      case ('POST', '/auth/refresh'):
-        final persona = await _persona();
-        if (persona == null) {
-          throw ApiException(statusCode: 401, error: 'TOKEN_INVALID', messageKey: 'auth.token_invalid');
-        }
-        return _tokens(persona);
-      case ('POST', '/auth/register'):
-        throw ApiException(
-          statusCode: 403,
-          error: 'DEMO_MODE',
-          messageKey: 'demo.no_registration',
-        );
-      case ('GET', '/me'):
-        final persona = await _persona();
-        if (persona == null) {
-          throw ApiException(statusCode: 401, error: 'NOT_AUTHENTICATED', messageKey: 'auth.not_authenticated');
-        }
-        return {
-          'id': 'demo-${persona.id}',
-          'name': persona.name,
-          'phone': persona.phone,
-          'is_admin': false,
-          'created_at': '2026-10-01T09:00:00Z',
-          'roles': [
-            {
-              'role': 'villager',
-              'village_id': villageId,
-              'taluka': 'Jawhar',
-              'district': 'Palghar',
-            },
-          ],
-        };
-      case ('GET', '/public/villages'):
-        return [
-          {'id': villageId, 'name_en': 'Ozhar (Jawhar, Palghar)', 'name_mr': 'ओझर (जव्हार, पालघर)'},
-        ];
+  Future<dynamic> _dispatch(String method, String rawPath, Object? body, String? token) async {
+    final uri = Uri.parse(rawPath);
+    final path = uri.path;
+    final db = _database;
+    try {
+      final found = _router.match(method, path);
+      if (found != null) {
+        return await found.handler(DemoRequest(
+          method: method,
+          path: path,
+          params: found.params,
+          query: uri.queryParametersAll,
+          body: body,
+          db: db,
+          principal: DemoAccounts.principalOf(db, DemoAccounts.userIdOfToken(token)),
+        ));
+      }
+      if (method == 'GET' && _emptyLists.any((re) => re.hasMatch(path))) {
+        // lists the dashboard asks for on every start that this demo has nothing in
+        return <dynamic>[];
+      }
+      throw DemoError(404, 'NOT_FOUND', 'demo.not_available');
+    } on DemoError catch (e) {
+      throw ApiException(
+        statusCode: e.status,
+        error: e.error,
+        messageKey: e.messageKey,
+        rule: e.rule,
+        details: e.details,
+      );
     }
-    // lists the dashboard asks for on every start: nothing there (rather than an error on a tab
-    // this demo does not use)
-    if (method == 'GET' && _emptyLists.any((re) => re.hasMatch(path))) return <dynamic>[];
-    throw ApiException(
-      statusCode: 404,
-      error: 'NOT_FOUND',
-      messageKey: 'demo.not_available',
-    );
   }
 
   static final List<RegExp> _emptyLists = [
-    RegExp(r'^/cases/mine$'),
-    RegExp(r'^/review/queue$'),
     RegExp(r'^/notifications'),
-    RegExp(r'^/villages/[^/]+/(cases|meetings|members|claim-calls)$'),
   ];
-
-  Map<String, dynamic> _tokens(DemoPersona p) => {
-        'access_token': 'demo-access-${p.id}',
-        'refresh_token': 'demo-refresh-${p.id}',
-        'token_type': 'bearer',
-        'expires_in': 86400,
-      };
 }
