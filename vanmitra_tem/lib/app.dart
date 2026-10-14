@@ -20,6 +20,7 @@ import 'screens/gram_sabha/resolution_ledger_screen.dart';
 import 'screens/profile/profile_screen.dart';
 import 'core/routes/app_router.dart';
 import 'features/form_b/form_b_home_screen.dart';
+import 'features/livelihood/livelihood_routes.dart'; // Module 4 (VanRozgar)
 import 'screens/claims/claim_type_selection_screen.dart';
 import 'screens/claims/claim_form_screen.dart';
 import 'screens/claims/evidence_checklist_screen.dart';
@@ -91,6 +92,8 @@ class VanMitraApp extends ConsumerWidget {
         );
       },
       routes: {
+        // Module 4 (VanRozgar): /livelihood, /livelihood/details, /report, /resources, /policy
+        ...livelihoodRoutes,
         AppRouter.splash: (_) => const SplashScreen(),
         AppRouter.languageSelection: (_) => const LanguageSelectionScreen(),
         AppRouter.registration: (_) => const RegistrationScreen(),

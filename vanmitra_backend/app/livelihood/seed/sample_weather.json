@@ -1,0 +1,17 @@
+{
+  "_note": "SYNTHETIC sample numbers for the prototype only. Not measured data. Real typical-weather data comes in Phase 3 (docs/DATA_PLAN.md).",
+  "months": [
+    {"month": 1,  "rain_mm": 1,   "tmax_c": 31},
+    {"month": 2,  "rain_mm": 1,   "tmax_c": 33},
+    {"month": 3,  "rain_mm": 3,   "tmax_c": 36},
+    {"month": 4,  "rain_mm": 12,  "tmax_c": 38},
+    {"month": 5,  "rain_mm": 40,  "tmax_c": 37},
+    {"month": 6,  "rain_mm": 520, "tmax_c": 32},
+    {"month": 7,  "rain_mm": 980, "tmax_c": 29},
+    {"month": 8,  "rain_mm": 680, "tmax_c": 29},
+    {"month": 9,  "rain_mm": 330, "tmax_c": 30},
+    {"month": 10, "rain_mm": 90,  "tmax_c": 33},
+    {"month": 11, "rain_mm": 14,  "tmax_c": 32},
+    {"month": 12, "rain_mm": 2,   "tmax_c": 30}
+  ]
+}

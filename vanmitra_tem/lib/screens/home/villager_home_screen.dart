@@ -19,6 +19,8 @@ import '../../widgets/portal_frame_scaffold.dart';
 import '../../features/case_hub/cases_list_screen.dart';
 import '../../features/case_hub/new_claim.dart';
 import '../../features/gram_sabha_records/gram_sabha_records_screen.dart';
+import '../../features/livelihood/livelihood_routes.dart';
+import '../../features/livelihood/livelihood_strings.dart';
 import '../profile/profile_screen.dart';
 import 'alert_detail_screen.dart';
 import 'boundary_map_screen.dart';
@@ -222,6 +224,16 @@ class _HomeTab extends ConsumerWidget {
                           iconColor: AppColors.womenQuorum,
                           onTap: () => Navigator.pushNamed(
                               context, AppRouter.fraRightsInfo),
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        // Module 4 (VanRozgar): resources near his land + work ideas
+                        ActionListItem(
+                          icon: Icons.agriculture_rounded,
+                          title: LivelihoodStrings.of(context).t('lv_card_title'),
+                          subtitle: LivelihoodStrings.of(context).t('lv_card_sub'),
+                          iconColor: AppColors.saffron,
+                          onTap: () => Navigator.pushNamed(
+                              context, LivelihoodRoutes.home),
                         ),
                         const SizedBox(height: AppSpacing.xl),
 

@@ -1,0 +1,394 @@
+{
+ "type": "FeatureCollection",
+ "dataset": "sample_demo",
+ "data_version": "v1",
+ "is_sample": true,
+ "source": "VanMitra SAMPLE data (synthetic, not a real survey)",
+ "source_date": "2026-10-14",
+ "features": [
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     73.223576,
+     19.783406
+    ]
+   },
+   "properties": {
+    "id": "smp_01_well",
+    "kind": "well",
+    "district": "Palghar",
+    "tag_hint": "none",
+    "sensitive": false,
+    "confidence": "low",
+    "check_status": "to_verify",
+    "attrs": {
+     "perennial": true,
+     "months_available": 12,
+     "condition": "good",
+     "working": true
+    },
+    "name_en": "Sample well near the plot",
+    "name_mr": "नमुना विहीर"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     73.237528,
+     19.771466
+    ]
+   },
+   "properties": {
+    "id": "smp_02_checkdam",
+    "kind": "water_structure",
+    "district": "Palghar",
+    "tag_hint": "none",
+    "sensitive": false,
+    "confidence": "low",
+    "check_status": "to_verify",
+    "attrs": {
+     "perennial": false,
+     "months_available": 4,
+     "silted": true
+    },
+    "name_en": "Sample check dam",
+    "name_mr": "नमुना बंधारा"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     73.217084,
+     19.770314
+    ]
+   },
+   "properties": {
+    "id": "smp_03_dry_pond",
+    "kind": "water_body",
+    "district": "Palghar",
+    "tag_hint": "none",
+    "sensitive": false,
+    "confidence": "low",
+    "check_status": "to_verify",
+    "attrs": {
+     "dry": true,
+     "perennial": false,
+     "months_available": 2,
+     "condition": "poor"
+    },
+    "name_en": "Sample dry pond",
+    "name_mr": "नमुना कोरडा तलाव"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      73.192372,
+      19.766948
+     ],
+     [
+      73.192372,
+      19.794048
+     ]
+    ]
+   },
+   "properties": {
+    "id": "smp_04_river",
+    "kind": "river",
+    "district": "Palghar",
+    "tag_hint": "none",
+    "sensitive": false,
+    "confidence": "low",
+    "check_status": "to_verify",
+    "attrs": {
+     "perennial": true,
+     "months_available": 12
+    },
+    "name_en": "Sample river",
+    "name_mr": "नमुना नदी"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       73.210979,
+       19.789524
+      ],
+      [
+       73.216705,
+       19.789524
+      ],
+      [
+       73.216705,
+       19.794944
+      ],
+      [
+       73.210979,
+       19.794944
+      ],
+      [
+       73.210979,
+       19.789524
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "id": "smp_05_forest_cfr",
+    "kind": "forest_compartment",
+    "district": "Palghar",
+    "tag_hint": "cfr",
+    "sensitive": false,
+    "confidence": "low",
+    "check_status": "to_verify",
+    "attrs": {},
+    "name_en": "Sample community forest",
+    "name_mr": "नमुना सामूहिक वन"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       73.222446,
+       19.80092
+      ],
+      [
+       73.228172,
+       19.80092
+      ],
+      [
+       73.228172,
+       19.80634
+      ],
+      [
+       73.222446,
+       19.80634
+      ],
+      [
+       73.222446,
+       19.80092
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "id": "smp_06_wildlife",
+    "kind": "wildlife_compartment",
+    "district": "Palghar",
+    "tag_hint": "none",
+    "sensitive": false,
+    "confidence": "low",
+    "check_status": "to_verify",
+    "attrs": {},
+    "name_en": "Sample wildlife compartment",
+    "name_mr": "नमुना वन्यजीव विभाग"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     73.253893,
+     19.785987
+    ]
+   },
+   "properties": {
+    "id": "smp_07_tank_unchecked",
+    "kind": "water_body",
+    "district": "Palghar",
+    "tag_hint": "none",
+    "sensitive": false,
+    "confidence": "low",
+    "check_status": "to_verify",
+    "attrs": {},
+    "name_en": "Sample tank (nothing checked)",
+    "name_mr": "नमुना टाके (तपासलेले नाही)"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       73.260125,
+       19.766937
+      ],
+      [
+       73.307839,
+       19.766937
+      ],
+      [
+       73.307839,
+       19.794037
+      ],
+      [
+       73.260125,
+       19.794037
+      ],
+      [
+       73.260125,
+       19.766937
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "id": "smp_08_forest_large",
+    "kind": "forest_compartment",
+    "district": "Palghar",
+    "tag_hint": "none",
+    "sensitive": false,
+    "confidence": "low",
+    "check_status": "to_verify",
+    "attrs": {},
+    "name_en": "Sample large forest (centroid beyond 6 km, edge at 4.1 km)",
+    "name_mr": "नमुना मोठे वन"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     73.179681,
+     19.803074
+    ]
+   },
+   "properties": {
+    "id": "smp_09_edge_inside",
+    "kind": "water_body",
+    "district": "Palghar",
+    "tag_hint": "none",
+    "sensitive": false,
+    "confidence": "low",
+    "check_status": "to_verify",
+    "attrs": {
+     "perennial": false,
+     "months_available": 6,
+     "condition": "fair"
+    },
+    "name_en": "Sample pond at 4,999 m",
+    "name_mr": "नमुना तलाव ४९९९ मी"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     73.176159,
+     19.765043
+    ]
+   },
+   "properties": {
+    "id": "smp_10_edge_outside",
+    "kind": "water_body",
+    "district": "Palghar",
+    "tag_hint": "none",
+    "sensitive": false,
+    "confidence": "low",
+    "check_status": "to_verify",
+    "attrs": {
+     "perennial": true,
+     "months_available": 12,
+     "condition": "good"
+    },
+    "name_en": "Sample pond at 5,001 m",
+    "name_mr": "नमुना तलाव ५००१ मी"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       73.225342,
+       19.756568
+      ],
+      [
+       73.232975,
+       19.756568
+      ],
+      [
+       73.232975,
+       19.761988
+      ],
+      [
+       73.225342,
+       19.761988
+      ],
+      [
+       73.225342,
+       19.756568
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "id": "smp_11_grazing",
+    "kind": "grazing_land",
+    "district": "Palghar",
+    "tag_hint": "cfr",
+    "sensitive": false,
+    "confidence": "medium",
+    "check_status": "to_verify",
+    "attrs": {},
+    "name_en": "Sample grazing land (CFR approval)",
+    "name_mr": "नमुना चराई जमीन"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      73.228438,
+      19.784565
+     ],
+     [
+      73.23009,
+      19.775531
+     ]
+    ]
+   },
+   "properties": {
+    "id": "smp_12_drainage",
+    "kind": "drainage_line",
+    "district": "Palghar",
+    "tag_hint": "none",
+    "sensitive": false,
+    "confidence": "low",
+    "check_status": "to_verify",
+    "attrs": {
+     "perennial": false,
+     "months_available": 5
+    },
+    "name_en": "Sample drainage line",
+    "name_mr": "नमुना ओढा"
+   }
+  }
+ ]
+}

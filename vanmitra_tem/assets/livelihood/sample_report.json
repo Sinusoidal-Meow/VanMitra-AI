@@ -1,0 +1,699 @@
+{
+  "id": "sample-report",
+  "generated_at": "2026-10-14T12:00:00Z",
+  "data_version": "v1",
+  "is_sample_data": true,
+  "newer_version_available": false,
+  "header": {
+    "name": "Demo villager",
+    "village": {
+      "id": "sample_ozhar",
+      "name_mr": "ओझर",
+      "name_en": "Ozhar"
+    },
+    "report_level": "plot",
+    "centre": {
+      "lat": 19.7805,
+      "lng": 73.221,
+      "source": "gps"
+    },
+    "radius_m": 5000,
+    "cfr_status": null,
+    "trust": {
+      "source": "VanMitra SAMPLE data (synthetic, not a real survey)",
+      "source_date": "2026-10-14",
+      "check_status": "to_verify",
+      "confidence": null
+    }
+  },
+  "resources": [
+    {
+      "id": "smp_01_well",
+      "kind": "well",
+      "name_mr": "नमुना विहीर",
+      "name_en": "Sample well near the plot",
+      "distance_m": 420,
+      "tag": "near",
+      "label": "useful",
+      "reason": {
+        "key": "reason.good_all_round",
+        "params": {}
+      },
+      "checked_on_ground": false,
+      "unknown_checks": [],
+      "use_only_through_gram_sabha": false,
+      "trust": {
+        "source": "VanMitra SAMPLE data (synthetic, not a real survey)",
+        "source_date": "2026-10-14",
+        "check_status": "to_verify",
+        "confidence": "low"
+      }
+    },
+    {
+      "id": "smp_12_drainage",
+      "kind": "drainage_line",
+      "name_mr": "नमुना ओढा",
+      "name_en": "Sample drainage line",
+      "distance_m": 845,
+      "tag": "near",
+      "label": "partly_useful",
+      "reason": {
+        "key": "reason.low_water_months",
+        "params": {
+          "months": 5
+        }
+      },
+      "checked_on_ground": false,
+      "unknown_checks": [
+        "condition"
+      ],
+      "use_only_through_gram_sabha": false,
+      "trust": {
+        "source": "VanMitra SAMPLE data (synthetic, not a real survey)",
+        "source_date": "2026-10-14",
+        "check_status": "to_verify",
+        "confidence": "low"
+      }
+    },
+    {
+      "id": "smp_05_forest_cfr",
+      "kind": "forest_compartment",
+      "name_mr": "नमुना सामूहिक वन",
+      "name_en": "Sample community forest",
+      "distance_m": 1096,
+      "tag": "inside_cfr",
+      "label": "partly_useful",
+      "reason": {
+        "key": "reason.not_checked",
+        "params": {}
+      },
+      "checked_on_ground": false,
+      "unknown_checks": [
+        "availability",
+        "condition",
+        "season"
+      ],
+      "use_only_through_gram_sabha": true,
+      "trust": {
+        "source": "VanMitra SAMPLE data (synthetic, not a real survey)",
+        "source_date": "2026-10-14",
+        "check_status": "to_verify",
+        "confidence": "low"
+      }
+    },
+    {
+      "id": "smp_03_dry_pond",
+      "kind": "water_body",
+      "name_mr": "नमुना कोरडा तलाव",
+      "name_en": "Sample dry pond",
+      "distance_m": 1200,
+      "tag": "near",
+      "label": "not_useful",
+      "reason": {
+        "key": "reason.water_dry",
+        "params": {}
+      },
+      "checked_on_ground": false,
+      "unknown_checks": [],
+      "use_only_through_gram_sabha": false,
+      "trust": {
+        "source": "VanMitra SAMPLE data (synthetic, not a real survey)",
+        "source_date": "2026-10-14",
+        "check_status": "to_verify",
+        "confidence": "low"
+      }
+    },
+    {
+      "id": "smp_02_checkdam",
+      "kind": "water_structure",
+      "name_mr": "नमुना बंधारा",
+      "name_en": "Sample check dam",
+      "distance_m": 2000,
+      "tag": "near",
+      "label": "partly_useful",
+      "reason": {
+        "key": "reason.silted",
+        "params": {}
+      },
+      "checked_on_ground": false,
+      "unknown_checks": [],
+      "use_only_through_gram_sabha": false,
+      "trust": {
+        "source": "VanMitra SAMPLE data (synthetic, not a real survey)",
+        "source_date": "2026-10-14",
+        "check_status": "to_verify",
+        "confidence": "low"
+      }
+    },
+    {
+      "id": "smp_11_grazing",
+      "kind": "grazing_land",
+      "name_mr": "नमुना चराई जमीन",
+      "name_en": "Sample grazing land (CFR approval)",
+      "distance_m": 2099,
+      "tag": "inside_cfr",
+      "label": "partly_useful",
+      "reason": {
+        "key": "reason.not_checked",
+        "params": {}
+      },
+      "checked_on_ground": false,
+      "unknown_checks": [
+        "availability",
+        "condition",
+        "season"
+      ],
+      "use_only_through_gram_sabha": true,
+      "trust": {
+        "source": "VanMitra SAMPLE data (synthetic, not a real survey)",
+        "source_date": "2026-10-14",
+        "check_status": "to_verify",
+        "confidence": "medium"
+      }
+    },
+    {
+      "id": "smp_04_river",
+      "kind": "river",
+      "name_mr": "नमुना नदी",
+      "name_en": "Sample river",
+      "distance_m": 3000,
+      "tag": "near",
+      "label": "useful",
+      "reason": {
+        "key": "reason.good_on_what_is_known",
+        "params": {}
+      },
+      "checked_on_ground": false,
+      "unknown_checks": [
+        "condition"
+      ],
+      "use_only_through_gram_sabha": false,
+      "trust": {
+        "source": "VanMitra SAMPLE data (synthetic, not a real survey)",
+        "source_date": "2026-10-14",
+        "check_status": "to_verify",
+        "confidence": "low"
+      }
+    },
+    {
+      "id": "smp_07_tank_unchecked",
+      "kind": "water_body",
+      "name_mr": "नमुना टाके (तपासलेले नाही)",
+      "name_en": "Sample tank (nothing checked)",
+      "distance_m": 3500,
+      "tag": "near",
+      "label": "partly_useful",
+      "reason": {
+        "key": "reason.far_from_you",
+        "params": {
+          "distance_m": 3500
+        }
+      },
+      "checked_on_ground": false,
+      "unknown_checks": [
+        "availability",
+        "condition",
+        "season"
+      ],
+      "use_only_through_gram_sabha": false,
+      "trust": {
+        "source": "VanMitra SAMPLE data (synthetic, not a real survey)",
+        "source_date": "2026-10-14",
+        "check_status": "to_verify",
+        "confidence": "low"
+      }
+    },
+    {
+      "id": "smp_08_forest_large",
+      "kind": "forest_compartment",
+      "name_mr": "नमुना मोठे वन",
+      "name_en": "Sample large forest (centroid beyond 6 km, edge at 4.1 km)",
+      "distance_m": 4100,
+      "tag": "near",
+      "label": "partly_useful",
+      "reason": {
+        "key": "reason.far_from_you",
+        "params": {
+          "distance_m": 4100
+        }
+      },
+      "checked_on_ground": false,
+      "unknown_checks": [
+        "availability",
+        "condition",
+        "season"
+      ],
+      "use_only_through_gram_sabha": false,
+      "trust": {
+        "source": "VanMitra SAMPLE data (synthetic, not a real survey)",
+        "source_date": "2026-10-14",
+        "check_status": "to_verify",
+        "confidence": "low"
+      }
+    },
+    {
+      "id": "smp_09_edge_inside",
+      "kind": "water_body",
+      "name_mr": "नमुना तलाव ४९९९ मी",
+      "name_en": "Sample pond at 4,999 m",
+      "distance_m": 4999,
+      "tag": "near",
+      "label": "partly_useful",
+      "reason": {
+        "key": "reason.low_water_months",
+        "params": {
+          "months": 6
+        }
+      },
+      "checked_on_ground": false,
+      "unknown_checks": [],
+      "use_only_through_gram_sabha": false,
+      "trust": {
+        "source": "VanMitra SAMPLE data (synthetic, not a real survey)",
+        "source_date": "2026-10-14",
+        "check_status": "to_verify",
+        "confidence": "low"
+      }
+    }
+  ],
+  "counts": {
+    "useful": 2,
+    "partly_useful": 7,
+    "not_useful": 1,
+    "total": 10
+  },
+  "told_by_you": [
+    {
+      "kind": "animal",
+      "code": "cow",
+      "count": 2,
+      "tag": "told_by_you"
+    },
+    {
+      "kind": "animal",
+      "code": "goat_sheep",
+      "count": 5,
+      "tag": "told_by_you"
+    },
+    {
+      "kind": "animal",
+      "code": "poultry",
+      "count": 10,
+      "tag": "told_by_you"
+    },
+    {
+      "kind": "asset",
+      "code": "pump",
+      "count": null,
+      "tag": "told_by_you"
+    },
+    {
+      "kind": "asset",
+      "code": "shed",
+      "count": null,
+      "tag": "told_by_you"
+    },
+    {
+      "kind": "asset",
+      "code": "well",
+      "count": null,
+      "tag": "told_by_you"
+    }
+  ],
+  "analysis": {
+    "headline": {
+      "key": "analysis.headline.livestock",
+      "params": {
+        "idea": "backyard_poultry"
+      }
+    },
+    "strengths": [
+      {
+        "key": "analysis.water_nearby",
+        "params": {
+          "count": 6,
+          "nearest_m": 420,
+          "radius_m": 5000
+        }
+      },
+      {
+        "key": "analysis.grazing_nearby",
+        "params": {
+          "nearest_m": 2099
+        }
+      },
+      {
+        "key": "analysis.forest_nearby",
+        "params": {
+          "count": 2,
+          "gram_sabha_only": true
+        }
+      }
+    ],
+    "constraints": [],
+    "own_resources": [
+      {
+        "key": "analysis.you_have_animals",
+        "params": {
+          "cow": 2,
+          "goat_sheep": 5,
+          "poultry": 10
+        }
+      },
+      {
+        "key": "analysis.you_have_assets",
+        "params": {
+          "assets": [
+            "pump",
+            "shed",
+            "well"
+          ]
+        }
+      },
+      {
+        "key": "analysis.your_land",
+        "params": {
+          "area_ha": 1.21
+        }
+      }
+    ],
+    "next_steps": [
+      {
+        "key": "analysis.verify_with_frc",
+        "params": {}
+      }
+    ],
+    "notes": [
+      "market_not_checked",
+      "dataset_is_sample"
+    ]
+  },
+  "ideas": [
+    {
+      "rank": 1,
+      "code": "backyard_poultry",
+      "name_mr": "परसबागेतील कुक्कुटपालन",
+      "name_en": "Backyard poultry",
+      "group": "build_on_your_work",
+      "fit": "good",
+      "reason": {
+        "key": "idea.reason.animals_and_resources",
+        "params": {
+          "nearest_m": 420
+        }
+      },
+      "resources_used": [
+        "smp_01_well"
+      ],
+      "cost_level": "low",
+      "best_season": "year_round",
+      "wildlife_risk": "low",
+      "flags": [],
+      "schemes_count": 0,
+      "draft": true
+    },
+    {
+      "rank": 2,
+      "code": "dairy_small",
+      "name_mr": "दुग्धव्यवसाय",
+      "name_en": "Small dairy",
+      "group": "build_on_your_work",
+      "fit": "good",
+      "reason": {
+        "key": "idea.reason.animals_and_resources",
+        "params": {
+          "nearest_m": 420
+        }
+      },
+      "resources_used": [
+        "smp_01_well",
+        "smp_11_grazing"
+      ],
+      "cost_level": "medium",
+      "best_season": "year_round",
+      "wildlife_risk": "low",
+      "flags": [
+        {
+          "key": "flag.through_gram_sabha",
+          "params": {}
+        }
+      ],
+      "schemes_count": 0,
+      "draft": true
+    },
+    {
+      "rank": 3,
+      "code": "goat_rearing",
+      "name_mr": "शेळीपालन",
+      "name_en": "Goat rearing",
+      "group": "build_on_your_work",
+      "fit": "good",
+      "reason": {
+        "key": "idea.reason.animals_and_resources",
+        "params": {
+          "nearest_m": 420
+        }
+      },
+      "resources_used": [
+        "smp_11_grazing",
+        "smp_01_well"
+      ],
+      "cost_level": "low",
+      "best_season": "year_round",
+      "wildlife_risk": "low",
+      "flags": [
+        {
+          "key": "flag.through_gram_sabha",
+          "params": {}
+        }
+      ],
+      "schemes_count": 0,
+      "draft": true
+    },
+    {
+      "rank": 4,
+      "code": "millets_pulses",
+      "name_mr": "नाचणी व कडधान्ये",
+      "name_en": "Millets and pulses",
+      "group": "build_on_your_work",
+      "fit": "fair",
+      "reason": {
+        "key": "idea.reason.matches_past_work",
+        "params": {}
+      },
+      "resources_used": [],
+      "cost_level": "low",
+      "best_season": "kharif",
+      "wildlife_risk": "low",
+      "flags": [],
+      "schemes_count": 0,
+      "draft": true
+    },
+    {
+      "rank": 5,
+      "code": "fodder_bank",
+      "name_mr": "चारा बँक",
+      "name_en": "Fodder bank",
+      "group": "build_on_your_work",
+      "fit": "fair",
+      "reason": {
+        "key": "idea.reason.animals_and_resources",
+        "params": {
+          "nearest_m": 2099
+        }
+      },
+      "resources_used": [
+        "smp_11_grazing"
+      ],
+      "cost_level": "low",
+      "best_season": "year_round",
+      "wildlife_risk": "low",
+      "flags": [
+        {
+          "key": "flag.through_gram_sabha",
+          "params": {}
+        },
+        {
+          "key": "flag.group_only",
+          "params": {}
+        }
+      ],
+      "schemes_count": 0,
+      "draft": true
+    }
+  ],
+  "removed": [
+    {
+      "code": "lease_land_commercial",
+      "name_mr": "जमीन भाड्याने देणे किंवा विकणे",
+      "name_en": "Lease or sell your land to an outside party",
+      "gate": "LAND_SALE_OR_LEASE",
+      "reason": {
+        "key": "gate.land_sale_or_lease",
+        "params": {}
+      }
+    },
+    {
+      "code": "timber_sale",
+      "name_mr": "लाकूड तोडून विकणे",
+      "name_en": "Cut and sell timber from nearby forest",
+      "gate": "TIMBER_OR_HARM",
+      "reason": {
+        "key": "gate.timber_or_harm",
+        "params": {}
+      }
+    },
+    {
+      "code": "agroforestry_fruit",
+      "name_mr": "बांधावर फळझाडे",
+      "name_en": "Fruit trees on field bunds",
+      "gate": null,
+      "reason": {
+        "key": "reason.held_back_lower_fit",
+        "params": {}
+      }
+    },
+    {
+      "code": "plant_nursery",
+      "name_mr": "रोपवाटिका",
+      "name_en": "Plant nursery",
+      "gate": null,
+      "reason": {
+        "key": "reason.held_back_lower_fit",
+        "params": {}
+      }
+    },
+    {
+      "code": "vegetables_drip",
+      "name_mr": "ठिबक भाजीपाला",
+      "name_en": "Drip vegetables",
+      "gate": null,
+      "reason": {
+        "key": "reason.held_back_lower_fit",
+        "params": {}
+      }
+    },
+    {
+      "code": "mushroom_shed",
+      "name_mr": "अळिंबी शेती",
+      "name_en": "Mushroom farming",
+      "gate": null,
+      "reason": {
+        "key": "reason.held_back_lower_fit",
+        "params": {}
+      }
+    },
+    {
+      "code": "beekeeping_box",
+      "name_mr": "मधमाशीपालन",
+      "name_en": "Box beekeeping on own land",
+      "gate": null,
+      "reason": {
+        "key": "reason.held_back_lower_fit",
+        "params": {}
+      }
+    },
+    {
+      "code": "forest_watch_work",
+      "name_mr": "वन संरक्षण कामे (ग्रामसभेमार्फत)",
+      "name_en": "Community forest work: fire-lines, patrol, watershed, nature guide",
+      "gate": null,
+      "reason": {
+        "key": "reason.held_back_lower_fit",
+        "params": {}
+      }
+    },
+    {
+      "code": "mfp_collection_group",
+      "name_mr": "वनोपज संकलन (ग्रामसभेमार्फत)",
+      "name_en": "Minor forest produce (honey, bamboo, lac) through the Gram Sabha",
+      "gate": null,
+      "reason": {
+        "key": "reason.held_back_lower_fit",
+        "params": {}
+      }
+    },
+    {
+      "code": "fish_pond_group",
+      "name_mr": "तलावातील मत्स्यपालन (गटाने)",
+      "name_en": "Fish culture in a village pond",
+      "gate": null,
+      "reason": {
+        "key": "reason.held_back_lower_fit",
+        "params": {}
+      }
+    }
+  ],
+  "weather": {
+    "is_sample": true,
+    "months": [
+      {
+        "month": 1,
+        "rain_mm": 1.0,
+        "tmax_c": 31.0
+      },
+      {
+        "month": 2,
+        "rain_mm": 1.0,
+        "tmax_c": 33.0
+      },
+      {
+        "month": 3,
+        "rain_mm": 3.0,
+        "tmax_c": 36.0
+      },
+      {
+        "month": 4,
+        "rain_mm": 12.0,
+        "tmax_c": 38.0
+      },
+      {
+        "month": 5,
+        "rain_mm": 40.0,
+        "tmax_c": 37.0
+      },
+      {
+        "month": 6,
+        "rain_mm": 520.0,
+        "tmax_c": 32.0
+      },
+      {
+        "month": 7,
+        "rain_mm": 980.0,
+        "tmax_c": 29.0
+      },
+      {
+        "month": 8,
+        "rain_mm": 680.0,
+        "tmax_c": 29.0
+      },
+      {
+        "month": 9,
+        "rain_mm": 330.0,
+        "tmax_c": 30.0
+      },
+      {
+        "month": 10,
+        "rain_mm": 90.0,
+        "tmax_c": 33.0
+      },
+      {
+        "month": 11,
+        "rain_mm": 14.0,
+        "tmax_c": 32.0
+      },
+      {
+        "month": 12,
+        "rain_mm": 2.0,
+        "tmax_c": 30.0
+      }
+    ],
+    "note_key": "weather.typical_not_forecast"
+  },
+  "disasters": {
+    "is_sample": true,
+    "items": [],
+    "none_found_notice": true
+  },
+  "footer_key": "footer.suggestion_only"
+}

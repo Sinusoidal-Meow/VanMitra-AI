@@ -44,10 +44,18 @@ class Settings(BaseSettings):
     # Old "Model A" AI endpoints, kept until the app migrates (BACKEND_PLAN B-04).
     enable_legacy_api: bool = True
 
+    # Module 4 (VanRozgar, the livelihood report). The demo route is unauthenticated and serves
+    # SAMPLE data: keep it off anywhere real users are involved.
+    livelihood_demo_endpoints: bool = False
+    livelihood_default_radius_m: int = 5000  # "near" = 5 km
+    livelihood_max_radius_m: int = 10000
+
     @model_validator(mode="after")
     def _no_dev_secret_in_production(self) -> "Settings":
         if self.env == "production" and self.jwt_secret == _DEV_JWT_SECRET:
             raise ValueError("VANMITRA_JWT_SECRET must be set in production")
+        if self.env == "production" and self.livelihood_demo_endpoints:
+            raise ValueError("VANMITRA_LIVELIHOOD_DEMO_ENDPOINTS must be off in production")
         return self
 
 

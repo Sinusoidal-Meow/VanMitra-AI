@@ -1,0 +1,40 @@
+{
+ "village_id": "sample_ozhar",
+ "name_mr": "ओझर",
+ "name_en": "Ozhar",
+ "centroid_lat": 19.78,
+ "centroid_lng": 73.22,
+ "boundary": null,
+ "cfr_polygons": [
+  {
+   "type": "Polygon",
+   "coordinates": [
+    [
+     [
+      73.207162,
+      19.785911
+     ],
+     [
+      73.220523,
+      19.785911
+     ],
+     [
+      73.220523,
+      19.798558
+     ],
+     [
+      73.207162,
+      19.798558
+     ],
+     [
+      73.207162,
+      19.785911
+     ]
+    ]
+   ]
+  }
+ ],
+ "source": "SAMPLE: approximate village centre; sample CFR shape, not the real boundary",
+ "source_date": "2026-10-14",
+ "is_sample": true
+}

@@ -442,6 +442,12 @@ INDEXES: dict[str, list[IndexModel]] = {
     ],
 }
 
+# Module 4 (VanRozgar) collections: lv_profile, lv_report, lv_resource (2dsphere), lv_idea, ...
+# Created, like the rest, by `python -m scripts.setup_mongo` (a person runs it).
+from .livelihood.mongo_store import INDEXES as _LIVELIHOOD_INDEXES  # noqa: E402
+
+INDEXES.update(_LIVELIHOOD_INDEXES)
+
 
 def ensure_indexes(database: Database[Raw]) -> list[str]:
     """Create the collections' indexes if missing (safe to run again). Returns their names."""

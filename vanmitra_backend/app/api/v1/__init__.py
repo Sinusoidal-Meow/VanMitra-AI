@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 
+from ...livelihood.router import router as livelihood_router
 from . import (
     admin,
     auth,
@@ -42,3 +43,4 @@ router.include_router(documents.router)
 router.include_router(followup.router)
 router.include_router(notifications.router)
 router.include_router(devices.router)
+router.include_router(livelihood_router)  # Module 4 (VanRozgar): /api/v1/livelihood/*

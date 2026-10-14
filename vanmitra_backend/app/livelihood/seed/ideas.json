@@ -1,0 +1,115 @@
+{
+  "_note": "DRAFT idea library, NOT reviewed by a forest-law expert, an agriculture expert, an animal-welfare NGO or the Forest Department. Marathi names are machine drafts. See docs/IDEA_LIBRARY.md.",
+  "ideas": [
+    {
+      "code": "dairy_small", "name_en": "Small dairy", "name_mr": "दुग्धव्यवसाय", "family": "livestock",
+      "needs": [["well","water_body","water_structure","asset:well","asset:borewell","asset:farm_pond"], ["grazing_land","asset:fodder_land"]],
+      "cost_level": "medium", "best_season": "year_round", "wildlife_risk": "low", "min_land_ha": 0.2,
+      "tags": ["water_hungry","heat_sensitive"], "ease": 0.6, "green": 0.6,
+      "p_hints": {"past_work": ["dairy"], "animals": ["cow","buffalo"]}
+    },
+    {
+      "code": "goat_rearing", "name_en": "Goat rearing", "name_mr": "शेळीपालन", "family": "livestock",
+      "needs": [["grazing_land","asset:fodder_land"], ["well","water_body","water_structure","asset:well","asset:borewell","asset:farm_pond"]],
+      "cost_level": "low", "best_season": "year_round", "wildlife_risk": "low", "min_land_ha": 0.1,
+      "tags": [], "ease": 0.7, "green": 0.6,
+      "p_hints": {"past_work": ["goat_rearing"], "animals": ["goat_sheep"]}
+    },
+    {
+      "code": "backyard_poultry", "name_en": "Backyard poultry", "name_mr": "परसबागेतील कुक्कुटपालन", "family": "livestock",
+      "needs": [["well","water_body","water_structure","asset:well","asset:borewell","asset:farm_pond"]],
+      "cost_level": "low", "best_season": "year_round", "wildlife_risk": "low", "min_land_ha": null,
+      "tags": ["heat_sensitive"], "ease": 0.8, "green": 0.7,
+      "p_hints": {"past_work": ["poultry"], "animals": ["poultry"]}
+    },
+    {
+      "code": "vegetables_drip", "name_en": "Drip vegetables", "name_mr": "ठिबक भाजीपाला", "family": "well",
+      "needs": [["well","water_body","water_structure","asset:well","asset:borewell","asset:farm_pond"]],
+      "cost_level": "medium", "best_season": "rabi", "wildlife_risk": "low", "min_land_ha": 0.1,
+      "tags": ["water_hungry","heat_sensitive"], "ease": 0.5, "green": 0.6,
+      "p_hints": {"past_work": ["vegetables"], "animals": []}
+    },
+    {
+      "code": "mushroom_shed", "name_en": "Mushroom farming", "name_mr": "अळिंबी शेती", "family": "mushroom",
+      "needs": [["asset:shed","asset:storage_room"]],
+      "cost_level": "low", "best_season": "year_round", "wildlife_risk": "low", "min_land_ha": null,
+      "tags": ["heat_sensitive"], "ease": 0.7, "green": 0.9,
+      "p_hints": {"past_work": [], "animals": []}
+    },
+    {
+      "code": "plant_nursery", "name_en": "Plant nursery", "name_mr": "रोपवाटिका", "family": "well",
+      "needs": [["well","water_body","water_structure","asset:well","asset:borewell","asset:farm_pond"]],
+      "cost_level": "medium", "best_season": "post_monsoon", "wildlife_risk": "low", "min_land_ha": 0.1,
+      "tags": ["water_hungry"], "ease": 0.5, "green": 0.9,
+      "p_hints": {"past_work": ["vegetables","fruit"], "animals": []}
+    },
+    {
+      "code": "millets_pulses", "name_en": "Millets and pulses", "name_mr": "नाचणी व कडधान्ये", "family": "farm_land",
+      "needs": [],
+      "cost_level": "low", "best_season": "kharif", "wildlife_risk": "low", "min_land_ha": 0.25,
+      "tags": [], "ease": 0.7, "green": 0.9,
+      "p_hints": {"past_work": ["millets","pulses","paddy"], "animals": []}
+    },
+    {
+      "code": "agroforestry_fruit", "name_en": "Fruit trees on field bunds", "name_mr": "बांधावर फळझाडे", "family": "farm_land",
+      "needs": [["well","water_body","water_structure","asset:well","asset:borewell","asset:farm_pond"]],
+      "cost_level": "medium", "best_season": "kharif", "wildlife_risk": "low", "min_land_ha": 0.25,
+      "tags": ["water_hungry"], "ease": 0.5, "green": 1.0,
+      "p_hints": {"past_work": ["fruit"], "animals": []}
+    },
+    {
+      "code": "beekeeping_box", "name_en": "Box beekeeping on own land", "name_mr": "मधमाशीपालन", "family": "forest_produce",
+      "needs": [["forest_compartment","grazing_land"]],
+      "cost_level": "low", "best_season": "post_monsoon", "wildlife_risk": "low", "min_land_ha": null,
+      "tags": [], "ease": 0.6, "green": 0.9,
+      "p_hints": {"past_work": [], "animals": []}
+    },
+    {
+      "code": "fodder_bank", "name_en": "Fodder bank", "name_mr": "चारा बँक", "family": "grazing",
+      "needs": [["grazing_land"]],
+      "cost_level": "low", "best_season": "year_round", "wildlife_risk": "low", "min_land_ha": null,
+      "group_only": true, "through_gram_sabha": true,
+      "tags": ["flood_sensitive"], "ease": 0.6, "green": 0.8,
+      "p_hints": {"past_work": [], "animals": ["cow","buffalo","goat_sheep"]}
+    },
+    {
+      "code": "fish_pond_group", "name_en": "Fish culture in a village pond", "name_mr": "तलावातील मत्स्यपालन (गटाने)", "family": "pond_dam_tank",
+      "needs": [["water_body","water_structure"]],
+      "cost_level": "medium", "best_season": "post_monsoon", "wildlife_risk": "low", "min_land_ha": null,
+      "group_only": true, "through_gram_sabha": true,
+      "tags": ["water_hungry","flood_sensitive"], "ease": 0.4, "green": 0.7,
+      "p_hints": {"past_work": [], "animals": []}
+    },
+    {
+      "code": "mfp_collection_group", "name_en": "Minor forest produce (honey, bamboo, lac) through the Gram Sabha", "name_mr": "वनोपज संकलन (ग्रामसभेमार्फत)", "family": "community_forest",
+      "needs": [["forest_compartment"]],
+      "cost_level": "low", "best_season": "post_monsoon", "wildlife_risk": "medium", "min_land_ha": null,
+      "group_only": true, "through_gram_sabha": true, "touches_forest": true,
+      "tags": [], "ease": 0.5, "green": 0.7,
+      "p_hints": {"past_work": ["forest_produce"], "animals": []}
+    },
+    {
+      "code": "forest_watch_work", "name_en": "Community forest work: fire-lines, patrol, watershed, nature guide", "name_mr": "वन संरक्षण कामे (ग्रामसभेमार्फत)", "family": "community_forest",
+      "needs": [["forest_compartment"]],
+      "cost_level": "low", "best_season": "summer", "wildlife_risk": "medium", "min_land_ha": null,
+      "group_only": true, "through_gram_sabha": true, "touches_forest": true,
+      "tags": [], "ease": 0.4, "green": 1.0,
+      "p_hints": {"past_work": [], "animals": []}
+    },
+    {
+      "code": "lease_land_commercial", "name_en": "Lease or sell your land to an outside party", "name_mr": "जमीन भाड्याने देणे किंवा विकणे", "family": "gate_demo",
+      "needs": [], "gate_flags": {"needs_sale_or_lease": true},
+      "cost_level": "low", "tags": [], "ease": 0.5, "green": 0.0, "status": "draft"
+    },
+    {
+      "code": "timber_sale", "name_en": "Cut and sell timber from nearby forest", "name_mr": "लाकूड तोडून विकणे", "family": "gate_demo",
+      "needs": [], "gate_flags": {"timber_or_harm": true},
+      "cost_level": "low", "tags": [], "ease": 0.5, "green": 0.0, "status": "draft"
+    },
+    {
+      "code": "wildlife_trapping", "name_en": "Hunt or trap animals", "name_mr": "प्राण्यांची शिकार किंवा सापळे", "family": "gate_demo",
+      "needs": [], "gate_flags": {"hunting_trapping": true}, "show_in_removed_list": false,
+      "cost_level": "low", "tags": [], "ease": 0.5, "green": 0.0, "status": "draft"
+    }
+  ]
+}
