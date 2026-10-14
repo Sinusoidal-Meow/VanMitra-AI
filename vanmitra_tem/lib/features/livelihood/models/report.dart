@@ -44,6 +44,9 @@ UsefulLabel _useful(Object? raw) =>
 FitLabel _fit(Object? raw) =>
     _enum(FitLabel.values, raw, FitLabel.fair, (v) => v.name);
 
+/// A fit label from its wire name; an unknown one is read as the middle label, never the best.
+FitLabel parseFitLabel(Object? raw) => _fit(raw);
+
 Wildlife _wildlife(Object? raw) =>
     _enum(Wildlife.values, raw, Wildlife.medium, (v) {
       switch (v) {
@@ -210,6 +213,7 @@ class IdeaCard {
     required this.wildlifeRisk,
     required this.flags,
     required this.draft,
+    this.schemesCount = 0,
   });
 
   final int rank;
@@ -225,6 +229,9 @@ class IdeaCard {
   final Wildlife wildlifeRisk;
   final List<Reason> flags;
   final bool draft;
+
+  /// How many register rows (Sample until a real register exists) may relate to this idea.
+  final int schemesCount;
 
   String name(String lang) =>
       (lang == 'mr' || lang == 'hi') && nameMr.isNotEmpty ? nameMr : nameEn;
@@ -243,6 +250,7 @@ class IdeaCard {
         wildlifeRisk: _wildlife(j['wildlife_risk']),
         flags: Analysis._reasons(j['flags']),
         draft: (j['draft'] as bool?) ?? true,
+        schemesCount: (j['schemes_count'] as num?)?.toInt() ?? 0,
       );
 }
 

@@ -2,7 +2,7 @@
 
 from functools import lru_cache
 
-from pydantic import model_validator
+from pydantic import SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _DEV_JWT_SECRET = "dev-only-change-me"  # noqa: S105 (refused when env=production)
@@ -49,6 +49,16 @@ class Settings(BaseSettings):
     livelihood_demo_endpoints: bool = False
     livelihood_default_radius_m: int = 5000  # "near" = 5 km
     livelihood_max_radius_m: int = 10000
+
+    # The AI step of "Ask about your report". OFF unless switched on AND a key is set. The key
+    # lives only here (the server's environment), never in the app (docs/OPEN_QUESTIONS.md Q10).
+    livelihood_ai_enabled: bool = False
+    anthropic_api_key: SecretStr | None = None
+    livelihood_ai_model: str = "claude-opus-5-5"
+    livelihood_ai_effort: str = "low"  # low | medium | high
+    livelihood_ai_max_tokens: int = 4000
+    livelihood_ai_timeout_s: float = 25.0
+    livelihood_ai_daily_limit: int = 20  # AI answers per person per day (a cost cap)
 
     @model_validator(mode="after")
     def _no_dev_secret_in_production(self) -> "Settings":

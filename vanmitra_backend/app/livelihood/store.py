@@ -19,11 +19,14 @@ from typing import Any, Protocol
 from pydantic import BaseModel, Field
 from shapely.geometry import shape
 
+from .ask_schemas import ChatTurn
 from .schemas import Idea, ProfileIn, ReportOut, ResourceRecord, VillageGeo
-from .seed import load_demo_village, load_ideas, load_sample_dataset
+from .scheme_schemas import SchemeRecord
+from .seed import load_demo_village, load_ideas, load_sample_dataset, load_schemes
 from .service import DatasetMeta
 
 KEEP_REPORTS = 5  # the latest few per user; older ones are removed
+KEEP_CHAT = 50  # the latest questions and answers per user
 
 
 class StoredProfile(BaseModel):
@@ -61,10 +64,34 @@ class LivelihoodStore(Protocol):
         """Delete all his reports (done whenever he deletes his answers). Returns how many."""
         ...
 
+    # the Ask box history (personal: it holds what he typed)
+    def append_chat(self, user_id: str, turn: ChatTurn) -> None:
+        """Keep a question and its answer; only the latest KEEP_CHAT are retained."""
+        ...
+
+    def list_chat(self, user_id: str) -> list[ChatTurn]:
+        """His history, oldest first."""
+        ...
+
+    def delete_chat(self, user_id: str) -> int:
+        """Delete all his history (rule L8). Returns how many turns."""
+        ...
+
+    # a cost cap for the AI step: a counter, NOT part of his history, so clearing his questions
+    # cannot reset it
+    def take_ai_use(self, user_id: str, day: str, limit: int) -> bool:
+        """Count one AI call for this person on this UTC day, BEFORE the call is made. False
+        (and nothing counted) if he has already used `limit` today. Failed calls count too."""
+        ...
+
     # shared data
     def get_village(self, village_id: str) -> VillageGeo | None: ...
 
     def list_ideas(self) -> list[Idea]: ...
+
+    def list_schemes(self) -> list[SchemeRecord]:
+        """The scheme register (links to official pages only). Empty if none is loaded."""
+        ...
 
     def dataset_meta(self) -> DatasetMeta | None:
         """The newest resource dataset, or None if none is loaded."""
@@ -93,6 +120,8 @@ class InMemoryStore:
         self._lock = threading.Lock()
         self._profiles: dict[str, StoredProfile] = {}
         self._reports: dict[str, list[ReportOut]] = {}
+        self._chat: dict[str, list[ChatTurn]] = {}
+        self._ai_use: dict[tuple[str, str], int] = {}
         self._header, self._resources = load_sample_dataset()
 
     # profile
@@ -136,6 +165,27 @@ class InMemoryStore:
         with self._lock:
             return len(self._reports.pop(user_id, []))
 
+    # the Ask box history
+    def append_chat(self, user_id: str, turn: ChatTurn) -> None:
+        with self._lock:
+            self._chat[user_id] = [*self._chat.get(user_id, []), turn][-KEEP_CHAT:]
+
+    def list_chat(self, user_id: str) -> list[ChatTurn]:
+        with self._lock:
+            return [t.model_copy(deep=True) for t in self._chat.get(user_id, [])]
+
+    def delete_chat(self, user_id: str) -> int:
+        with self._lock:
+            return len(self._chat.pop(user_id, []))
+
+    def take_ai_use(self, user_id: str, day: str, limit: int) -> bool:
+        with self._lock:
+            used = self._ai_use.get((user_id, day), 0)
+            if used >= limit:
+                return False
+            self._ai_use[(user_id, day)] = used + 1
+            return True
+
     # shared data
     def get_village(self, village_id: str) -> VillageGeo | None:
         demo = load_demo_village()
@@ -143,6 +193,9 @@ class InMemoryStore:
 
     def list_ideas(self) -> list[Idea]:
         return list(load_ideas())
+
+    def list_schemes(self) -> list[SchemeRecord]:
+        return list(load_schemes())
 
     def dataset_meta(self) -> DatasetMeta | None:
         return _dataset_of(self._header)

@@ -1,0 +1,333 @@
+{
+  "register": "sample_schemes",
+  "is_sample": true,
+  "note": "SAMPLE rows for the demo. A real register needs a named person to fill it in and sign each row (docs/OPEN_QUESTIONS.md Q23).",
+  "schemes": [
+    {
+      "code": "sample_gov_dairy",
+      "kind": "government",
+      "name_en": "Sample: dairy support",
+      "name_mr": "नमुना: दुग्धव्यवसाय सहाय्य",
+      "runs_en": "A state department (sample)",
+      "runs_mr": "राज्य विभाग (नमुना)",
+      "what_en": "An example of help for keeping milk animals, such as training and sheds.",
+      "what_mr": "दुधाळ जनावरे पाळण्यासाठीच्या मदतीचे उदाहरण, जसे प्रशिक्षण आणि गोठे.",
+      "help_types": [
+        "livestock"
+      ],
+      "audiences": [
+        "farmers",
+        "women"
+      ],
+      "idea_codes": [
+        "dairy_small",
+        "goat_rearing",
+        "fodder_bank"
+      ],
+      "official_url": "https://www.myscheme.gov.in/",
+      "who_en": "As written on the official page. We cannot tell you whether you qualify.",
+      "who_mr": "अधिकृत पानावर लिहिल्याप्रमाणे. तुम्ही पात्र आहात की नाही हे आम्ही सांगू शकत नाही.",
+      "documents_en": [
+        "Identity proof",
+        "Land record or Gram Sabha letter",
+        "Bank passbook"
+      ],
+      "documents_mr": [
+        "ओळखीचा पुरावा",
+        "जमिनीचा उतारा किंवा ग्रामसभेचे पत्र",
+        "बँक पासबुक"
+      ],
+      "note_en": "Sample row written for the demo; it is not a real scheme. The link opens the national scheme search portal, not a page for this row.",
+      "note_mr": "ही डेमोसाठी लिहिलेली नमुना नोंद आहे; ही खरी योजना नाही. लिंक राष्ट्रीय योजना शोध संकेतस्थळ उघडते, या नोंदीचे पान नव्हे.",
+      "last_checked_on": "unknown",
+      "checked_by": null,
+      "is_sample": true,
+      "status": "draft"
+    },
+    {
+      "code": "sample_gov_poultry",
+      "kind": "government",
+      "name_en": "Sample: backyard poultry support",
+      "name_mr": "नमुना: परसबागेतील कुक्कुटपालन सहाय्य",
+      "runs_en": "A state department (sample)",
+      "runs_mr": "राज्य विभाग (नमुना)",
+      "what_en": "An example of help for starting a small flock of hens.",
+      "what_mr": "कोंबड्यांचा लहान गट सुरू करण्यासाठीच्या मदतीचे उदाहरण.",
+      "help_types": [
+        "livestock"
+      ],
+      "audiences": [
+        "tribal",
+        "women"
+      ],
+      "idea_codes": [
+        "backyard_poultry",
+        "goat_rearing"
+      ],
+      "official_url": null,
+      "who_en": "As written on the official page. We cannot tell you whether you qualify.",
+      "who_mr": "अधिकृत पानावर लिहिल्याप्रमाणे. तुम्ही पात्र आहात की नाही हे आम्ही सांगू शकत नाही.",
+      "documents_en": [
+        "Identity proof",
+        "Land record or Gram Sabha letter",
+        "Bank passbook"
+      ],
+      "documents_mr": [
+        "ओळखीचा पुरावा",
+        "जमिनीचा उतारा किंवा ग्रामसभेचे पत्र",
+        "बँक पासबुक"
+      ],
+      "note_en": "Sample row written for the demo; it is not a real scheme. No official page is added yet.",
+      "note_mr": "ही डेमोसाठी लिहिलेली नमुना नोंद आहे; ही खरी योजना नाही. अधिकृत पान अजून जोडलेले नाही.",
+      "last_checked_on": "unknown",
+      "checked_by": null,
+      "is_sample": true,
+      "status": "draft"
+    },
+    {
+      "code": "sample_gov_drip",
+      "kind": "government",
+      "name_en": "Sample: drip irrigation support",
+      "name_mr": "नमुना: ठिबक सिंचन सहाय्य",
+      "runs_en": "A state department (sample)",
+      "runs_mr": "राज्य विभाग (नमुना)",
+      "what_en": "An example of help for drip kits and small vegetable or nursery plots.",
+      "what_mr": "ठिबक संच आणि लहान भाजीपाला किंवा रोपवाटिका क्षेत्रासाठीच्या मदतीचे उदाहरण.",
+      "help_types": [
+        "farming"
+      ],
+      "audiences": [
+        "farmers"
+      ],
+      "idea_codes": [
+        "vegetables_drip",
+        "plant_nursery",
+        "millets_pulses",
+        "agroforestry_fruit"
+      ],
+      "official_url": "https://www.myscheme.gov.in/",
+      "who_en": "As written on the official page. We cannot tell you whether you qualify.",
+      "who_mr": "अधिकृत पानावर लिहिल्याप्रमाणे. तुम्ही पात्र आहात की नाही हे आम्ही सांगू शकत नाही.",
+      "documents_en": [
+        "Identity proof",
+        "Land record or Gram Sabha letter",
+        "Bank passbook"
+      ],
+      "documents_mr": [
+        "ओळखीचा पुरावा",
+        "जमिनीचा उतारा किंवा ग्रामसभेचे पत्र",
+        "बँक पासबुक"
+      ],
+      "note_en": "Sample row written for the demo; it is not a real scheme. The link opens the national scheme search portal, not a page for this row.",
+      "note_mr": "ही डेमोसाठी लिहिलेली नमुना नोंद आहे; ही खरी योजना नाही. लिंक राष्ट्रीय योजना शोध संकेतस्थळ उघडते, या नोंदीचे पान नव्हे.",
+      "last_checked_on": "unknown",
+      "checked_by": null,
+      "is_sample": true,
+      "status": "draft"
+    },
+    {
+      "code": "sample_gov_fish",
+      "kind": "government",
+      "name_en": "Sample: group fish culture support",
+      "name_mr": "नमुना: गटाने मत्स्यपालन सहाय्य",
+      "runs_en": "A state department (sample)",
+      "runs_mr": "राज्य विभाग (नमुना)",
+      "what_en": "An example of help for a group that raises fish in a village pond.",
+      "what_mr": "गावातील तलावात मासे वाढवणाऱ्या गटासाठीच्या मदतीचे उदाहरण.",
+      "help_types": [
+        "fishing"
+      ],
+      "audiences": [
+        "groups"
+      ],
+      "idea_codes": [
+        "fish_pond_group"
+      ],
+      "official_url": "https://www.myscheme.gov.in/",
+      "who_en": "As written on the official page. We cannot tell you whether you qualify.",
+      "who_mr": "अधिकृत पानावर लिहिल्याप्रमाणे. तुम्ही पात्र आहात की नाही हे आम्ही सांगू शकत नाही.",
+      "documents_en": [
+        "Identity proof",
+        "Land record or Gram Sabha letter",
+        "Bank passbook"
+      ],
+      "documents_mr": [
+        "ओळखीचा पुरावा",
+        "जमिनीचा उतारा किंवा ग्रामसभेचे पत्र",
+        "बँक पासबुक"
+      ],
+      "note_en": "Sample row written for the demo; it is not a real scheme. The link opens the national scheme search portal, not a page for this row.",
+      "note_mr": "ही डेमोसाठी लिहिलेली नमुना नोंद आहे; ही खरी योजना नाही. लिंक राष्ट्रीय योजना शोध संकेतस्थळ उघडते, या नोंदीचे पान नव्हे.",
+      "last_checked_on": "unknown",
+      "checked_by": null,
+      "is_sample": true,
+      "status": "draft"
+    },
+    {
+      "code": "sample_gov_smallbiz",
+      "kind": "government",
+      "name_en": "Sample: small business start-up help",
+      "name_mr": "नमुना: लघु उद्योग सुरुवात मदत",
+      "runs_en": "A state department (sample)",
+      "runs_mr": "राज्य विभाग (नमुना)",
+      "what_en": "An example of training and loan help for a small home business.",
+      "what_mr": "लहान घरगुती उद्योगासाठी प्रशिक्षण आणि कर्ज मदतीचे उदाहरण.",
+      "help_types": [
+        "small_business"
+      ],
+      "audiences": [
+        "women",
+        "groups"
+      ],
+      "idea_codes": [
+        "mushroom_shed",
+        "plant_nursery",
+        "beekeeping_box"
+      ],
+      "official_url": null,
+      "who_en": "As written on the official page. We cannot tell you whether you qualify.",
+      "who_mr": "अधिकृत पानावर लिहिल्याप्रमाणे. तुम्ही पात्र आहात की नाही हे आम्ही सांगू शकत नाही.",
+      "documents_en": [
+        "Identity proof",
+        "Land record or Gram Sabha letter",
+        "Bank passbook"
+      ],
+      "documents_mr": [
+        "ओळखीचा पुरावा",
+        "जमिनीचा उतारा किंवा ग्रामसभेचे पत्र",
+        "बँक पासबुक"
+      ],
+      "note_en": "Sample row written for the demo; it is not a real scheme. No official page is added yet.",
+      "note_mr": "ही डेमोसाठी लिहिलेली नमुना नोंद आहे; ही खरी योजना नाही. अधिकृत पान अजून जोडलेले नाही.",
+      "last_checked_on": "unknown",
+      "checked_by": null,
+      "is_sample": true,
+      "status": "draft"
+    },
+    {
+      "code": "sample_gov_forest",
+      "kind": "government",
+      "name_en": "Sample: forest produce through the Gram Sabha",
+      "name_mr": "नमुना: ग्रामसभेमार्फत वनउपज",
+      "runs_en": "A state department (sample)",
+      "runs_mr": "राज्य विभाग (नमुना)",
+      "what_en": "An example of help for collecting and selling forest produce as a village group.",
+      "what_mr": "गावाच्या गटाने वनउपज गोळा करून विकण्यासाठीच्या मदतीचे उदाहरण.",
+      "help_types": [
+        "forest_produce"
+      ],
+      "audiences": [
+        "tribal",
+        "groups"
+      ],
+      "idea_codes": [
+        "mfp_collection_group",
+        "forest_watch_work",
+        "beekeeping_box"
+      ],
+      "official_url": null,
+      "who_en": "As written on the official page. We cannot tell you whether you qualify.",
+      "who_mr": "अधिकृत पानावर लिहिल्याप्रमाणे. तुम्ही पात्र आहात की नाही हे आम्ही सांगू शकत नाही.",
+      "documents_en": [
+        "Identity proof",
+        "Land record or Gram Sabha letter",
+        "Bank passbook"
+      ],
+      "documents_mr": [
+        "ओळखीचा पुरावा",
+        "जमिनीचा उतारा किंवा ग्रामसभेचे पत्र",
+        "बँक पासबुक"
+      ],
+      "note_en": "Sample row written for the demo; it is not a real scheme. No official page is added yet.",
+      "note_mr": "ही डेमोसाठी लिहिलेली नमुना नोंद आहे; ही खरी योजना नाही. अधिकृत पान अजून जोडलेले नाही.",
+      "last_checked_on": "unknown",
+      "checked_by": null,
+      "is_sample": true,
+      "status": "draft"
+    },
+    {
+      "code": "sample_ngo_forest",
+      "kind": "ngo",
+      "name_en": "Sample: forest livelihoods training",
+      "name_mr": "नमुना: वन आजीविका प्रशिक्षण",
+      "runs_en": "A non-government group (sample)",
+      "runs_mr": "स्वयंसेवी संस्था (नमुना)",
+      "what_en": "An example of training for honey, bamboo and nature-guide work.",
+      "what_mr": "मध, बांबू आणि निसर्ग मार्गदर्शन कामाच्या प्रशिक्षणाचे उदाहरण.",
+      "help_types": [
+        "forest_produce",
+        "small_business"
+      ],
+      "audiences": [
+        "tribal",
+        "groups"
+      ],
+      "idea_codes": [
+        "mfp_collection_group",
+        "beekeeping_box",
+        "forest_watch_work"
+      ],
+      "official_url": null,
+      "who_en": "As written on the official page. We cannot tell you whether you qualify.",
+      "who_mr": "अधिकृत पानावर लिहिल्याप्रमाणे. तुम्ही पात्र आहात की नाही हे आम्ही सांगू शकत नाही.",
+      "documents_en": [
+        "Identity proof",
+        "Land record or Gram Sabha letter",
+        "Bank passbook"
+      ],
+      "documents_mr": [
+        "ओळखीचा पुरावा",
+        "जमिनीचा उतारा किंवा ग्रामसभेचे पत्र",
+        "बँक पासबुक"
+      ],
+      "note_en": "Sample row written for the demo; it is not a real scheme. No official page is added yet.",
+      "note_mr": "ही डेमोसाठी लिहिलेली नमुना नोंद आहे; ही खरी योजना नाही. अधिकृत पान अजून जोडलेले नाही.",
+      "last_checked_on": "unknown",
+      "checked_by": null,
+      "is_sample": true,
+      "status": "draft"
+    },
+    {
+      "code": "sample_ngo_women",
+      "kind": "ngo",
+      "name_en": "Sample: women's self-help livelihood support",
+      "name_mr": "नमुना: महिला बचत गट आजीविका सहाय्य",
+      "runs_en": "A non-government group (sample)",
+      "runs_mr": "स्वयंसेवी संस्था (नमुना)",
+      "what_en": "An example of group support for goats, poultry and mushroom work.",
+      "what_mr": "शेळ्या, कोंबड्या आणि मशरूम कामासाठी गटाच्या मदतीचे उदाहरण.",
+      "help_types": [
+        "livestock",
+        "small_business"
+      ],
+      "audiences": [
+        "women",
+        "groups"
+      ],
+      "idea_codes": [
+        "goat_rearing",
+        "backyard_poultry",
+        "mushroom_shed"
+      ],
+      "official_url": null,
+      "who_en": "As written on the official page. We cannot tell you whether you qualify.",
+      "who_mr": "अधिकृत पानावर लिहिल्याप्रमाणे. तुम्ही पात्र आहात की नाही हे आम्ही सांगू शकत नाही.",
+      "documents_en": [
+        "Identity proof",
+        "Land record or Gram Sabha letter",
+        "Bank passbook"
+      ],
+      "documents_mr": [
+        "ओळखीचा पुरावा",
+        "जमिनीचा उतारा किंवा ग्रामसभेचे पत्र",
+        "बँक पासबुक"
+      ],
+      "note_en": "Sample row written for the demo; it is not a real scheme. No official page is added yet.",
+      "note_mr": "ही डेमोसाठी लिहिलेली नमुना नोंद आहे; ही खरी योजना नाही. अधिकृत पान अजून जोडलेले नाही.",
+      "last_checked_on": "unknown",
+      "checked_by": null,
+      "is_sample": true,
+      "status": "draft"
+    }
+  ]
+}

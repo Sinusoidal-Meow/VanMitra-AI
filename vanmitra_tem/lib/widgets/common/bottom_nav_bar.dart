@@ -1,9 +1,20 @@
 import 'package:flutter/material.dart';
 import '../../core/routes/app_router.dart';
+import '../../features/livelihood/livelihood_routes.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 
-enum AppTab { dashboard, claims, profile, sabha, map }
+enum AppTab { dashboard, claims, profile, sabha, map, livelihood }
+
+/// The five tabs every role has. A screen that adds Module 4's Livelihood tab passes
+/// [AppTab.values] (or its own list) to the animated bar instead.
+const List<AppTab> kCoreTabs = [
+  AppTab.dashboard,
+  AppTab.claims,
+  AppTab.profile,
+  AppTab.sabha,
+  AppTab.map,
+];
 
 /// Universal BottomNavBar featuring Saffron fill active icons for sunlight legibility
 /// and consistent 5-tab architectural navigation.
@@ -111,6 +122,9 @@ class BottomNavBar extends StatelessWidget {
         break;
       case AppTab.profile:
         Navigator.pushNamed(context, AppRouter.profile);
+        break;
+      case AppTab.livelihood:
+        Navigator.pushNamed(context, LivelihoodRoutes.home);
         break;
     }
   }

@@ -247,7 +247,10 @@ void main() {
         await cache.writeJson(LivelihoodCache.reportKey, {'b': 2});
         await cache.setFlag(LivelihoodCache.profileDirtyKey, true);
         await cache.setFlag(LivelihoodCache.deletePendingKey, true);
+        await cache.writeJson(LivelihoodCache.askConsentKey, {'allowed': true});
         await cache.clearPersonal();
+        // the AI permission is cleared too: the next person on this phone is asked again
+        expect(await cache.readJson(LivelihoodCache.askConsentKey), isNull);
         expect(await cache.readJson(LivelihoodCache.profileKey), isNull);
         expect(await cache.readJson(LivelihoodCache.reportKey), isNull);
         expect(await cache.flag(LivelihoodCache.profileDirtyKey), isFalse);

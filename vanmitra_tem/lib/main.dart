@@ -12,6 +12,7 @@ import 'models/notice.dart';
 import 'providers/notices_provider.dart';
 import 'services/cloud_sync_service.dart';
 import 'app.dart';
+import 'widgets/livelihood_host_frame.dart';
 
 void main() async {
   try {
@@ -71,7 +72,7 @@ void main() async {
     CloudSyncService().syncPendingItems();
 
     // Seed two startup notices so the notice board has visible content
-    final container = ProviderContainer();
+    final container = ProviderContainer(overrides: livelihoodHostOverrides);
     final noticesNotifier = container.read(noticesProvider.notifier);
     await noticesNotifier.loadNotices();
     // Seed a default info notice if board is empty

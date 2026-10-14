@@ -203,6 +203,22 @@ class _ReportBody extends StatelessWidget {
           for (final n in report.analysis.notes) NoteLine(s.note(n)),
         ],
 
+        const SizedBox(height: AppSpacing.md),
+        _EntryRow(
+          icon: Icons.account_balance_outlined,
+          title: s.t('sch.entry'),
+          subtitle: s.t('sch.entry_sub'),
+          onTap: () =>
+              Navigator.of(context).pushNamed(LivelihoodRoutes.schemes),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        _EntryRow(
+          icon: Icons.forum_outlined,
+          title: s.t('ask.entry'),
+          subtitle: s.t('ask.entry_sub'),
+          onTap: () => Navigator.of(context).pushNamed(LivelihoodRoutes.ask),
+        ),
+
         const SuggestionFooter(),
       ],
     );
@@ -238,6 +254,67 @@ class _ReportBody extends StatelessWidget {
         ..add(const SizedBox(height: AppSpacing.sm));
     }
     return out;
+  }
+}
+
+/// A way into another screen (Ask about your report, Schemes): a full-width row, 56 dp tall.
+class _EntryRow extends StatelessWidget {
+  const _EntryRow({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Material(
+      color: c.cardBg,
+      borderRadius: BorderRadius.circular(AppRadius.lg),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        onTap: onTap,
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 56),
+          padding: const EdgeInsets.all(AppSpacing.md),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+            border: Border.all(color: c.border),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, color: AppColors.forestSage),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style:
+                          AppTypography.subtitle.copyWith(color: c.textPrimary),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: AppTypography.caption
+                          .copyWith(color: c.textSecondary),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded, color: c.textTertiary),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -403,40 +480,45 @@ class _WhyNot extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           for (final r in items)
-            Padding(
-              padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(
-                    r.gate == null
-                        ? Icons.hourglass_bottom_rounded
-                        : Icons.block_rounded,
-                    size: 18,
-                    color:
-                        r.gate == null ? c.textSecondary : AppColors.alertRed,
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          r.name(s.lang),
-                          style: AppTypography.subtitle.copyWith(
-                            color: c.textPrimary,
-                          ),
-                        ),
-                        Text(
-                          s.reason(r.reason),
-                          style: AppTypography.caption.copyWith(
-                            color: c.textSecondary,
-                          ),
-                        ),
-                      ],
+            InkWell(
+              borderRadius: BorderRadius.circular(AppRadius.sm),
+              onTap: () => Navigator.of(context)
+                  .pushNamed(LivelihoodRoutes.idea, arguments: r.code),
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      r.gate == null
+                          ? Icons.hourglass_bottom_rounded
+                          : Icons.block_rounded,
+                      size: 18,
+                      color:
+                          r.gate == null ? c.textSecondary : AppColors.alertRed,
                     ),
-                  ),
-                ],
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            r.name(s.lang),
+                            style: AppTypography.subtitle.copyWith(
+                              color: c.textPrimary,
+                            ),
+                          ),
+                          Text(
+                            s.reason(r.reason),
+                            style: AppTypography.caption.copyWith(
+                              color: c.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
         ],

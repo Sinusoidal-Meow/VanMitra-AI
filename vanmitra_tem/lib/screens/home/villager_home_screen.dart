@@ -19,8 +19,9 @@ import '../../widgets/portal_frame_scaffold.dart';
 import '../../features/case_hub/cases_list_screen.dart';
 import '../../features/case_hub/new_claim.dart';
 import '../../features/gram_sabha_records/gram_sabha_records_screen.dart';
-import '../../features/livelihood/livelihood_routes.dart';
 import '../../features/livelihood/livelihood_strings.dart';
+import '../../features/livelihood/screens/livelihood_home_screen.dart';
+import '../../features/livelihood/widgets/lv_ask_button.dart';
 import '../profile/profile_screen.dart';
 import 'alert_detail_screen.dart';
 import 'boundary_map_screen.dart';
@@ -42,6 +43,8 @@ class _VillagerHomeScreenState extends ConsumerState<VillagerHomeScreen> {
     final navBar = AnimatedBottomNavBar(
       currentTab: AppTab.values[_currentTab],
       onTabSelected: (tab) => setState(() => _currentTab = tab.index),
+      // the five tabs plus Module 4's Livelihood tab (VanRozgar)
+      tabs: AppTab.values,
     );
 
     return IndexedStack(
@@ -57,6 +60,8 @@ class _VillagerHomeScreenState extends ConsumerState<VillagerHomeScreen> {
                 setState(() => _currentTab = AppTab.claims.index)),
         _GramSabhaTab(bottomNavigationBar: navBar),
         _MapTab(bottomNavigationBar: navBar),
+        // Module 4 (VanRozgar): resources near his land, work ideas, Ask AI, schemes
+        LivelihoodHomeScreen(bottomNavigationBar: navBar),
       ],
     );
   }
@@ -97,6 +102,8 @@ class _HomeTab extends ConsumerWidget {
     return PortalFrameScaffold(
       breadcrumbs: const [],
       bottomNavigationBar: bottomNavigationBar,
+      // Module 4 (VanRozgar): the "Ask AI" button
+      floatingActionButton: const LvAskFab(),
       body: Stack(
         children: [
           // 14 · VanMitra watermark, behind everything, unchanged.
@@ -232,8 +239,8 @@ class _HomeTab extends ConsumerWidget {
                           title: LivelihoodStrings.of(context).t('lv_card_title'),
                           subtitle: LivelihoodStrings.of(context).t('lv_card_sub'),
                           iconColor: AppColors.saffron,
-                          onTap: () => Navigator.pushNamed(
-                              context, LivelihoodRoutes.home),
+                          onTap: () =>
+                              onSwitchTab?.call(AppTab.livelihood.index),
                         ),
                         const SizedBox(height: AppSpacing.xl),
 

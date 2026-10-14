@@ -94,6 +94,7 @@ class LivelihoodCache {
   static const reportKey = 'report';
   static const profileDirtyKey = 'profile_dirty';
   static const deletePendingKey = 'delete_pending';
+  static const askConsentKey = 'ask_ai_consent';
 
   Future<Map<String, dynamic>?> readJson(String key) async {
     final text = await _store.read(key);
@@ -122,5 +123,7 @@ class LivelihoodCache {
     await _store.remove(profileKey);
     await _store.remove(reportKey);
     await _store.remove(profileDirtyKey);
+    // the AI permission goes too: whoever uses this phone next is asked again
+    await _store.remove(askConsentKey);
   }
 }

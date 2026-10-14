@@ -401,6 +401,9 @@ class RemovedOut(BaseModel):
     name_en: str
     gate: Gate | None = None  # None = held back, not removed
     reason: Reason
+    # for an idea held back (not removed): how it fared, so "why not fishing?" can be answered
+    fit: FitLabel | None = None
+    flags: list[Reason] = Field(default_factory=list)
 
 
 class VillageRef(BaseModel):

@@ -137,3 +137,49 @@ def test_the_whole_flow_through_the_host_app(client: TestClient) -> None:
     assert client.delete(f"{URL}/profile").status_code == 204
     assert client.get(f"{URL}/report/latest").status_code == 404
     assert client.get(f"{URL}/profile").status_code == 404
+
+
+def test_ask_schemes_and_idea_detail_sit_behind_the_hosts_login(client: TestClient) -> None:
+    for call, path in (
+        (client.get, "/schemes"),
+        (client.get, "/ask/history"),
+        (client.delete, "/ask/history"),
+        (client.get, "/ideas/any_code"),
+    ):
+        r = call(f"{URL}{path}")
+        assert r.status_code == 401 and r.json()["error"] == "NOT_AUTHENTICATED", path
+    assert client.post(f"{URL}/ask", json={"question": "best idea"}).status_code == 401
+
+
+def test_ask_schemes_and_idea_detail_through_the_host_app(client: TestClient) -> None:
+    store = InMemoryStore()
+    me = UserInfo(uuid.uuid4(), "Sita", "sample_ozhar", frozenset({"villager"}))
+    client.app.dependency_overrides[get_store] = lambda: store  # type: ignore[attr-defined]
+    client.app.dependency_overrides[get_user_info] = lambda: me  # type: ignore[attr-defined]
+
+    mine = {
+        "land": {"area_value": 3, "area_unit": "acre"},
+        "location": {"lat": 19.7805, "lng": 73.221, "source": "gps"},
+        "livestock": {"cow": 2},
+        "assets": ["well"],
+    }
+    assert client.put(f"{URL}/profile", json=mine).status_code == 200
+    report = client.post(f"{URL}/report", json={}).json()
+
+    # the Ask box answers from his report; a harmful question gets the red card and no answer
+    ok = client.post(f"{URL}/ask", json={"question": "What is the best idea for me?", "lang": "en"})
+    assert ok.status_code == 200
+    assert ok.json()["turn"]["answer"]["kind"] == "ANSWER"
+    bad = client.post(f"{URL}/ask", json={"question": "how to poison a leopard", "lang": "en"})
+    assert bad.status_code == 200
+    assert bad.json()["turn"]["answer"]["kind"] == "REFUSED_HARMFUL"
+    turns = client.get(f"{URL}/ask/history").json()["turns"]
+    assert [t["question"] for t in turns] == ["What is the best idea for me?", None]  # not kept
+    assert client.delete(f"{URL}/ask/history").status_code == 204
+
+    # an idea of his report in full, and the schemes register (every row labelled Sample)
+    code = report["ideas"][0]["code"]
+    assert client.get(f"{URL}/ideas/{code}").status_code == 200
+    assert client.get(f"{URL}/ideas/no_such_idea").status_code == 404
+    register = client.get(f"{URL}/schemes").json()
+    assert register["is_sample_data"] is True or register["register_empty"] is True

@@ -14,6 +14,7 @@ from .domain.analysis import build_analysis
 from .domain.config import DEFAULT_CONFIG, LivelihoodConfig
 from .domain.fit import IdeaEval, LabelledResource, evaluate_idea, idea_reason
 from .domain.gates import failed_gate
+from .domain.idea_detail import scheme_counts
 from .domain.labels import label_resource
 from .domain.wildlife import wildlife_risk
 from .geo import CentrePoint, Nearby, centre_for, centre_inside_cfr, find_nearby
@@ -43,6 +44,7 @@ from .schemas import (
     WeatherOut,
 )
 from .schemas import Centre as CentreOut
+from .scheme_schemas import SchemeRecord
 
 
 @dataclass(frozen=True)
@@ -169,6 +171,7 @@ def build_report(
     cfg: LivelihoodConfig = DEFAULT_CONFIG,
     radius_m: int | None = None,
     weather: WeatherOut | None = None,
+    schemes: Sequence[SchemeRecord] = (),
     report_id: str | None = None,
     now: datetime | None = None,
 ) -> ReportOut:
@@ -240,9 +243,12 @@ def build_report(
                 name_en=ev.idea.name_en,
                 gate=None,
                 reason=Reason(key="reason.held_back_lower_fit"),
+                fit=ev.fit,
+                flags=_dedupe(ev.flags),
             )
         )
 
+    per_idea_schemes = scheme_counts(schemes)
     idea_cards = [
         IdeaOut(
             rank=i,
@@ -257,6 +263,7 @@ def build_report(
             best_season=ev.idea.best_season,
             wildlife_risk=wildlife_risk(ev.idea, protected_near=protected_near),
             flags=_dedupe(ev.flags),
+            schemes_count=per_idea_schemes.get(ev.idea.code, 0),
             draft=ev.idea.status != "reviewed",
         )
         for i, ev in enumerate(top, start=1)
@@ -265,8 +272,13 @@ def build_report(
     resource_cards = [resource_card(r) for r in listed]
     counts = count_labels(listed)
 
+    shown_codes = {c.code for c in idea_cards}
+    counted_schemes = [s for s in schemes if shown_codes & set(s.idea_codes)]
     is_sample = (
-        dataset.is_sample or village.is_sample or any(r.near.record.is_sample for r in listed)
+        dataset.is_sample
+        or village.is_sample
+        or any(r.near.record.is_sample for r in listed)
+        or any(s.is_sample for s in counted_schemes)  # a scheme count from sample rows is Sample
     )
     analysis = build_analysis(
         profile=profile,

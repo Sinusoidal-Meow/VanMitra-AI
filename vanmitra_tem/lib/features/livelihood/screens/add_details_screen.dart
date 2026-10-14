@@ -585,6 +585,27 @@ class _LocationStepState extends ConsumerState<_LocationStep> {
                       value: state.lngText,
                       onChanged: notifier.setLng,
                     ),
+                    const SizedBox(height: AppSpacing.sm),
+                    OutlinedButton.icon(
+                      key: const ValueKey('default_coords'),
+                      onPressed: notifier.useDefaultCoordinates,
+                      icon: const Icon(Icons.pin_drop_outlined),
+                      label: Text(s.t('lv_loc_default')),
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size.fromHeight(48),
+                        foregroundColor: c.textPrimary,
+                        side: BorderSide(color: c.border),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(top: AppSpacing.xs),
+                      child: Text(
+                        s.t('lv_loc_default_note'),
+                        style: AppTypography.caption.copyWith(
+                          color: c.textSecondary,
+                        ),
+                      ),
+                    ),
                   ],
                 )
               : null,
@@ -607,7 +628,7 @@ class _LocationStepState extends ConsumerState<_LocationStep> {
   }
 }
 
-class _CoordField extends StatelessWidget {
+class _CoordField extends StatefulWidget {
   const _CoordField({
     super.key,
     required this.label,
@@ -620,10 +641,36 @@ class _CoordField extends StatelessWidget {
   final ValueChanged<String> onChanged;
 
   @override
+  State<_CoordField> createState() => _CoordFieldState();
+}
+
+class _CoordFieldState extends State<_CoordField> {
+  late final TextEditingController _controller =
+      TextEditingController(text: widget.value);
+
+  @override
+  void didUpdateWidget(_CoordField old) {
+    super.didUpdateWidget(old);
+    // the value was changed from outside ("Use default coordinates"), not by typing
+    if (widget.value != _controller.text) {
+      _controller.value = TextEditingValue(
+        text: widget.value,
+        selection: TextSelection.collapsed(offset: widget.value.length),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return TextFormField(
-      initialValue: value,
-      onChanged: onChanged,
+      controller: _controller,
+      onChanged: widget.onChanged,
       keyboardType: const TextInputType.numberWithOptions(
         decimal: true,
         signed: true,
@@ -635,7 +682,7 @@ class _CoordField extends StatelessWidget {
         color: context.colors.textPrimary,
       ),
       decoration: InputDecoration(
-        labelText: label,
+        labelText: widget.label,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadius.md),
         ),

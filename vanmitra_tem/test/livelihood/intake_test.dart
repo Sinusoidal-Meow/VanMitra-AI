@@ -459,6 +459,27 @@ void main() {
       expect(container.read(profileProvider), isNull); // nothing was saved
     });
 
+    testWidgets('"Use default coordinates" fills the sample location and saves it', (
+      tester,
+    ) async {
+      final container = await _pumpHome(tester);
+      await _tap(tester, find.text('Add your details'));
+      await _next(tester, 4);
+      await _tap(tester, find.text('Type the coordinates'));
+      // a wrong number typed first is replaced by the default
+      await tester.enterText(find.byKey(const ValueKey('lat_field')), '28.6');
+      await tester.pumpAndSettle();
+      await _tap(tester, find.byKey(const ValueKey('default_coords')));
+      expect(find.text('Use default coordinates'), findsOneWidget);
+      expect(find.widgetWithText(TextFormField, '19.7805'), findsOneWidget);
+      expect(find.widgetWithText(TextFormField, '73.2210'), findsOneWidget);
+      await _tap(tester, find.text('Save my details'));
+      final saved = container.read(profileProvider)!;
+      expect(saved.lat, 19.7805);
+      expect(saved.lng, 73.2210);
+      expect(saved.locationSource, LocationSource.manual);
+    });
+
     testWidgets('Delete my answers asks first, then clears them', (
       tester,
     ) async {

@@ -4,6 +4,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
+import '../livelihood_routes.dart';
 import '../livelihood_strings.dart';
 import '../models/report.dart';
 import 'lv_badges.dart';
@@ -31,85 +32,105 @@ class IdeaCardView extends StatelessWidget {
     return Semantics(
       container: true,
       label: '${idea.rank}. ${idea.name(s.lang)}, ${s.fitText(idea.fit)}',
-      child: Container(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        decoration: BoxDecoration(
-          color: c.cardBg,
+      child: Material(
+        color: c.cardBg,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        child: InkWell(
           borderRadius: BorderRadius.circular(AppRadius.lg),
-          border: Border.all(color: c.border),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+          onTap: () => Navigator.of(context)
+              .pushNamed(LivelihoodRoutes.idea, arguments: idea.code),
+          child: Container(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AppRadius.lg),
+              border: Border.all(color: c.border),
+            ),
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  alignment: Alignment.center,
-                  decoration: const BoxDecoration(
-                    color: AppColors.forestCanopy,
-                    shape: BoxShape.circle,
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      alignment: Alignment.center,
+                      decoration: const BoxDecoration(
+                        color: AppColors.forestCanopy,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Text(
+                        '${idea.rank}',
+                        style: AppTypography.titleMedium.copyWith(
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.md),
+                    Expanded(
+                      child: Text(
+                        idea.name(s.lang),
+                        style:
+                            AppTypography.title.copyWith(color: c.textPrimary),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Wrap(
+                  spacing: AppSpacing.sm,
+                  runSpacing: AppSpacing.sm,
+                  children: [
+                    FitBadge(idea.fit),
+                    WildlifeBadge(idea.wildlifeRisk)
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  s.reason(idea.reason),
+                  style: AppTypography.body.copyWith(color: c.textPrimary),
+                ),
+                if (idea.flags.isNotEmpty) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  for (final flag in idea.flags)
+                    _FlagRow(
+                        text: s.reason(flag), loud: _loud.contains(flag.key)),
+                ],
+                const SizedBox(height: AppSpacing.sm),
+                Wrap(
+                  spacing: AppSpacing.md,
+                  runSpacing: AppSpacing.xs,
+                  children: [
+                    _Meta(
+                      Icons.payments_outlined,
+                      s.t('lv_cost_${idea.costLevel}'),
+                    ),
+                    _Meta(
+                      Icons.calendar_month_outlined,
+                      s.t('lv_season_${idea.bestSeason}'),
+                    ),
+                  ],
+                ),
+                if (idea.schemesCount > 0) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  _Meta(
+                    Icons.account_balance_outlined,
+                    s.t('idea.schemes_count', {'count': idea.schemesCount}),
                   ),
-                  child: Text(
-                    '${idea.rank}',
-                    style: AppTypography.titleMedium.copyWith(
-                      color: Colors.white,
+                ],
+                if (idea.draft) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    s.t('lv_draft_idea'),
+                    style: AppTypography.caption.copyWith(
+                      color: c.textSecondary,
+                      fontStyle: FontStyle.italic,
                     ),
                   ),
-                ),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: Text(
-                    idea.name(s.lang),
-                    style: AppTypography.title.copyWith(color: c.textPrimary),
-                  ),
-                ),
+                ],
               ],
             ),
-            const SizedBox(height: AppSpacing.sm),
-            Wrap(
-              spacing: AppSpacing.sm,
-              runSpacing: AppSpacing.sm,
-              children: [FitBadge(idea.fit), WildlifeBadge(idea.wildlifeRisk)],
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              s.reason(idea.reason),
-              style: AppTypography.body.copyWith(color: c.textPrimary),
-            ),
-            if (idea.flags.isNotEmpty) ...[
-              const SizedBox(height: AppSpacing.sm),
-              for (final flag in idea.flags)
-                _FlagRow(text: s.reason(flag), loud: _loud.contains(flag.key)),
-            ],
-            const SizedBox(height: AppSpacing.sm),
-            Wrap(
-              spacing: AppSpacing.md,
-              runSpacing: AppSpacing.xs,
-              children: [
-                _Meta(
-                  Icons.payments_outlined,
-                  s.t('lv_cost_${idea.costLevel}'),
-                ),
-                _Meta(
-                  Icons.calendar_month_outlined,
-                  s.t('lv_season_${idea.bestSeason}'),
-                ),
-              ],
-            ),
-            if (idea.draft) ...[
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                s.t('lv_draft_idea'),
-                style: AppTypography.caption.copyWith(
-                  color: c.textSecondary,
-                  fontStyle: FontStyle.italic,
-                ),
-              ),
-            ],
-          ],
+          ),
         ),
       ),
     );

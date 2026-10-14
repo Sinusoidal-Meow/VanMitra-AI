@@ -4,23 +4,29 @@ Livelihood routes, mounted at /api/v1/livelihood.
 Two groups:
 - the real routes, which need a login and work only on the signed-in user's OWN data:
   PUT/GET/DELETE /profile, POST /report, GET /report/latest, POST /resources/nearby
-  (docs/BACKEND_PLAN.md §3);
+  (docs/BACKEND_PLAN.md §3), and the Ask box: POST /ask, GET/DELETE /ask/history;
 - the stateless DEMO routes: they build a report from the bundled SAMPLE dataset, store nothing
   and need no login. Switched by VANMITRA_LIVELIHOOD_DEMO_ENDPOINTS; OFF wherever real data or
   real users are involved.
 """
 
 from dataclasses import replace
+from datetime import UTC, datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, Query, Response
 from pydantic import BaseModel, ConfigDict, Field
 from uuid6 import uuid7
 
 from ..config import get_settings
 from ..errors import ApiError
+from .ai import get_answerer
+from .ask_schemas import AnswerKind, AskHistoryOut, AskOut, AskRequest, ChatTurn
 from .deps import CurrentUser, get_store
+from .domain import ask_ai, ask_engine
+from .domain.ask_text import mask_long_digits
 from .domain.config import DEFAULT_CONFIG, LivelihoodConfig
+from .domain.idea_detail import build_idea_detail
 from .domain.units import AreaUnit
 from .geo import circle_polygon, find_nearby, validate_point
 from .identity import UserInfo
@@ -39,11 +45,19 @@ from .schemas import (
     VillageGeo,
     VillageRef,
 )
+from .scheme_schemas import (
+    AUDIENCES,
+    HELP_TYPES,
+    IdeaDetailOut,
+    SchemeKind,
+    SchemesOut,
+)
 from .seed import (
     load_demo_village,
     load_ideas,
     load_sample_dataset,
     load_sample_weather,
+    load_schemes,
 )
 from .service import (
     DatasetMeta,
@@ -71,6 +85,7 @@ class DemoReportRequest(BaseModel):
 
 
 Store = Annotated[LivelihoodStore, Depends(get_store)]
+Answerer = Annotated[ask_ai.Answerer | None, Depends(get_answerer)]
 
 
 def _profile_out(stored: StoredProfile, store: LivelihoodStore) -> ProfileOut:
@@ -124,6 +139,7 @@ def delete_profile(user: CurrentUser, store: Store) -> Response:
     # Reports first: if the second step fails, he still has his profile and simply retries. The
     # other order could leave a report holding his name after the profile was already gone.
     store.delete_reports(str(user.id))
+    store.delete_chat(str(user.id))  # what he asked came from his report: it goes with it
     store.delete_profile(str(user.id))
     return Response(status_code=204)
 
@@ -153,12 +169,11 @@ class ReportRequest(BaseModel):
     radius_m: int | None = None  # default 5000, capped at 10000
 
 
-@router.post("/report", response_model=ReportOut)
-def make_report(body: ReportRequest, user: CurrentUser, store: Store) -> ReportOut:
-    """
-    Build his report now from his saved details (or a general village report if he has saved none),
-    keep it as his latest, and return it.
-    """
+def _build_and_save_report(
+    user: UserInfo, store: LivelihoodStore, radius_m: int | None
+) -> ReportOut:
+    """Build his report now from his saved details (a general village report if he has saved
+    none), keep it as his latest, and return it."""
     cfg = _settings_config()
     village = _village_of(user, store)
     stored = store.get_profile(str(user.id))
@@ -170,7 +185,7 @@ def make_report(body: ReportRequest, user: CurrentUser, store: Store) -> ReportO
         # an empty database must not look like "nothing is near you" (rule L1). Checked before
         # the request itself, so a missing-data problem is reported the same way every time.
         raise ApiError(503, "DATA_NOT_LOADED", "livelihood.data_not_loaded")
-    centre, radius = resolve_search(profile, village, body.radius_m, cfg)
+    centre, radius = resolve_search(profile, village, radius_m, cfg)
     candidates = store.resource_candidates(circle_polygon(centre, search_radius(radius, cfg)))
 
     report = build_report(
@@ -183,10 +198,17 @@ def make_report(body: ReportRequest, user: CurrentUser, store: Store) -> ReportO
         cfg=cfg,
         radius_m=radius,
         weather=load_sample_weather(),  # sample numbers until a real source is chosen (Q11)
+        schemes=store.list_schemes(),
         report_id=uuid7().hex,
     )
     store.save_report(str(user.id), report)
     return report
+
+
+@router.post("/report", response_model=ReportOut)
+def make_report(body: ReportRequest, user: CurrentUser, store: Store) -> ReportOut:
+    """Build his report now from his saved details and return it (it becomes his latest)."""
+    return _build_and_save_report(user, store, body.radius_m)
 
 
 @router.get("/report/latest", response_model=ReportOut)
@@ -199,6 +221,150 @@ def latest_report(user: CurrentUser, store: Store) -> ReportOut:
     if dataset is not None and dataset.data_version != report.data_version:
         report = report.model_copy(update={"newer_version_available": True})
     return report
+
+
+def _kept_question(question: str | None, kind: AnswerKind) -> str | None:
+    """What is saved of a typed question (rule L8). A refused question is not kept at all, and
+    long digit runs (a phone or ID number typed by mistake) are masked in the rest."""
+    if question is None or kind is AnswerKind.REFUSED_HARMFUL:
+        return None
+    return mask_long_digits(question)
+
+
+def _current_report(user: UserInfo, store: LivelihoodStore) -> ReportOut:
+    """The report an answer is made from: his latest, unless it is out of date. It is out of date
+    if he changed his details after it was built, or newer data has been loaded since, so a
+    farmer who has just corrected his animals never gets an answer about the old ones."""
+    uid = str(user.id)
+    report = store.latest_report(uid)
+    if report is None:
+        return _build_and_save_report(user, store, None)
+    stored = store.get_profile(uid)
+    dataset = store.dataset_meta()
+    changed = stored is not None and stored.updated_at > report.generated_at
+    newer_data = dataset is not None and dataset.data_version != report.data_version
+    if changed or newer_data:
+        return _build_and_save_report(user, store, report.header.radius_m)
+    return report
+
+
+def _may_use_ai(store: LivelihoodStore, uid: str) -> bool:
+    """A cost cap: this many AI calls per person per UTC day. The call is counted BEFORE it is
+    made (so a failed or slow call still counts, and two requests at once cannot both slip under
+    the limit), and the counter is not his history, so clearing his questions does not reset it."""
+    day = datetime.now(UTC).strftime("%Y-%m-%d")
+    return store.take_ai_use(uid, day, get_settings().livelihood_ai_daily_limit)
+
+
+@router.post("/ask", response_model=AskOut)
+def ask(body: AskRequest, user: CurrentUser, store: Store, answerer: Answerer) -> AskOut:
+    """
+    Ask about HIS report. The safety check runs first and in code; the answer comes only from his
+    own saved report (built now if he has none), and every number in it is checked against the
+    report (docs/to_do.md stage 2). Each question and answer is kept so he can see and delete them.
+    """
+    uid = str(user.id)
+    report = _current_report(user, store)
+    library = store.list_ideas()
+
+    if body.chip:
+        answer = ask_engine.respond_chip(body.chip, report, library)
+        if answer is None:
+            raise ApiError(422, "UNKNOWN_CHIP", "livelihood.unknown_chip")
+    elif answerer is not None and body.ai_consent:
+        # safety first, then the engine; the model only gets what is left, and its words are
+        # checked before they are shown (domain/ask_ai.py)
+        answer = ask_ai.respond_with_ai(
+            body.question or "",
+            report,
+            library,
+            answerer,
+            body.lang.value,
+            permit=lambda: _may_use_ai(store, uid),
+        )
+    else:
+        answer = ask_engine.respond(body.question or "", report, library)
+
+    turn = ChatTurn(
+        id=uuid7().hex,
+        question=_kept_question(body.question, answer.kind),
+        chip=body.chip,
+        lang=body.lang,
+        report_id=report.id,
+        answer=answer,
+    )
+    store.append_chat(uid, turn)
+    return AskOut(turn=turn, chips=ask_engine.build_chips(report))
+
+
+@router.get("/ask/history", response_model=AskHistoryOut)
+def ask_history(user: CurrentUser, store: Store, answerer: Answerer) -> AskHistoryOut:
+    """His earlier questions and answers, and the suggestions for his report. Only his own."""
+    uid = str(user.id)
+    report = store.latest_report(uid)
+    return AskHistoryOut(
+        turns=store.list_chat(uid),
+        chips=ask_engine.build_chips(report) if report else [],
+        has_report=report is not None,
+        ai_available=answerer is not None,
+    )
+
+
+@router.delete("/ask/history", status_code=204)
+def delete_ask_history(user: CurrentUser, store: Store) -> Response:
+    """Delete everything he asked and was answered (rule L8). Repeating it is fine."""
+    store.delete_chat(str(user.id))
+    return Response(status_code=204)
+
+
+@router.get("/ideas/{code}", response_model=IdeaDetailOut)
+def idea_detail(code: str, user: CurrentUser, store: Store) -> IdeaDetailOut:
+    """
+    One idea in detail, from HIS current report: why it was suggested (or left out), what it
+    needs, the checks that ran, the resources it would use, a weather note, and schemes that may
+    relate. Built from the report, so it never disagrees with it.
+    """
+    report = _current_report(user, store)
+    idea = next((i for i in store.list_ideas() if i.code == code), None)
+    detail = build_idea_detail(report, idea, store.list_schemes()) if idea else None
+    if detail is None:
+        raise ApiError(404, "IDEA_NOT_FOUND", "livelihood.idea_not_found")
+    return detail
+
+
+@router.get("/schemes", response_model=SchemesOut)
+def list_schemes(
+    user: CurrentUser,
+    store: Store,
+    kind: SchemeKind | None = None,
+    help: Annotated[str | None, Query(pattern="^[a-z_]+$", max_length=30)] = None,  # noqa: A002
+    audience: Annotated[str | None, Query(pattern="^[a-z_]+$", max_length=30)] = None,
+) -> SchemesOut:
+    """
+    The scheme register: links to official pages, never applications, never "you qualify", never
+    an amount. Filter by kind (government / ngo), type of help and who it is for.
+    """
+    if help is not None and help not in HELP_TYPES:
+        raise ApiError(422, "UNKNOWN_FILTER", "livelihood.unknown_filter")
+    if audience is not None and audience not in AUDIENCES:
+        raise ApiError(422, "UNKNOWN_FILTER", "livelihood.unknown_filter")
+    everything = store.list_schemes()
+    shown = [
+        s
+        for s in everything
+        if (kind is None or s.kind is kind)
+        and (help is None or help in s.help_types)
+        and (audience is None or audience in s.audiences)
+    ]
+    return SchemesOut(
+        schemes=sorted(shown, key=lambda s: s.code),
+        help_types=[h for h in HELP_TYPES if any(h in s.help_types for s in everything)],
+        audiences=[a for a in AUDIENCES if any(a in s.audiences for s in everything)],
+        is_sample_data=any(s.is_sample for s in shown)
+        if shown
+        else any(s.is_sample for s in everything),
+        register_empty=not everything,
+    )
 
 
 class NearbyRequest(BaseModel):
@@ -285,4 +451,5 @@ def demo_report(body: DemoReportRequest) -> ReportOut:
         cfg=cfg,
         radius_m=body.radius_m,
         weather=load_sample_weather(),
+        schemes=load_schemes(),
     )

@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from ..schemas import Idea, ResourceRecord, VillageGeo, WeatherMonth, WeatherOut
+from ..scheme_schemas import SchemeRecord
 
 _DIR = Path(__file__).parent
 
@@ -56,3 +57,9 @@ def load_sample_weather() -> WeatherOut:
         is_sample=True,
         months=[WeatherMonth.model_validate(m) for m in raw["months"]],
     )
+
+
+@lru_cache
+def load_schemes() -> list[SchemeRecord]:
+    """The SAMPLE scheme register (every row is_sample). A real register replaces this."""
+    return [SchemeRecord.model_validate(r) for r in _read("schemes.json")["schemes"]]

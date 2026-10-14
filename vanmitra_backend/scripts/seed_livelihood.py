@@ -8,6 +8,8 @@ What it writes (upserts only, never deletes, safe to run again):
   - the DRAFT idea library into `lv_idea` (NOT reviewed by a forest-law expert, an agriculture
     expert, an animal-welfare NGO or the Forest Department; see IDEA_LIBRARY.md in the Module 4
     repo);
+  - the SAMPLE scheme rows into `lv_scheme` (links to official pages only, every row labelled
+    Sample until a real register exists);
   - a location row in `lv_village_geo` for the demo village Ozhar. The host `village` records carry
     no coordinates, so the report needs this row. The centre is APPROXIMATE and marked SAMPLE.
 
@@ -18,8 +20,8 @@ Do not seed sample data into a database that serves real users.
 
 import sys
 
-from app.livelihood.mongo_store import IDEAS, VILLAGES
-from app.livelihood.seed import load_demo_village, load_ideas
+from app.livelihood.mongo_store import IDEAS, SCHEMES, VILLAGES
+from app.livelihood.seed import load_demo_village, load_ideas, load_schemes
 from app.mongo import get_database
 
 VILLAGE_NAME_EN = "Ozhar"
@@ -28,8 +30,10 @@ VILLAGE_NAME_EN = "Ozhar"
 def main(apply: bool) -> int:
     db = get_database()
     ideas = load_ideas()
+    schemes = load_schemes()
     print(f"mode: {'APPLY' if apply else 'dry run'}")
     print(f"  ideas: {len(ideas)} (draft)")
+    print(f"  schemes: {len(schemes)} (all sample rows, links only)")
 
     found = db["village"].find_one({"name_en": VILLAGE_NAME_EN})
     if found is None:
@@ -45,6 +49,8 @@ def main(apply: bool) -> int:
         return 0
     for idea in ideas:
         db[IDEAS].replace_one({"code": idea.code}, idea.model_dump(mode="json"), upsert=True)
+    for scheme in schemes:
+        db[SCHEMES].replace_one({"code": scheme.code}, scheme.model_dump(mode="json"), upsert=True)
     db[VILLAGES].replace_one({"village_id": village_id}, geo, upsert=True)
     print("done")
     return 0

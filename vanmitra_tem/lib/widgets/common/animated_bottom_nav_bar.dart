@@ -3,7 +3,10 @@ import 'package:flutter/services.dart';
 import '../../core/routes/app_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
-import 'bottom_nav_bar.dart' show AppTab;
+import '../../features/livelihood/livelihood_routes.dart';
+import '../../features/livelihood/livelihood_strings.dart';
+import '../../services/localization_service.dart';
+import 'bottom_nav_bar.dart' show AppTab, kCoreTabs;
 
 /// Animated bottom navigation bar with:
 /// - Sliding pill indicator under the active tab
@@ -15,10 +18,15 @@ class AnimatedBottomNavBar extends StatefulWidget {
   final AppTab currentTab;
   final ValueChanged<AppTab>? onTabSelected;
 
+  /// The tabs to show, left to right. The five every role has by default; the villager home adds
+  /// Module 4's Livelihood tab. The sliding bubble spreads over however many there are.
+  final List<AppTab> tabs;
+
   const AnimatedBottomNavBar({
     super.key,
     required this.currentTab,
     this.onTabSelected,
+    this.tabs = kCoreTabs,
   });
 
   @override
@@ -30,38 +38,50 @@ class _AnimatedBottomNavBarState extends State<AnimatedBottomNavBar>
   late AnimationController _controller;
   late Animation<double> _anim;
 
-  static const List<_NavItemData> _items = [
+  static final List<_NavItemData> _items = [
     _NavItemData(
       tab: AppTab.dashboard,
-      label: 'Dashboard',
+      label: (c) => c.tr('tab_dashboard'),
       icon: Icons.dashboard_outlined,
       activeIcon: Icons.dashboard_rounded,
     ),
     _NavItemData(
       tab: AppTab.claims,
-      label: 'Claims',
+      label: (c) => c.tr('tab_claims'),
       icon: Icons.folder_shared_outlined,
       activeIcon: Icons.folder_shared_rounded,
     ),
     _NavItemData(
       tab: AppTab.profile,
-      label: 'Profile',
+      label: (c) => c.tr('tab_profile'),
       icon: Icons.account_circle_outlined,
       activeIcon: Icons.account_circle_rounded,
     ),
     _NavItemData(
       tab: AppTab.sabha,
-      label: 'Gram Sabha',
+      label: (c) => c.tr('tab_gramsabha'),
       icon: Icons.how_to_vote_outlined,
       activeIcon: Icons.how_to_vote_rounded,
     ),
     _NavItemData(
       tab: AppTab.map,
-      label: 'Atlas Map',
+      label: (c) => c.tr('tab_map'),
       icon: Icons.map_outlined,
       activeIcon: Icons.map_rounded,
     ),
+    _NavItemData(
+      tab: AppTab.livelihood,
+      label: (c) => LivelihoodStrings.of(c).t('lv_tab'),
+      icon: Icons.agriculture_outlined,
+      activeIcon: Icons.agriculture_rounded,
+    ),
   ];
+
+  /// Where [tab] sits in the bar (0 = leftmost); the bubble slides to this slot.
+  double _slot(AppTab tab) {
+    final i = widget.tabs.indexOf(tab);
+    return (i < 0 ? 0 : i).toDouble();
+  }
 
   @override
   void initState() {
@@ -69,8 +89,8 @@ class _AnimatedBottomNavBarState extends State<AnimatedBottomNavBar>
     _controller = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 350));
     _anim = Tween<double>(
-      begin: widget.currentTab.index.toDouble(),
-      end: widget.currentTab.index.toDouble(),
+      begin: _slot(widget.currentTab),
+      end: _slot(widget.currentTab),
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutBack));
   }
 
@@ -80,7 +100,7 @@ class _AnimatedBottomNavBarState extends State<AnimatedBottomNavBar>
     if (oldWidget.currentTab != widget.currentTab) {
       _anim = Tween<double>(
         begin: _anim.value,
-        end: widget.currentTab.index.toDouble(),
+        end: _slot(widget.currentTab),
       ).animate(
           CurvedAnimation(parent: _controller, curve: Curves.easeOutBack));
       _controller.forward(from: 0.0);
@@ -116,6 +136,9 @@ class _AnimatedBottomNavBarState extends State<AnimatedBottomNavBar>
       case AppTab.profile:
         Navigator.pushNamed(context, AppRouter.profile);
         break;
+      case AppTab.livelihood:
+        Navigator.pushNamed(context, LivelihoodRoutes.home);
+        break;
     }
   }
 
@@ -131,7 +154,8 @@ class _AnimatedBottomNavBarState extends State<AnimatedBottomNavBar>
         child: LayoutBuilder(
           builder: (context, constraints) {
             final width = constraints.maxWidth;
-            final tabWidth = width / 5;
+            final count = widget.tabs.length;
+            final tabWidth = width / count;
 
             return Stack(
               clipBehavior: Clip.none,
@@ -144,6 +168,7 @@ class _AnimatedBottomNavBarState extends State<AnimatedBottomNavBar>
                     return CustomPaint(
                       painter: _NavCurvePainter(
                         animValue: _anim.value,
+                        count: count,
                         bgColor: c.navBg,
                         borderColor: c.navBorder.withValues(alpha: 0.5),
                         borderWidth: isDark ? 1.0 : 0.5,
@@ -189,7 +214,9 @@ class _AnimatedBottomNavBarState extends State<AnimatedBottomNavBar>
                   height: 68,
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: _items.map((item) {
+                    children: _items
+                        .where((item) => widget.tabs.contains(item.tab))
+                        .map((item) {
                       final isSelected = widget.currentTab == item.tab;
                       return Expanded(
                         child: _AnimatedNavItem(
@@ -212,7 +239,7 @@ class _AnimatedBottomNavBarState extends State<AnimatedBottomNavBar>
 
 class _NavItemData {
   final AppTab tab;
-  final String label;
+  final String Function(BuildContext context) label;
   final IconData icon;
   final IconData activeIcon;
 
@@ -226,6 +253,7 @@ class _NavItemData {
 
 class _NavCurvePainter extends CustomPainter {
   final double animValue;
+  final int count;
   final Color bgColor;
   final Color borderColor;
   final double borderWidth;
@@ -233,6 +261,7 @@ class _NavCurvePainter extends CustomPainter {
 
   _NavCurvePainter({
     required this.animValue,
+    required this.count,
     required this.bgColor,
     required this.borderColor,
     required this.borderWidth,
@@ -242,7 +271,7 @@ class _NavCurvePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final host = Offset.zero & size;
-    final notchCenterX = size.width * (animValue + 0.5) / 5;
+    final notchCenterX = size.width * (animValue + 0.5) / count;
     final guest = Rect.fromCircle(center: Offset(notchCenterX, 4), radius: 34);
 
     final shape = AutomaticNotchedShape(
@@ -272,6 +301,7 @@ class _NavCurvePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _NavCurvePainter old) {
     return old.animValue != animValue ||
+        old.count != count ||
         old.bgColor != bgColor ||
         old.borderColor != borderColor ||
         old.borderWidth != borderWidth ||
@@ -335,7 +365,7 @@ class _AnimatedNavItem extends StatelessWidget {
                 fontSize: isActive ? 10.5 : 10,
               ),
               child: Text(
-                data.label,
+                data.label(context),
                 maxLines: 1,
                 overflow: TextOverflow.visible,
                 textAlign: TextAlign.center,

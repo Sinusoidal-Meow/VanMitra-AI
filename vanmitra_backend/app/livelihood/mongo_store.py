@@ -12,14 +12,17 @@ Collections use the `lv_` prefix (docs/BACKEND_PLAN.md §2). Geometry is GeoJSON
 from collections.abc import Sequence
 from typing import Any
 
-from pymongo import ASCENDING, DESCENDING, GEOSPHERE, IndexModel, MongoClient
+from pymongo import ASCENDING, DESCENDING, GEOSPHERE, IndexModel, MongoClient, ReturnDocument
 from pymongo.collection import Collection
 from pymongo.database import Database
+from pymongo.errors import DuplicateKeyError
 
 from ..config import Settings
+from .ask_schemas import ChatTurn
 from .schemas import Idea, ProfileIn, ReportOut, ResourceRecord, VillageGeo
+from .scheme_schemas import SchemeRecord
 from .service import DatasetMeta
-from .store import KEEP_REPORTS, StoredProfile
+from .store import KEEP_CHAT, KEEP_REPORTS, StoredProfile
 
 # Reports are ordered by time, then by id (ids are time-ordered UUIDv7), so two reports made in
 # the same millisecond still have one fixed order.
@@ -28,8 +31,11 @@ _NEWEST_FIRST = [("generated_at", DESCENDING), ("report_id", DESCENDING)]
 PROFILES = "lv_profile"
 VILLAGES = "lv_village_geo"
 REPORTS = "lv_report"
+CHAT = "lv_chat_log"
+AI_USAGE = "lv_ai_usage"
 RESOURCES = "lv_resource"
 IDEAS = "lv_idea"
+SCHEMES = "lv_scheme"
 DATASETS = "lv_dataset"
 
 # Created by `scripts/setup_livelihood_indexes.py` (a person runs it). In the host, merge these
@@ -43,6 +49,17 @@ INDEXES: dict[str, list[IndexModel]] = {
             name="user_latest",
         )
     ],
+    AI_USAGE: [
+        IndexModel(
+            [("user_id", ASCENDING), ("day", ASCENDING)], name="user_day_unique", unique=True
+        )
+    ],
+    CHAT: [
+        IndexModel(
+            [("user_id", ASCENDING), ("at", DESCENDING), ("turn_id", DESCENDING)],
+            name="user_latest",
+        )
+    ],
     RESOURCES: [
         IndexModel([("geom", GEOSPHERE)], name="geom_2dsphere"),
         IndexModel(
@@ -52,6 +69,7 @@ INDEXES: dict[str, list[IndexModel]] = {
         ),
     ],
     IDEAS: [IndexModel([("code", ASCENDING)], name="code_unique", unique=True)],
+    SCHEMES: [IndexModel([("code", ASCENDING)], name="code_unique", unique=True)],
     DATASETS: [IndexModel([("loaded_at", DESCENDING)], name="newest_first")],
 }
 
@@ -90,6 +108,19 @@ def report_to_doc(user_id: str, report: ReportOut) -> dict[str, Any]:
 
 def doc_to_report(doc: dict[str, Any]) -> ReportOut:
     return ReportOut.model_validate(doc["report"])
+
+
+def chat_to_doc(user_id: str, turn: ChatTurn) -> dict[str, Any]:
+    return {
+        "user_id": user_id,
+        "turn_id": turn.id,
+        "at": turn.at,
+        "turn": turn.model_dump(mode="json"),
+    }
+
+
+def doc_to_chat(doc: dict[str, Any]) -> ChatTurn:
+    return ChatTurn.model_validate(doc["turn"])
 
 
 def resource_to_doc(record: ResourceRecord, data_version: str) -> dict[str, Any]:
@@ -223,6 +254,39 @@ class MongoStore:
     def delete_reports(self, user_id: str) -> int:
         return self._col(REPORTS).delete_many({"user_id": user_id}).deleted_count
 
+    # the Ask box history
+    def append_chat(self, user_id: str, turn: ChatTurn) -> None:
+        col = self._col(CHAT)
+        col.insert_one(chat_to_doc(user_id, turn))
+        order = [("at", DESCENDING), ("turn_id", DESCENDING)]
+        stale = [
+            d["_id"] for d in col.find({"user_id": user_id}, {"_id": 1}).sort(order).skip(KEEP_CHAT)
+        ]
+        if stale:
+            col.delete_many({"_id": {"$in": stale}})
+
+    def list_chat(self, user_id: str) -> list[ChatTurn]:
+        order = [("at", ASCENDING), ("turn_id", ASCENDING)]
+        return [doc_to_chat(d) for d in self._col(CHAT).find({"user_id": user_id}).sort(order)]
+
+    def delete_chat(self, user_id: str) -> int:
+        return self._col(CHAT).delete_many({"user_id": user_id}).deleted_count
+
+    def take_ai_use(self, user_id: str, day: str, limit: int) -> bool:
+        # one atomic step: raise the count only while it is under the limit. With the count at
+        # the limit the filter matches nothing, the upsert tries to insert, and the unique index
+        # (user_id, day) refuses it: that is "over the limit".
+        try:
+            doc = self._col(AI_USAGE).find_one_and_update(
+                {"user_id": user_id, "day": day, "count": {"$lt": limit}},
+                {"$inc": {"count": 1}},
+                upsert=True,
+                return_document=ReturnDocument.AFTER,
+            )
+        except DuplicateKeyError:
+            return False
+        return doc is not None
+
     # shared data
     def get_village(self, village_id: str) -> VillageGeo | None:
         doc = self._col(VILLAGES).find_one({"village_id": village_id})
@@ -236,6 +300,15 @@ class MongoStore:
             Idea.model_validate({k: v for k, v in d.items() if k != "_id"})
             for d in self._col(IDEAS).find({})
         ]
+
+    def list_schemes(self) -> list[SchemeRecord]:
+        rows = []
+        for d in self._col(SCHEMES).find({}):
+            try:
+                rows.append(SchemeRecord.model_validate({k: v for k, v in d.items() if k != "_id"}))
+            except ValueError:
+                continue  # a malformed row (an amount, an http link) is skipped, never shown
+        return sorted(rows, key=lambda r: r.code)
 
     def dataset_meta(self) -> DatasetMeta | None:
         return combine_datasets(list(self._col(DATASETS).find({})))

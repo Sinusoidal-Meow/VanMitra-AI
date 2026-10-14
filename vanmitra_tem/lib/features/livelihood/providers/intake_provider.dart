@@ -6,6 +6,10 @@ import 'profile_providers.dart';
 const int kIntakeSteps =
     5; // land, animals, what he owns, past work and money, location
 
+/// Default coordinates for the sample data (as he would type them).
+const String kDefaultLatText = '19.7805';
+const String kDefaultLngText = '73.2210';
+
 class IntakeState {
   const IntakeState({
     this.step = 0,
@@ -197,6 +201,15 @@ class IntakeNotifier extends StateNotifier<IntakeState> {
       state = state.copyWith(source: s, clearError: true);
   void setLat(String t) => state = state.copyWith(latText: t, clearError: true);
   void setLng(String t) => state = state.copyWith(lngText: t, clearError: true);
+
+  /// The location the bundled SAMPLE data is built around (a village near Trimbak, Nashik).
+  /// One tap fills it in as typed coordinates, so a demo needs no GPS and no typing.
+  void useDefaultCoordinates() => state = state.copyWith(
+        source: LocationSource.manual,
+        latText: kDefaultLatText,
+        lngText: kDefaultLngText,
+        clearError: true,
+      );
 
   void setGps(double lat, double lng, double? accuracy) =>
       state = state.copyWith(
